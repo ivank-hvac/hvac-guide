@@ -1,0 +1,15 @@
+{$DOMAIN:localhost} {
+	# --- Фаза 1 (доступ только своей команде) ---
+	# Раскомментируйте блок ниже, чтобы включить логин/пароль на весь сайт.
+	# Хэш пароля генерируется так:
+	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ'
+	# Результат — в CADDY_BASIC_AUTH_HASH в .env
+	#
+	# basicauth {
+	#     {$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+	# }
+	# --- Фаза 2 (публичный запуск) ---
+	# Просто оставьте блок выше закомментированным — код приложения трогать не нужно.
+
+	reverse_proxy hvac-guide:8000
+}
