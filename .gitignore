@@ -26,6 +26,12 @@ Thumbs.db
 # Docker
 *.pid
 
+# Local checklist-history SQLite DB (see README "История чек-листов")
+/app/data/
+*.db
+*.db-wal
+*.db-shm
+
 # Backups / temp
 *.bak
 *.tmp

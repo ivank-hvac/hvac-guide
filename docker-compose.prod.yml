@@ -8,6 +8,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5}
       - AI_ASSIST_RATE_LIMIT=${AI_ASSIST_RATE_LIMIT:-8/minute}
+      - LOG_SESSION_RATE_LIMIT=${LOG_SESSION_RATE_LIMIT:-30/minute}
+    volumes:
+      - hvac_data:/app/data
     restart: unless-stopped
 
   caddy:
@@ -31,3 +34,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  hvac_data:

@@ -114,10 +114,18 @@ if (!SUPPORTED_LANGS.includes(LANG)) {
   LANG = SUPPORTED_LANGS.includes(browserLang) ? browserLang : DEFAULT_LANG;
 }
 
+function generateSessionId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return `sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 let state = {
   currentId: null,
   history: [],   // stack of previous node ids
   answers: [],   // [{nodeId, optionIndex}]
+  sessionId: generateSessionId(),
 };
 
 function t(dict) {
@@ -155,7 +163,7 @@ function goBack() {
 }
 
 function restart() {
-  state = { currentId: GRAPH.start, history: [], answers: [] };
+  state = { currentId: GRAPH.start, history: [], answers: [], sessionId: generateSessionId() };
   render();
 }
 
@@ -235,12 +243,20 @@ function renderResult(node) {
   tEl.textContent = t(node.text);
   cardEl.appendChild(tEl);
 
-  const aiBox = buildAiBox({ context: t(node.text), highlighted: !!node.ai });
+  const aiBox = buildAiBox({
+    context: t(node.text),
+    highlighted: !!node.ai,
+    nodeId: state.currentId,
+    severity: node.severity || "info",
+  });
   cardEl.appendChild(aiBox);
+
+  logSession({ finalNodeId: state.currentId, severity: node.severity || "info" });
 }
 
 function renderAiPrompt(node) {
   const strings = ui();
+  const nodeId = state.currentId;
   const tEl = document.createElement("div");
   tEl.className = "q-text";
   tEl.textContent = t(node.text);
@@ -265,11 +281,15 @@ function renderAiPrompt(node) {
       freeText: textarea.value,
       target: responseHolder,
       onDone: () => { sendBtn.disabled = false; },
+      nodeId,
+      severity: null,
     });
   };
+
+  logSession({ finalNodeId: nodeId, severity: null });
 }
 
-function buildAiBox({ context, highlighted }) {
+function buildAiBox({ context, highlighted, nodeId, severity }) {
   const strings = ui();
   const box = document.createElement("div");
   box.className = "ai-box";
@@ -289,6 +309,8 @@ function buildAiBox({ context, highlighted }) {
       freeText: "",
       target: responseHolder,
       onDone: () => { btn.disabled = false; },
+      nodeId,
+      severity,
     });
   };
 
@@ -303,7 +325,27 @@ function currentAnswers() {
   });
 }
 
-async function runAiAssist({ context, freeText, target, onDone }) {
+// Fire-and-forget: records the checklist path taken so far (which equipment,
+// which branches, where it ended up, and whether/what the AI answered) for
+// later pattern analysis. Never blocks or disrupts the checklist UI.
+function logSession({ finalNodeId, severity, freeText, aiUsed, aiAnalysis }) {
+  fetch("./api/log-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: state.sessionId,
+      lang: LANG,
+      answers: currentAnswers(),
+      final_node_id: finalNodeId,
+      severity: severity || null,
+      free_text: freeText || "",
+      ai_used: !!aiUsed,
+      ai_analysis: aiAnalysis || "",
+    }),
+  }).catch(() => {});
+}
+
+async function runAiAssist({ context, freeText, target, onDone, nodeId, severity }) {
   const strings = ui();
   target.innerHTML = "";
   const label = document.createElement("div");
@@ -331,6 +373,7 @@ async function runAiAssist({ context, freeText, target, onDone }) {
     if (!r.ok) throw new Error(data.detail || strings.aiRequestError);
     resp.className = "ai-response";
     resp.textContent = data.analysis;
+    logSession({ finalNodeId: nodeId, severity, freeText, aiUsed: true, aiAnalysis: data.analysis });
   } catch (err) {
     resp.className = "ai-response error";
     resp.textContent = strings.aiErrorPrefix + err.message;
