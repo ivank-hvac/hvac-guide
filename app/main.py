@@ -1,8 +1,12 @@
+import json
 import os
+import sqlite3
+from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -17,11 +21,61 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 # env when going public (see README "Phase 2: going public").
 AI_ASSIST_RATE_LIMIT = os.getenv("AI_ASSIST_RATE_LIMIT", "8/minute")
 
+# How many checklist-path log writes a single IP may make per minute. This
+# endpoint doesn't call Anthropic (no $ cost) but is still rate-limited to
+# keep the local DB from being spammed.
+LOG_SESSION_RATE_LIMIT = os.getenv("LOG_SESSION_RATE_LIMIT", "30/minute")
+
+# Where completed checklist paths (answers + final node + AI outcome) are
+# stored for later pattern analysis — see README "История чек-листов".
+SESSIONS_DB_PATH = os.getenv("SESSIONS_DB_PATH", "data/sessions.db")
+
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="HVAC Troubleshooting Guide")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+def _db_connect() -> sqlite3.Connection:
+    db_dir = os.path.dirname(SESSIONS_DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    conn = sqlite3.connect(SESSIONS_DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+def init_db() -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS checklist_sessions (
+                session_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                lang TEXT NOT NULL,
+                equipment_type TEXT,
+                final_node_id TEXT NOT NULL,
+                severity TEXT,
+                answers_json TEXT NOT NULL,
+                free_text TEXT,
+                ai_used INTEGER NOT NULL DEFAULT 0,
+                ai_analysis TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_final_node "
+            "ON checklist_sessions(final_node_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_equipment "
+            "ON checklist_sessions(equipment_type)"
+        )
+
+
+init_db()
 
 # Hard caps on request size, independent of rate limiting — prevents a single
 # oversized request from being expensive or from stuffing the context with
@@ -30,6 +84,10 @@ MAX_ANSWERS = 40
 MAX_ANSWER_FIELD_LEN = 400
 MAX_FREE_TEXT_LEN = 2000
 MAX_CONTEXT_LEN = 2000
+MAX_SESSION_ID_LEN = 100
+MAX_NODE_ID_LEN = 100
+MAX_SEVERITY_LEN = 20
+MAX_AI_ANALYSIS_LEN = 4000
 
 LANGUAGE_INSTRUCTIONS = {
     "ru": "Respond in Russian.",
@@ -86,6 +144,65 @@ class AssistRequest(BaseModel):
         if len(v) > MAX_ANSWERS:
             raise ValueError(f"too many answers (max {MAX_ANSWERS})")
         return v
+
+
+class LogSessionRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=MAX_SESSION_ID_LEN)
+    lang: Literal["ru", "en"] = "ru"
+    answers: List[Answer] = []
+    final_node_id: str = Field(min_length=1, max_length=MAX_NODE_ID_LEN)
+    severity: Optional[str] = Field(default=None, max_length=MAX_SEVERITY_LEN)
+    free_text: Optional[str] = Field(default="", max_length=MAX_FREE_TEXT_LEN)
+    ai_used: bool = False
+    ai_analysis: Optional[str] = Field(default="", max_length=MAX_AI_ANALYSIS_LEN)
+
+    @field_validator("answers")
+    @classmethod
+    def limit_log_answers(cls, v: List[Answer]) -> List[Answer]:
+        if len(v) > MAX_ANSWERS:
+            raise ValueError(f"too many answers (max {MAX_ANSWERS})")
+        return v
+
+
+def _save_session(req: LogSessionRequest) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    # The first answer is always the "equipment type" choice from the start
+    # node — a natural dimension for grouping patterns later.
+    equipment_type = req.answers[0].answer if req.answers else None
+    answers_json = json.dumps([a.model_dump() for a in req.answers], ensure_ascii=False)
+
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO checklist_sessions
+                (session_id, created_at, updated_at, lang, equipment_type,
+                 final_node_id, severity, answers_json, free_text, ai_used, ai_analysis)
+            VALUES (:session_id, :now, :now, :lang, :equipment_type,
+                    :final_node_id, :severity, :answers_json, :free_text, :ai_used, :ai_analysis)
+            ON CONFLICT(session_id) DO UPDATE SET
+                updated_at = :now,
+                lang = :lang,
+                equipment_type = :equipment_type,
+                final_node_id = :final_node_id,
+                severity = :severity,
+                answers_json = :answers_json,
+                free_text = :free_text,
+                ai_used = ai_used OR :ai_used,
+                ai_analysis = COALESCE(NULLIF(:ai_analysis, ''), ai_analysis)
+            """,
+            {
+                "session_id": req.session_id,
+                "now": now,
+                "lang": req.lang,
+                "equipment_type": equipment_type,
+                "final_node_id": req.final_node_id,
+                "severity": req.severity,
+                "answers_json": answers_json,
+                "free_text": req.free_text or None,
+                "ai_used": int(req.ai_used),
+                "ai_analysis": req.ai_analysis or None,
+            },
+        )
 
 
 USER_MESSAGE_LABELS = {
@@ -168,6 +285,13 @@ async def ai_assist(request: Request, req: AssistRequest):
     data = r.json()
     text = "\n".join(block["text"] for block in data.get("content", []) if block.get("type") == "text")
     return {"analysis": text or EMPTY_MODEL_RESPONSE[req.lang]}
+
+
+@app.post("/api/log-session")
+@limiter.limit(LOG_SESSION_RATE_LIMIT)
+async def log_session(request: Request, req: LogSessionRequest):
+    await run_in_threadpool(_save_session, req)
+    return {"status": "ok"}
 
 
 @app.get("/api/health")

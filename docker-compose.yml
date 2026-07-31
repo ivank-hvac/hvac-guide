@@ -7,4 +7,10 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5}
+      - LOG_SESSION_RATE_LIMIT=${LOG_SESSION_RATE_LIMIT:-30/minute}
+    volumes:
+      - hvac_data:/app/data
     restart: unless-stopped
+
+volumes:
+  hvac_data:
