@@ -4,115 +4,115 @@
 
     "start": {
       "type": "question",
-      "text": "Выберите тип оборудования",
+      "text": {"ru": "Выберите тип оборудования", "en": "Select equipment type"},
       "options": [
-        {"label": "RTU / Packaged Unit (крышный кондиционер)", "next": "rtu_symptom"},
-        {"label": "Сплит-система / Ductless", "next": "split_symptom"},
-        {"label": "VRF / VRV", "next": "vrf_symptom"},
-        {"label": "Чиллер (Chiller)", "next": "chiller_symptom"},
-        {"label": "Холодильное оборудование (walk-in / reach-in)", "next": "refrig_symptom"},
-        {"label": "Печь / Forced-air furnace", "next": "furnace_symptom"}
+        {"label": {"ru": "RTU / Packaged Unit (крышный кондиционер)", "en": "RTU / Packaged Unit (rooftop unit)"}, "next": "rtu_symptom"},
+        {"label": {"ru": "Сплит-система / Ductless", "en": "Split system / Ductless (mini-split)"}, "next": "split_symptom"},
+        {"label": {"ru": "VRF / VRV", "en": "VRF / VRV"}, "next": "vrf_symptom"},
+        {"label": {"ru": "Чиллер (Chiller)", "en": "Chiller"}, "next": "chiller_symptom"},
+        {"label": {"ru": "Холодильное оборудование (walk-in / reach-in)", "en": "Refrigeration equipment (walk-in / reach-in)"}, "next": "refrig_symptom"},
+        {"label": {"ru": "Печь / Forced-air furnace", "en": "Furnace / Forced-air furnace"}, "next": "furnace_symptom"}
       ]
     },
 
     "rtu_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Нет охлаждения", "next": "nc_start"},
-        {"label": "Нет обогрева", "next": "nh_type"},
-        {"label": "Не запускается вообще", "next": "ws_start"},
-        {"label": "Срабатывает защита по высокому давлению", "next": "hp_start"},
-        {"label": "Срабатывает защита по низкому давлению", "next": "lp_start"},
-        {"label": "Наледь на испарителе", "next": "ice_start"},
-        {"label": "Течь воды / конденсата", "next": "leak_start"},
-        {"label": "Посторонний шум / вибрация", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_start"},
+        {"label": {"ru": "Нет обогрева", "en": "No heat"}, "next": "nh_type"},
+        {"label": {"ru": "Не запускается вообще", "en": "Won't start at all"}, "next": "ws_start"},
+        {"label": {"ru": "Срабатывает защита по высокому давлению", "en": "High-pressure safety trips"}, "next": "hp_start"},
+        {"label": {"ru": "Срабатывает защита по низкому давлению", "en": "Low-pressure safety trips"}, "next": "lp_start"},
+        {"label": {"ru": "Наледь на испарителе", "en": "Ice on the evaporator coil"}, "next": "ice_start"},
+        {"label": {"ru": "Течь воды / конденсата", "en": "Water / condensate leak"}, "next": "leak_start"},
+        {"label": {"ru": "Посторонний шум / вибрация", "en": "Unusual noise / vibration"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "split_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Нет охлаждения", "next": "nc_start"},
-        {"label": "Нет обогрева", "next": "nh_type"},
-        {"label": "Не запускается вообще", "next": "ws_start"},
-        {"label": "Срабатывает защита по высокому давлению", "next": "hp_start"},
-        {"label": "Срабатывает защита по низкому давлению", "next": "lp_start"},
-        {"label": "Наледь на испарителе", "next": "ice_start"},
-        {"label": "Течь воды / конденсата", "next": "leak_start"},
-        {"label": "Посторонний шум / вибрация", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_start"},
+        {"label": {"ru": "Нет обогрева", "en": "No heat"}, "next": "nh_type"},
+        {"label": {"ru": "Не запускается вообще", "en": "Won't start at all"}, "next": "ws_start"},
+        {"label": {"ru": "Срабатывает защита по высокому давлению", "en": "High-pressure safety trips"}, "next": "hp_start"},
+        {"label": {"ru": "Срабатывает защита по низкому давлению", "en": "Low-pressure safety trips"}, "next": "lp_start"},
+        {"label": {"ru": "Наледь на испарителе", "en": "Ice on the evaporator coil"}, "next": "ice_start"},
+        {"label": {"ru": "Течь воды / конденсата", "en": "Water / condensate leak"}, "next": "leak_start"},
+        {"label": {"ru": "Посторонний шум / вибрация", "en": "Unusual noise / vibration"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "vrf_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Нет охлаждения в зоне", "next": "nc_start"},
-        {"label": "Нет обогрева в зоне", "next": "nh_type"},
-        {"label": "Вся система не работает", "next": "ws_start"},
-        {"label": "Ошибка / высокое давление", "next": "hp_start"},
-        {"label": "Ошибка / низкое давление", "next": "lp_start"},
-        {"label": "Наледь на теплообменнике", "next": "ice_start"},
-        {"label": "Течь воды / конденсата", "next": "leak_start"},
-        {"label": "Посторонний шум / вибрация", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Нет охлаждения в зоне", "en": "No cooling in zone"}, "next": "nc_start"},
+        {"label": {"ru": "Нет обогрева в зоне", "en": "No heat in zone"}, "next": "nh_type"},
+        {"label": {"ru": "Вся система не работает", "en": "Entire system down"}, "next": "ws_start"},
+        {"label": {"ru": "Ошибка / высокое давление", "en": "Fault / high pressure"}, "next": "hp_start"},
+        {"label": {"ru": "Ошибка / низкое давление", "en": "Fault / low pressure"}, "next": "lp_start"},
+        {"label": {"ru": "Наледь на теплообменнике", "en": "Ice on the heat exchanger coil"}, "next": "ice_start"},
+        {"label": {"ru": "Течь воды / конденсата", "en": "Water / condensate leak"}, "next": "leak_start"},
+        {"label": {"ru": "Посторонний шум / вибрация", "en": "Unusual noise / vibration"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "chiller_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Недостаточное охлаждение / низкая производительность", "next": "nc_start"},
-        {"label": "Не запускается", "next": "ws_start"},
-        {"label": "Высокое давление / защита", "next": "hp_start"},
-        {"label": "Низкое давление / защита", "next": "lp_start"},
-        {"label": "Наледь на испарителе", "next": "ice_start"},
-        {"label": "Течь воды", "next": "leak_start"},
-        {"label": "Шум / вибрация", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Недостаточное охлаждение / низкая производительность", "en": "Insufficient cooling / low capacity"}, "next": "nc_start"},
+        {"label": {"ru": "Не запускается", "en": "Won't start"}, "next": "ws_start"},
+        {"label": {"ru": "Высокое давление / защита", "en": "High pressure / safety trip"}, "next": "hp_start"},
+        {"label": {"ru": "Низкое давление / защита", "en": "Low pressure / safety trip"}, "next": "lp_start"},
+        {"label": {"ru": "Наледь на испарителе", "en": "Ice on the evaporator"}, "next": "ice_start"},
+        {"label": {"ru": "Течь воды", "en": "Water leak"}, "next": "leak_start"},
+        {"label": {"ru": "Шум / вибрация", "en": "Noise / vibration"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "refrig_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Температура в камере выше нормы", "next": "nc_start"},
-        {"label": "Не запускается / короткие циклы", "next": "ws_start"},
-        {"label": "Высокое давление", "next": "hp_start"},
-        {"label": "Низкое давление / замерзание", "next": "lp_start"},
-        {"label": "Наледь на испарителе", "next": "ice_start"},
-        {"label": "Вода на полу / течь", "next": "leak_start"},
-        {"label": "Шум", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Температура в камере выше нормы", "en": "Box temperature above setpoint"}, "next": "nc_start"},
+        {"label": {"ru": "Не запускается / короткие циклы", "en": "Won't start / short cycling"}, "next": "ws_start"},
+        {"label": {"ru": "Высокое давление", "en": "High pressure"}, "next": "hp_start"},
+        {"label": {"ru": "Низкое давление / замерзание", "en": "Low pressure / freeze-up"}, "next": "lp_start"},
+        {"label": {"ru": "Наледь на испарителе", "en": "Ice on the evaporator coil"}, "next": "ice_start"},
+        {"label": {"ru": "Вода на полу / течь", "en": "Water on the floor / leak"}, "next": "leak_start"},
+        {"label": {"ru": "Шум", "en": "Noise"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "furnace_symptom": {
       "type": "question",
-      "text": "Какой основной симптом?",
+      "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": "Нет тепла совсем", "next": "gas_start"},
-        {"label": "Розжиг не идёт / lockout", "next": "gas_ignition"},
-        {"label": "Короткие циклы (short cycling)", "next": "gas_short"},
-        {"label": "Слабый / нет обдува", "next": "gas_airflow"},
-        {"label": "Шум", "next": "noise_start"},
-        {"label": "Другое / сложный случай", "next": "ai_freeform"}
+        {"label": {"ru": "Нет тепла совсем", "en": "No heat at all"}, "next": "gas_start"},
+        {"label": {"ru": "Розжиг не идёт / lockout", "en": "Won't ignite / lockout"}, "next": "gas_ignition"},
+        {"label": {"ru": "Короткие циклы (short cycling)", "en": "Short cycling"}, "next": "gas_short"},
+        {"label": {"ru": "Слабый / нет обдува", "en": "Weak / no airflow"}, "next": "gas_airflow"},
+        {"label": {"ru": "Шум", "en": "Noise"}, "next": "noise_start"},
+        {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
     },
 
     "nh_type": {
       "type": "question",
-      "text": "Тип отопления на этом оборудовании?",
+      "text": {"ru": "Тип отопления на этом оборудовании?", "en": "What type of heat does this unit have?"},
       "options": [
-        {"label": "Тепловой насос (реверс цикла)", "next": "nh_hp_start"},
-        {"label": "Газовое отопление", "next": "gas_start"},
-        {"label": "Электрический ТЭН (electric strip)", "next": "nh_electric_result"}
+        {"label": {"ru": "Тепловой насос (реверс цикла)", "en": "Heat pump (reverse cycle)"}, "next": "nh_hp_start"},
+        {"label": {"ru": "Газовое отопление", "en": "Gas heat"}, "next": "gas_start"},
+        {"label": {"ru": "Электрический ТЭН (electric strip)", "en": "Electric heat strips"}, "next": "nh_electric_result"}
       ]
     },
 
@@ -120,15 +120,18 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Проверьте: автоматы/предохранители цепи ТЭНа, срабатывание limit switch по перегреву, целостность нагревательных элементов (замер сопротивления), работу sequencer / реле стадий нагрева и наличие airflow (ТЭН часто блокируется по limit при недостатке воздуха)."
+      "text": {
+        "ru": "Проверьте: автоматы/предохранители цепи ТЭНа, срабатывание limit switch по перегреву, целостность нагревательных элементов (замер сопротивления), работу sequencer / реле стадий нагрева и наличие airflow (ТЭН часто блокируется по limit при недостатке воздуха).",
+        "en": "Check: breakers/fuses on the heat-strip circuit, high-limit switch trip, element continuity (resistance check), sequencer / stage-heat relay operation, and airflow (strips often trip the limit when airflow is low)."
+      }
     },
 
     "nh_hp_start": {
       "type": "question",
-      "text": "Реверсивный клапан переключается? (слышен щелчок при смене режима охлаждение/обогрев)",
+      "text": {"ru": "Реверсивный клапан переключается? (слышен щелчок при смене режима охлаждение/обогрев)", "en": "Does the reversing valve shift? (you should hear a click when switching cooling/heating)"},
       "options": [
-        {"label": "Да, переключается", "next": "nh_hp_2"},
-        {"label": "Нет, не переключается", "next": "nh_hp_novalve"}
+        {"label": {"ru": "Да, переключается", "en": "Yes, it shifts"}, "next": "nh_hp_2"},
+        {"label": {"ru": "Нет, не переключается", "en": "No, it doesn't shift"}, "next": "nh_hp_novalve"}
       ]
     },
 
@@ -136,16 +139,19 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Похоже на неисправность реверсивного клапана (механически застрял) или катушки соленоида (нет питания / сгорела). Проверьте напряжение на катушке и перепад температур на портах клапана."
+      "text": {
+        "ru": "Похоже на неисправность реверсивного клапана (механически застрял) или катушки соленоида (нет питания / сгорела). Проверьте напряжение на катушке и перепад температур на портах клапана.",
+        "en": "Looks like a reversing valve problem (stuck mechanically) or a bad solenoid coil (no power / burned out). Check voltage at the coil and the temperature split across the valve ports."
+      }
     },
 
     "nh_hp_2": {
       "type": "question",
-      "text": "Давления в режиме обогрева соответствуют P-T таблице для текущей температуры конденсации/испарения?",
+      "text": {"ru": "Давления в режиме обогрева соответствуют P-T таблице для текущей температуры конденсации/испарения?", "en": "Do heating-mode pressures match the P-T chart for the current condensing/evaporating temperature?"},
       "options": [
-        {"label": "Да, в норме", "next": "nh_hp_ok"},
-        {"label": "Нет, высокое давление", "next": "hp_start"},
-        {"label": "Нет, низкое давление", "next": "lp_start"}
+        {"label": {"ru": "Да, в норме", "en": "Yes, normal"}, "next": "nh_hp_ok"},
+        {"label": {"ru": "Нет, высокое давление", "en": "No, high pressure"}, "next": "hp_start"},
+        {"label": {"ru": "Нет, низкое давление", "en": "No, low pressure"}, "next": "lp_start"}
       ]
     },
 
@@ -153,15 +159,18 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Давления в норме, но обогрева недостаточно — проверьте: наледь на наружном теплообменнике (цикл дефроста), работу нагревателя картера компрессора, airflow на внутреннем блоке, уставки термостата и логику блокировки теплового насоса по низкой температуре (auxiliary/emergency heat lockout)."
+      "text": {
+        "ru": "Давления в норме, но обогрева недостаточно — проверьте: наледь на наружном теплообменнике (цикл дефроста), работу нагревателя картера компрессора, airflow на внутреннем блоке, уставки термостата и логику блокировки теплового насоса по низкой температуре (auxiliary/emergency heat lockout).",
+        "en": "Pressures are normal but heat output is insufficient — check: ice on the outdoor coil (defrost cycle), crankcase heater operation, indoor-unit airflow, thermostat setpoints, and the heat pump's low-ambient lockout logic (auxiliary/emergency heat lockout)."
+      }
     },
 
     "gas_start": {
       "type": "question",
-      "text": "Розжиг горелки происходит?",
+      "text": {"ru": "Розжиг горелки происходит?", "en": "Does the burner light?"},
       "options": [
-        {"label": "Да, розжиг есть, но тепла нет/мало", "next": "gas_lights_no_heat"},
-        {"label": "Нет розжига", "next": "gas_ignition"}
+        {"label": {"ru": "Да, розжиг есть, но тепла нет/мало", "en": "Yes, it lights, but little/no heat"}, "next": "gas_lights_no_heat"},
+        {"label": {"ru": "Нет розжига", "en": "No ignition"}, "next": "gas_ignition"}
       ]
     },
 
@@ -169,16 +178,19 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Горелка зажигается, но тепла недостаточно: проверьте подсос холодного воздуха в возвратном воздуховоде, ограничитель (limit switch), теплообменник на засор/трещину (важно с точки зрения CO!), давление газа на манифолде и настройку газового клапана."
+      "text": {
+        "ru": "Горелка зажигается, но тепла недостаточно: проверьте подсос холодного воздуха в возвратном воздуховоде, ограничитель (limit switch), теплообменник на засор/трещину (важно с точки зрения CO!), давление газа на манифолде и настройку газового клапана.",
+        "en": "Burner lights but heat output is low: check for cold-air infiltration in the return duct, the high-limit switch, the heat exchanger for blockage/cracks (important for CO safety!), manifold gas pressure, and the gas valve setting."
+      }
     },
 
     "gas_ignition": {
       "type": "question",
-      "text": "Что происходит при попытке розжига?",
+      "text": {"ru": "Что происходит при попытке розжига?", "en": "What happens when it tries to ignite?"},
       "options": [
-        {"label": "Совсем ничего, вентилятор не запускается", "next": "gas_no_power"},
-        {"label": "Искра/пламя есть, но гаснет (lockout по flame sensor)", "next": "gas_flame_sensor"},
-        {"label": "На плате мигает код ошибки", "next": "gas_fault_code"}
+        {"label": {"ru": "Совсем ничего, вентилятор не запускается", "en": "Nothing at all, the blower doesn't start"}, "next": "gas_no_power"},
+        {"label": {"ru": "Искра/пламя есть, но гаснет (lockout по flame sensor)", "en": "Spark/flame occurs but drops out (flame-sensor lockout)"}, "next": "gas_flame_sensor"},
+        {"label": {"ru": "На плате мигает код ошибки", "en": "The control board is flashing a fault code"}, "next": "gas_fault_code"}
       ]
     },
 
@@ -186,28 +198,37 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Проверьте: питание/автомат, доходит ли сигнал 'call for heat' от термостата до платы, высокотемпературный limit switch, дверную блокировку (door interlock на некоторых моделях), предохранитель на плате управления."
+      "text": {
+        "ru": "Проверьте: питание/автомат, доходит ли сигнал 'call for heat' от термостата до платы, высокотемпературный limit switch, дверную блокировку (door interlock на некоторых моделях), предохранитель на плате управления.",
+        "en": "Check: power/breaker, whether the 'call for heat' signal is reaching the board from the thermostat, the high-limit switch, the door interlock (on some models), and the control-board fuse."
+      }
     },
 
     "gas_flame_sensor": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Классика — загрязнённый/выгоревший датчик ионизации пламени (flame sensor), или плохое заземление горелки. Также проверьте полярность питания (hot/neutral) — может мешать сигналу ionization, и давление газа на входе."
+      "text": {
+        "ru": "Классика — загрязнённый/выгоревший датчик ионизации пламени (flame sensor), или плохое заземление горелки. Также проверьте полярность питания (hot/neutral) — может мешать сигналу ionization, и давление газа на входе.",
+        "en": "Classic case — a dirty/worn flame sensor (ionization rod), or poor burner grounding. Also check line-voltage polarity (hot/neutral) — reversed polarity can interfere with the ionization signal — and inlet gas pressure."
+      }
     },
 
     "gas_fault_code": {
       "type": "ai_prompt",
-      "text": "Опишите код ошибки / количество и характер мигания индикатора, а также модель оборудования — передам это AI-ассистенту для расшифровки и рекомендаций."
+      "text": {
+        "ru": "Опишите код ошибки / количество и характер мигания индикатора, а также модель оборудования — передам это AI-ассистенту для расшифровки и рекомендаций.",
+        "en": "Describe the fault code / the number and pattern of the LED flashes, plus the equipment model — I'll pass this to the AI assistant to decode it and give recommendations."
+      }
     },
 
     "gas_short": {
       "type": "question",
-      "text": "Что происходит непосредственно перед остановкой?",
+      "text": {"ru": "Что происходит непосредственно перед остановкой?", "en": "What happens right before it shuts down?"},
       "options": [
-        {"label": "Перегрев (срабатывает limit switch)", "next": "gas_short_overheat"},
-        {"label": "Ошибка пламени через несколько секунд горения", "next": "gas_flame_sensor"},
-        {"label": "Останавливается по термостату слишком быстро", "next": "gas_short_thermostat"}
+        {"label": {"ru": "Перегрев (срабатывает limit switch)", "en": "Overheats (high-limit switch trips)"}, "next": "gas_short_overheat"},
+        {"label": {"ru": "Ошибка пламени через несколько секунд горения", "en": "Flame fault a few seconds after ignition"}, "next": "gas_flame_sensor"},
+        {"label": {"ru": "Останавливается по термостату слишком быстро", "en": "Thermostat satisfies too quickly"}, "next": "gas_short_thermostat"}
       ]
     },
 
@@ -215,22 +236,28 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Проверьте засор фильтра/воздуховодов (недостаток воздуха через теплообменник), работу и скорость blower, засор теплообменника сажей и корректность подключения limit switch."
+      "text": {
+        "ru": "Проверьте засор фильтра/воздуховодов (недостаток воздуха через теплообменник), работу и скорость blower, засор теплообменника сажей и корректность подключения limit switch.",
+        "en": "Check for a clogged filter/restricted ducts (insufficient airflow across the heat exchanger), blower operation and speed, soot buildup in the heat exchanger, and correct limit-switch wiring."
+      }
     },
 
     "gas_short_thermostat": {
       "type": "result",
       "severity": "info",
       "ai": true,
-      "text": "Проверьте настройки термостата (cycle rate / anticipator), его расположение (сквозняк, солнце, рядом с источником тепла) и исправность самого термостата/проводки."
+      "text": {
+        "ru": "Проверьте настройки термостата (cycle rate / anticipator), его расположение (сквозняк, солнце, рядом с источником тепла) и исправность самого термостата/проводки.",
+        "en": "Check the thermostat settings (cycle rate / anticipator), its location (draft, direct sun, near a heat source), and the thermostat/wiring itself."
+      }
     },
 
     "gas_airflow": {
       "type": "question",
-      "text": "Двигатель вентилятора (blower) вращается?",
+      "text": {"ru": "Двигатель вентилятора (blower) вращается?", "en": "Does the blower motor turn?"},
       "options": [
-        {"label": "Да, вращается", "next": "gas_airflow_spins"},
-        {"label": "Нет, не вращается", "next": "gas_airflow_nospin"}
+        {"label": {"ru": "Да, вращается", "en": "Yes, it turns"}, "next": "gas_airflow_spins"},
+        {"label": {"ru": "Нет, не вращается", "en": "No, it doesn't turn"}, "next": "gas_airflow_nospin"}
       ]
     },
 
@@ -238,31 +265,37 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Проверьте: конденсатор двигателя (capacitor), blower relay / плату управления, обмотки двигателя мегомметром, ремень привода (если ременной)."
+      "text": {
+        "ru": "Проверьте: конденсатор двигателя (capacitor), blower relay / плату управления, обмотки двигателя мегомметром, ремень привода (если ременной).",
+        "en": "Check: the motor run capacitor, blower relay / control board, motor windings with a megohmmeter, and the drive belt (if belt-driven)."
+      }
     },
 
     "gas_airflow_spins": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Двигатель работает, но обдув слабый: проверьте фильтр, засор испарителя (если совмещённая система), направление вращения крыльчатки, настройку скорости на плате (dip-switches/тапы) и утечки воздуха в воздуховодах."
+      "text": {
+        "ru": "Двигатель работает, но обдув слабый: проверьте фильтр, засор испарителя (если совмещённая система), направление вращения крыльчатки, настройку скорости на плате (dip-switches/тапы) и утечки воздуха в воздуховодах.",
+        "en": "Motor runs but airflow is weak: check the filter, a clogged evaporator coil (if it's a combined system), fan-wheel rotation direction, the speed setting on the board (dip switches/taps), and duct air leaks."
+      }
     },
 
     "nc_start": {
       "type": "question",
-      "text": "Компрессор запускается и работает?",
+      "text": {"ru": "Компрессор запускается и работает?", "en": "Does the compressor start and run?"},
       "options": [
-        {"label": "Да, работает", "next": "nc_running"},
-        {"label": "Нет, не запускается", "next": "ws_start"}
+        {"label": {"ru": "Да, работает", "en": "Yes, it runs"}, "next": "nc_running"},
+        {"label": {"ru": "Нет, не запускается", "en": "No, it doesn't start"}, "next": "ws_start"}
       ]
     },
 
     "nc_running": {
       "type": "question",
-      "text": "Вентилятор конденсатора работает нормально при работающем компрессоре?",
+      "text": {"ru": "Вентилятор конденсатора работает нормально при работающем компрессоре?", "en": "Does the condenser fan run normally while the compressor is running?"},
       "options": [
-        {"label": "Да, работает нормально", "next": "nc_fans_ok"},
-        {"label": "Нет, не крутится / крутится медленно", "next": "nc_no_condfan"}
+        {"label": {"ru": "Да, работает нормально", "en": "Yes, runs normally"}, "next": "nc_fans_ok"},
+        {"label": {"ru": "Нет, не крутится / крутится медленно", "en": "No, not spinning / spinning slowly"}, "next": "nc_no_condfan"}
       ]
     },
 
@@ -270,25 +303,28 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Вентилятор конденсатора не работает при работающем компрессоре — это быстро приводит к высокому давлению конденсации. Проверьте конденсатор двигателя, обмотки, плату/реле управления вентилятором и предохранитель мотора. Не затягивайте — сработает HP switch."
+      "text": {
+        "ru": "Вентилятор конденсатора не работает при работающем компрессоре — это быстро приводит к высокому давлению конденсации. Проверьте конденсатор двигателя, обмотки, плату/реле управления вентилятором и предохранитель мотора. Не затягивайте — сработает HP switch.",
+        "en": "Condenser fan isn't running while the compressor is on — this quickly drives up head pressure. Check the motor run capacitor, windings, the fan control board/relay, and the motor fuse. Don't delay — the high-pressure switch will trip."
+      }
     },
 
     "nc_fans_ok": {
       "type": "question",
-      "text": "Давление всасывания по сравнению с P-T таблицей для текущей температуры испарения:",
+      "text": {"ru": "Давление всасывания по сравнению с P-T таблицей для текущей температуры испарения:", "en": "Suction pressure compared to the P-T chart for the current evaporating temperature:"},
       "options": [
-        {"label": "Выше нормы", "next": "nc_suction_high"},
-        {"label": "Ниже нормы", "next": "nc_suction_low"},
-        {"label": "В целом в норме", "next": "nc_pressures_ok"}
+        {"label": {"ru": "Выше нормы", "en": "Above normal"}, "next": "nc_suction_high"},
+        {"label": {"ru": "Ниже нормы", "en": "Below normal"}, "next": "nc_suction_low"},
+        {"label": {"ru": "В целом в норме", "en": "Roughly normal"}, "next": "nc_pressures_ok"}
       ]
     },
 
     "nc_suction_high": {
       "type": "question",
-      "text": "Перегрев (superheat) на всасывании:",
+      "text": {"ru": "Перегрев (superheat) на всасывании:", "en": "Suction-line superheat:"},
       "options": [
-        {"label": "Высокий SH", "next": "nc_sh_high"},
-        {"label": "Низкий SH (близко к 0)", "next": "nc_sh_low_highsuction"}
+        {"label": {"ru": "Высокий SH", "en": "High superheat"}, "next": "nc_sh_high"},
+        {"label": {"ru": "Низкий SH (близко к 0)", "en": "Low superheat (near 0)"}, "next": "nc_sh_low_highsuction"}
       ]
     },
 
@@ -296,32 +332,38 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Высокое всасывание + высокий superheat — недостаточный расход через ТРВ/капиллярную трубку при избыточной тепловой нагрузке, неисправность TXV (не открывается достаточно), либо ощутимая утечка (undercharge) в сочетании с высокой нагрузкой. Проверьте нагрузку по воздуху на испарителе, работу TXV и subcooling на жидкостной линии."
+      "text": {
+        "ru": "Высокое всасывание + высокий superheat — недостаточный расход через ТРВ/капиллярную трубку при избыточной тепловой нагрузке, неисправность TXV (не открывается достаточно), либо ощутимая утечка (undercharge) в сочетании с высокой нагрузкой. Проверьте нагрузку по воздуху на испарителе, работу TXV и subcooling на жидкостной линии.",
+        "en": "High suction + high superheat — insufficient flow through the TXV/cap tube under a heavy load, a TXV that isn't opening enough, or a noticeable undercharge combined with high load. Check the evaporator's air-side load, TXV operation, and liquid-line subcooling."
+      }
     },
 
     "nc_sh_low_highsuction": {
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Высокое всасывание при низком superheat — риск переполнения испарителя (overfeeding) и floodback в компрессор. Проверьте, не залипает ли TXV открытым, не перезаряжена ли система, исправность колбы/чувствительного элемента TXV и изоляцию колбы."
+      "text": {
+        "ru": "Высокое всасывание при низком superheat — риск переполнения испарителя (overfeeding) и floodback в компрессор. Проверьте, не залипает ли TXV открытым, не перезаряжена ли система, исправность колбы/чувствительного элемента TXV и изоляцию колбы.",
+        "en": "High suction with low superheat — risk of evaporator overfeeding and compressor floodback. Check whether the TXV is stuck open, whether the system is overcharged, the condition of the TXV sensing bulb/element, and the bulb's insulation."
+      }
     },
 
     "nc_suction_low": {
       "type": "question",
-      "text": "Есть наледь на испарителе или на линии всасывания?",
+      "text": {"ru": "Есть наледь на испарителе или на линии всасывания?", "en": "Is there ice on the evaporator or the suction line?"},
       "options": [
-        {"label": "Да, есть наледь", "next": "ice_start"},
-        {"label": "Нет наледи", "next": "nc_suction_low_noice"}
+        {"label": {"ru": "Да, есть наледь", "en": "Yes, there's ice"}, "next": "ice_start"},
+        {"label": {"ru": "Нет наледи", "en": "No ice"}, "next": "nc_suction_low_noice"}
       ]
     },
 
     "nc_suction_low_noice": {
       "type": "question",
-      "text": "Subcooling (переохлаждение) на жидкостной линии:",
+      "text": {"ru": "Subcooling (переохлаждение) на жидкостной линии:", "en": "Liquid-line subcooling:"},
       "options": [
-        {"label": "Низкий SC", "next": "nc_sc_low"},
-        {"label": "Высокий SC", "next": "nc_sc_high"},
-        {"label": "В норме", "next": "nc_lowsuction_okSC"}
+        {"label": {"ru": "Низкий SC", "en": "Low subcooling"}, "next": "nc_sc_low"},
+        {"label": {"ru": "Высокий SC", "en": "High subcooling"}, "next": "nc_sc_high"},
+        {"label": {"ru": "В норме", "en": "Normal"}, "next": "nc_lowsuction_okSC"}
       ]
     },
 
@@ -329,34 +371,46 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Низкое всасывание + низкий subcooling = недостаток заряда (undercharge) или утечка. Найдите утечку (электронный детектор / пузырьковый тест на фитингах), устраните, затем дозаправьте по массе — не 'на глаз' по манометру."
+      "text": {
+        "ru": "Низкое всасывание + низкий subcooling = недостаток заряда (undercharge) или утечка. Найдите утечку (электронный детектор / пузырьковый тест на фитингах), устраните, затем дозаправьте по массе — не 'на глаз' по манометру.",
+        "en": "Low suction + low subcooling = undercharge or a leak. Find the leak (electronic leak detector / bubble test on fittings), repair it, then recharge by weight — not 'by feel' on the gauges."
+      }
     },
 
     "nc_sc_high": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Низкое всасывание при высоком subcooling указывает на restriction (засор) на жидкостной линии — забитый фильтр-осушитель, перегиб трубки, частично закрытый клапан. Признак: холодная точка/перепад температуры на фильтре-осушителе. Замените drier, проверьте линию на зажимы/перегибы."
+      "text": {
+        "ru": "Низкое всасывание при высоком subcooling указывает на restriction (засор) на жидкостной линии — забитый фильтр-осушитель, перегиб трубки, частично закрытый клапан. Признак: холодная точка/перепад температуры на фильтре-осушителе. Замените drier, проверьте линию на зажимы/перегибы.",
+        "en": "Low suction with high subcooling points to a restriction on the liquid line — a clogged filter-drier, a kinked line, or a partially closed valve. Tell-tale sign: a cold spot/temperature drop across the filter-drier. Replace the drier and check the line for kinks or pinches."
+      }
     },
 
     "nc_lowsuction_okSC": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Низкое всасывание при нормальном subcooling чаще всего говорит о недостатке airflow на испарителе — проверьте фильтр, вентилятор внутреннего блока и воздухораспределение."
+      "text": {
+        "ru": "Низкое всасывание при нормальном subcooling чаще всего говорит о недостатке airflow на испарителе — проверьте фильтр, вентилятор внутреннего блока и воздухораспределение.",
+        "en": "Low suction with normal subcooling most often points to insufficient evaporator airflow — check the filter, the indoor blower, and air distribution."
+      }
     },
 
     "nc_pressures_ok": {
       "type": "ai_prompt",
-      "text": "Давления в целом в норме, но охлаждения недостаточно. Опишите дополнительные детали (температура воздуха на выходе, ΔT на испарителе, показания амперметра компрессора, историю обслуживания) — это поможет AI-ассистенту дать точный анализ."
+      "text": {
+        "ru": "Давления в целом в норме, но охлаждения недостаточно. Опишите дополнительные детали (температура воздуха на выходе, ΔT на испарителе, показания амперметра компрессора, историю обслуживания) — это поможет AI-ассистенту дать точный анализ.",
+        "en": "Pressures are roughly normal but cooling is still insufficient. Describe additional details (supply air temperature, evaporator ΔT, compressor amp draw, service history) — this will help the AI assistant give a precise analysis."
+      }
     },
 
     "ws_start": {
       "type": "question",
-      "text": "Есть питание на входных клеммах контактора (line side)?",
+      "text": {"ru": "Есть питание на входных клеммах контактора (line side)?", "en": "Is there power at the contactor's line-side terminals?"},
       "options": [
-        {"label": "Да, есть", "next": "ws_power_ok"},
-        {"label": "Нет питания", "next": "ws_no_power"}
+        {"label": {"ru": "Да, есть", "en": "Yes, there is"}, "next": "ws_power_ok"},
+        {"label": {"ru": "Нет питания", "en": "No power"}, "next": "ws_no_power"}
       ]
     },
 
@@ -364,24 +418,27 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Нет питания на входе — проверьте автомат/предохранители на панели, disconnect switch рядом с блоком, целостность проводки и клемм (подгорание), а также питание control transformer (24В), если применимо."
+      "text": {
+        "ru": "Нет питания на входе — проверьте автомат/предохранители на панели, disconnect switch рядом с блоком, целостность проводки и клемм (подгорание), а также питание control transformer (24В), если применимо.",
+        "en": "No incoming power — check the panel breaker/fuses, the disconnect switch near the unit, wiring and terminal integrity (burned connections), and power to the control transformer (24V), if applicable."
+      }
     },
 
     "ws_power_ok": {
       "type": "question",
-      "text": "Контактор подтягивается при вызове (слышен щелчок, катушка под напряжением)?",
+      "text": {"ru": "Контактор подтягивается при вызове (слышен щелчок, катушка под напряжением)?", "en": "Does the contactor pull in on a call (audible click, coil energized)?"},
       "options": [
-        {"label": "Да, подтягивается", "next": "ws_contactor_pulls"},
-        {"label": "Нет, не подтягивается", "next": "ws_contactor_no"}
+        {"label": {"ru": "Да, подтягивается", "en": "Yes, it pulls in"}, "next": "ws_contactor_pulls"},
+        {"label": {"ru": "Нет, не подтягивается", "en": "No, it doesn't pull in"}, "next": "ws_contactor_no"}
       ]
     },
 
     "ws_contactor_no": {
       "type": "question",
-      "text": "Есть 24В на катушке контактора при вызове?",
+      "text": {"ru": "Есть 24В на катушке контактора при вызове?", "en": "Is there 24V at the contactor coil on a call?"},
       "options": [
-        {"label": "Да, есть 24В", "next": "ws_contactor_bad"},
-        {"label": "Нет 24В", "next": "ws_control_circuit"}
+        {"label": {"ru": "Да, есть 24В", "en": "Yes, 24V present"}, "next": "ws_contactor_bad"},
+        {"label": {"ru": "Нет 24В", "en": "No 24V"}, "next": "ws_control_circuit"}
       ]
     },
 
@@ -389,23 +446,29 @@
       "type": "result",
       "severity": "critical",
       "ai": false,
-      "text": "24В есть, но контактор не подтягивается — неисправен сам контактор (сгоревшая катушка или залипшие/сваренные контакты). Замените контактор."
+      "text": {
+        "ru": "24В есть, но контактор не подтягивается — неисправен сам контактор (сгоревшая катушка или залипшие/сваренные контакты). Замените контактор.",
+        "en": "24V is present but the contactor won't pull in — the contactor itself is bad (burned coil or stuck/welded contacts). Replace the contactor."
+      }
     },
 
     "ws_control_circuit": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Нет 24В на катушке — ищите разрыв в цепи управления: safety switches (высокое/низкое давление, freeze stat, float switch на конденсате, door/access interlock), предохранитель трансформатора, целостность термостата и его проводки."
+      "text": {
+        "ru": "Нет 24В на катушке — ищите разрыв в цепи управления: safety switches (высокое/низкое давление, freeze stat, float switch на конденсате, door/access interlock), предохранитель трансформатора, целостность термостата и его проводки.",
+        "en": "No 24V at the coil — look for an open in the control circuit: safety switches (high/low pressure, freeze stat, condensate float switch, door/access interlock), the transformer fuse, and the thermostat and its wiring."
+      }
     },
 
     "ws_contactor_pulls": {
       "type": "question",
-      "text": "Что происходит с компрессором при подтянутом контакторе?",
+      "text": {"ru": "Что происходит с компрессором при подтянутом контакторе?", "en": "What does the compressor do once the contactor pulls in?"},
       "options": [
-        {"label": "Гудит, не крутится (locked rotor / hard start)", "next": "ws_locked_rotor"},
-        {"label": "Полная тишина, нагрузки нет", "next": "ws_no_load"},
-        {"label": "Запускается нормально", "next": "ws_started_ok"}
+        {"label": {"ru": "Гудит, не крутится (locked rotor / hard start)", "en": "Hums but doesn't turn (locked rotor / hard start)"}, "next": "ws_locked_rotor"},
+        {"label": {"ru": "Полная тишина, нагрузки нет", "en": "Complete silence, no load"}, "next": "ws_no_load"},
+        {"label": {"ru": "Запускается нормально", "en": "Starts normally"}, "next": "ws_started_ok"}
       ]
     },
 
@@ -413,29 +476,38 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Признаки locked rotor: проверьте пусковой/рабочий конденсатор, сопротивление обмоток компрессора (замыкание на корпус/обрыв фазы), просадку напряжения в момент пуска. Если конденсатор и обмотки в норме — вероятен механический заклин компрессора, требуется замена."
+      "text": {
+        "ru": "Признаки locked rotor: проверьте пусковой/рабочий конденсатор, сопротивление обмоток компрессора (замыкание на корпус/обрыв фазы), просадку напряжения в момент пуска. Если конденсатор и обмотки в норме — вероятен механический заклин компрессора, требуется замена.",
+        "en": "Signs of a locked rotor: check the start/run capacitor, compressor winding resistance (short to ground/open winding), and voltage sag at start-up. If the capacitor and windings check out, a mechanically seized compressor is likely — replacement is needed."
+      }
     },
 
     "ws_no_load": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Контактор щёлкает, но нет тока нагрузки — проверьте выходные клеммы контактора, предохранители/автомат нагрузки после контактора и обмотки компрессора на обрыв."
+      "text": {
+        "ru": "Контактор щёлкает, но нет тока нагрузки — проверьте выходные клеммы контактора, предохранители/автомат нагрузки после контактора и обмотки компрессора на обрыв.",
+        "en": "The contactor clicks but there's no load current — check the contactor's load-side terminals, fuses/breaker downstream of the contactor, and the compressor windings for an open."
+      }
     },
 
     "ws_started_ok": {
       "type": "result",
       "severity": "info",
       "ai": true,
-      "text": "Компрессор запустился при диагностике — вероятен перемежающийся отказ (intermittent). Проверьте затяжку клемм и температурные safety с автосбросом, которые могли просто сработать и восстановиться. Зафиксируйте параметры под нагрузкой и продолжите наблюдение."
+      "text": {
+        "ru": "Компрессор запустился при диагностике — вероятен перемежающийся отказ (intermittent). Проверьте затяжку клемм и температурные safety с автосбросом, которые могли просто сработать и восстановиться. Зафиксируйте параметры под нагрузкой и продолжите наблюдение.",
+        "en": "The compressor started during diagnosis — an intermittent fault is likely. Check terminal tightness and any auto-reset thermal safeties that may have simply tripped and reset. Log the running parameters under load and keep monitoring."
+      }
     },
 
     "hp_start": {
       "type": "question",
-      "text": "Конденсатор (воздушный теплообменник снаружи) засорён или ограничен по воздуху?",
+      "text": {"ru": "Конденсатор (воздушный теплообменник снаружи) засорён или ограничен по воздуху?", "en": "Is the condenser coil (outdoor air-cooled coil) dirty or airflow-restricted?"},
       "options": [
-        {"label": "Да, засорён/ограничен", "next": "hp_dirty_cond"},
-        {"label": "Нет, чистый и без ограничений", "next": "hp_cond_clear"}
+        {"label": {"ru": "Да, засорён/ограничен", "en": "Yes, dirty/restricted"}, "next": "hp_dirty_cond"},
+        {"label": {"ru": "Нет, чистый и без ограничений", "en": "No, clean and unrestricted"}, "next": "hp_cond_clear"}
       ]
     },
 
@@ -443,15 +515,18 @@
       "type": "result",
       "severity": "warning",
       "ai": false,
-      "text": "Засорённый/ограниченный конденсатор — основная причина высокого давления конденсации. Очистите конденсатор, проверьте зазоры для воздуха (нет ли рециркуляции горячего воздуха), направление и скорость вентиляторов."
+      "text": {
+        "ru": "Засорённый/ограниченный конденсатор — основная причина высокого давления конденсации. Очистите конденсатор, проверьте зазоры для воздуха (нет ли рециркуляции горячего воздуха), направление и скорость вентиляторов.",
+        "en": "A dirty/restricted condenser coil is the leading cause of high head pressure. Clean the coil, check air clearances (no hot-air recirculation), and fan direction and speed."
+      }
     },
 
     "hp_cond_clear": {
       "type": "question",
-      "text": "Вентилятор(ы) конденсатора работают на полную расчётную скорость?",
+      "text": {"ru": "Вентилятор(ы) конденсатора работают на полную расчётную скорость?", "en": "Are the condenser fan(s) running at full rated speed?"},
       "options": [
-        {"label": "Да, полная скорость", "next": "hp_fans_ok"},
-        {"label": "Нет, работают не на полную/не крутятся", "next": "hp_fan_issue"}
+        {"label": {"ru": "Да, полная скорость", "en": "Yes, full speed"}, "next": "hp_fans_ok"},
+        {"label": {"ru": "Нет, работают не на полную/не крутятся", "en": "No, running slow/not turning"}, "next": "hp_fan_issue"}
       ]
     },
 
@@ -459,15 +534,18 @@
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Вентилятор конденсатора не выходит на полную мощность — проверьте двигатель, конденсатор (capacitor), плату управления/сигнал для EC-моторов, ступенчатое реле скорости, фазировку и состояние крыльчатки."
+      "text": {
+        "ru": "Вентилятор конденсатора не выходит на полную мощность — проверьте двигатель, конденсатор (capacitor), плату управления/сигнал для EC-моторов, ступенчатое реле скорости, фазировку и состояние крыльчатки.",
+        "en": "The condenser fan isn't reaching full speed — check the motor, the run capacitor, the control board/signal for EC motors, the fan-speed staging relay, phasing, and the condition of the fan blade."
+      }
     },
 
     "hp_fans_ok": {
       "type": "question",
-      "text": "Subcooling на жидкостной линии:",
+      "text": {"ru": "Subcooling на жидкостной линии:", "en": "Liquid-line subcooling:"},
       "options": [
-        {"label": "Высокий SC", "next": "hp_overcharge"},
-        {"label": "Нормальный/низкий SC при высоком давлении", "next": "hp_noncondensables"}
+        {"label": {"ru": "Высокий SC", "en": "High subcooling"}, "next": "hp_overcharge"},
+        {"label": {"ru": "Нормальный/низкий SC при высоком давлении", "en": "Normal/low subcooling with high pressure"}, "next": "hp_noncondensables"}
       ]
     },
 
@@ -475,22 +553,28 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Высокий subcooling при высоком давлении конденсации = избыточный заряд (overcharge). Проверьте историю заправок и расчёт по массе (линия могла быть заряжена по номинальному, а не фактическому диаметру). Откачайте излишек через сервис-порт с учётом ambient и целевого SC/SH производителя."
+      "text": {
+        "ru": "Высокий subcooling при высоком давлении конденсации = избыточный заряд (overcharge). Проверьте историю заправок и расчёт по массе (линия могла быть заряжена по номинальному, а не фактическому диаметру). Откачайте излишек через сервис-порт с учётом ambient и целевого SC/SH производителя.",
+        "en": "High subcooling with high head pressure = overcharge. Check the charging history and the weight calculation (the line set may have been charged for a nominal rather than actual length/diameter). Recover the excess through the service port, accounting for ambient conditions and the manufacturer's target subcooling/superheat."
+      }
     },
 
     "hp_noncondensables": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Высокое давление при нормальном/низком subcooling может указывать на неконденсируемые газы в системе. Сделайте standing pressure test: остановите систему, дайте давлению стабилизироваться, сравните с P-T таблицей при температуре окружения на жидкостной/газовой стороне. Отклонение выше табличного значения → recovery, вакуумирование и перезаправка."
+      "text": {
+        "ru": "Высокое давление при нормальном/низком subcooling может указывать на неконденсируемые газы в системе. Сделайте standing pressure test: остановите систему, дайте давлению стабилизироваться, сравните с P-T таблицей при температуре окружения на жидкостной/газовой стороне. Отклонение выше табличного значения → recovery, вакуумирование и перезаправка.",
+        "en": "High pressure with normal/low subcooling can indicate non-condensables in the system. Run a standing pressure test: shut the system down, let pressure stabilize, and compare it to the P-T chart at ambient temperature on the liquid/vapor side. A reading above the chart value calls for recovery, evacuation, and recharge."
+      }
     },
 
     "lp_start": {
       "type": "question",
-      "text": "Фильтр и airflow на испарителе в норме?",
+      "text": {"ru": "Фильтр и airflow на испарителе в норме?", "en": "Are the filter and evaporator airflow OK?"},
       "options": [
-        {"label": "Да, airflow в норме", "next": "lp_airflow_ok"},
-        {"label": "Нет, ограничен/грязный фильтр", "next": "lp_airflow_bad"}
+        {"label": {"ru": "Да, airflow в норме", "en": "Yes, airflow is fine"}, "next": "lp_airflow_ok"},
+        {"label": {"ru": "Нет, ограничен/грязный фильтр", "en": "No, restricted/dirty filter"}, "next": "lp_airflow_bad"}
       ]
     },
 
@@ -498,15 +582,18 @@
       "type": "result",
       "severity": "warning",
       "ai": false,
-      "text": "Недостаточный airflow через испаритель — самая частая причина срабатывания защиты по низкому давлению и последующего замерзания. Замените/очистите фильтр, проверьте засор испарителя, вентилятор/ремень, воздуховоды и положение заслонок."
+      "text": {
+        "ru": "Недостаточный airflow через испаритель — самая частая причина срабатывания защиты по низкому давлению и последующего замерзания. Замените/очистите фильтр, проверьте засор испарителя, вентилятор/ремень, воздуховоды и положение заслонок.",
+        "en": "Insufficient airflow across the evaporator is the most common cause of low-pressure trips and subsequent freeze-ups. Replace/clean the filter, check the coil for blockage, the blower/belt, ductwork, and damper positions."
+      }
     },
 
     "lp_airflow_ok": {
       "type": "question",
-      "text": "Subcooling на жидкостной линии низкий?",
+      "text": {"ru": "Subcooling на жидкостной линии низкий?", "en": "Is liquid-line subcooling low?"},
       "options": [
-        {"label": "Да, низкий SC", "next": "nc_sc_low"},
-        {"label": "Нет, SC в норме", "next": "lp_metering"}
+        {"label": {"ru": "Да, низкий SC", "en": "Yes, low subcooling"}, "next": "nc_sc_low"},
+        {"label": {"ru": "Нет, SC в норме", "en": "No, subcooling is normal"}, "next": "lp_metering"}
       ]
     },
 
@@ -514,15 +601,18 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Airflow в норме, subcooling не низкий, но всасывание низкое — проверьте метering device (TXV/капиллярная трубка) на частичный засор (влага, лёд, грязь внутри) и корректность настройки перегрева на TXV (перетянут — закрыт больше нормы)."
+      "text": {
+        "ru": "Airflow в норме, subcooling не низкий, но всасывание низкое — проверьте метering device (TXV/капиллярная трубка) на частичный засор (влага, лёд, грязь внутри) и корректность настройки перегрева на TXV (перетянут — закрыт больше нормы).",
+        "en": "Airflow is fine, subcooling isn't low, but suction is still low — check the metering device (TXV/cap tube) for a partial restriction (moisture, ice, debris inside) and the TXV's superheat setting (over-tightened = closing more than it should)."
+      }
     },
 
     "ice_start": {
       "type": "question",
-      "text": "При наличии наледи — температура в помещении/боксе:",
+      "text": {"ru": "При наличии наледи — температура в помещении/боксе:", "en": "With ice present, what's the space/box temperature:"},
       "options": [
-        {"label": "Ниже нормы (переохлаждение)", "next": "ice_overcool"},
-        {"label": "Выше нормы, при этом наледь есть", "next": "ice_undercool"}
+        {"label": {"ru": "Ниже нормы (переохлаждение)", "en": "Below normal (overcooled)"}, "next": "ice_overcool"},
+        {"label": {"ru": "Выше нормы, при этом наледь есть", "en": "Above normal, despite ice"}, "next": "ice_undercool"}
       ]
     },
 
@@ -530,32 +620,38 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Наледь при переохлаждении помещения обычно означает, что термостат/датчик не отключает компрессор вовремя, либо неисправно реле цикла разморозки. Проверьте настройки термостата и датчик температуры на возврате воздуха."
+      "text": {
+        "ru": "Наледь при переохлаждении помещения обычно означает, что термостат/датчик не отключает компрессор вовремя, либо неисправно реле цикла разморозки. Проверьте настройки термостата и датчик температуры на возврате воздуха.",
+        "en": "Ice with an overcooled space usually means the thermostat/sensor isn't shutting the compressor off in time, or the defrost timer/relay is faulty. Check the thermostat settings and the return-air temperature sensor."
+      }
     },
 
     "ice_undercool": {
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Наледь при недостаточном охлаждении — почти всегда недостаточный airflow (фильтр/вентилятор) либо низкий заряд (undercharge). Для холодильного оборудования дополнительно проверьте цикл дефроста: таймер, датчик окончания дефроста, ТЭНы дефроста, соленоид на жидкостной линии."
+      "text": {
+        "ru": "Наледь при недостаточном охлаждении — почти всегда недостаточный airflow (фильтр/вентилятор) либо низкий заряд (undercharge). Для холодильного оборудования дополнительно проверьте цикл дефроста: таймер, датчик окончания дефроста, ТЭНы дефроста, соленоид на жидкостной линии.",
+        "en": "Ice with insufficient cooling is almost always low airflow (filter/blower) or an undercharge. For refrigeration equipment, also check the defrost cycle: the timer, defrost-termination sensor, defrost heaters, and the liquid-line solenoid."
+      }
     },
 
     "leak_start": {
       "type": "question",
-      "text": "Это конденсатный дренаж или похоже на утечку холодильного контура?",
+      "text": {"ru": "Это конденсатный дренаж или похоже на утечку холодильного контура?", "en": "Is this condensate drainage or does it look like a refrigerant circuit leak?"},
       "options": [
-        {"label": "Конденсатный дренаж", "next": "leak_condensate"},
-        {"label": "Похоже на утечку по контуру (масляные следы)", "next": "leak_refrig"},
-        {"label": "Другое", "next": "ai_freeform"}
+        {"label": {"ru": "Конденсатный дренаж", "en": "Condensate drainage"}, "next": "leak_condensate"},
+        {"label": {"ru": "Похоже на утечку по контуру (масляные следы)", "en": "Looks like a refrigerant leak (oil residue)"}, "next": "leak_refrig"},
+        {"label": {"ru": "Другое", "en": "Other"}, "next": "ai_freeform"}
       ]
     },
 
     "leak_condensate": {
       "type": "question",
-      "text": "Дренажная линия и трап проверены на засор?",
+      "text": {"ru": "Дренажная линия и трап проверены на засор?", "en": "Has the drain line and trap been checked for a clog?"},
       "options": [
-        {"label": "Да, проверены — чисто", "next": "leak_condensate_clear"},
-        {"label": "Нет, не проверялись", "next": "leak_condensate_clog"}
+        {"label": {"ru": "Да, проверены — чисто", "en": "Yes, checked — clear"}, "next": "leak_condensate_clear"},
+        {"label": {"ru": "Нет, не проверялись", "en": "No, not checked yet"}, "next": "leak_condensate_clog"}
       ]
     },
 
@@ -563,30 +659,39 @@
       "type": "result",
       "severity": "warning",
       "ai": false,
-      "text": "Засор дренажной линии/трапа — самая частая причина. Прочистите линию (продувка азотом/вакуумом), проверьте уклон трубы, работу конденсатного насоса (если есть) и float switch."
+      "text": {
+        "ru": "Засор дренажной линии/трапа — самая частая причина. Прочистите линию (продувка азотом/вакуумом), проверьте уклон трубы, работу конденсатного насоса (если есть) и float switch.",
+        "en": "A clogged drain line/trap is the most common cause. Clear the line (nitrogen/vacuum purge), check the pipe slope, condensate pump operation (if fitted), and the float switch."
+      }
     },
 
     "leak_condensate_clear": {
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Дренаж чист, но течь продолжается — проверьте трещину в поддоне (drain pan), корректность высоты P-trap (недостаточный трап при мощной вытяжке может 'засасывать' воду обратно), изоляцию линий и избыточную конденсацию при завышенном airflow."
+      "text": {
+        "ru": "Дренаж чист, но течь продолжается — проверьте трещину в поддоне (drain pan), корректность высоты P-trap (недостаточный трап при мощной вытяжке может 'засасывать' воду обратно), изоляцию линий и избыточную конденсацию при завышенном airflow.",
+        "en": "Drain is clear but the leak continues — check for a crack in the drain pan, correct P-trap height (an undersized trap under strong exhaust suction can siphon water back), line insulation, and excess condensation from oversized airflow."
+      }
     },
 
     "leak_refrig": {
       "type": "result",
       "severity": "critical",
       "ai": true,
-      "text": "Признаки утечки холодильного агента (масляные следы) — используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику."
+      "text": {
+        "ru": "Признаки утечки холодильного агента (масляные следы) — используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику.",
+        "en": "Signs of a refrigerant leak (oil residue) — use an electronic leak detector or UV dye to pinpoint it exactly. Don't top off 'by feel' before repairing — find and fix the leak first, then do a full recharge by weight per the nameplate."
+      }
     },
 
     "noise_start": {
       "type": "question",
-      "text": "Откуда исходит шум?",
+      "text": {"ru": "Откуда исходит шум?", "en": "Where's the noise coming from?"},
       "options": [
-        {"label": "Компрессор", "next": "noise_compressor"},
-        {"label": "Вентилятор (наружный/внутренний)", "next": "noise_fan"},
-        {"label": "Общая вибрация/дребезг корпуса", "next": "noise_vibration"}
+        {"label": {"ru": "Компрессор", "en": "Compressor"}, "next": "noise_compressor"},
+        {"label": {"ru": "Вентилятор (наружный/внутренний)", "en": "Fan (outdoor/indoor)"}, "next": "noise_fan"},
+        {"label": {"ru": "Общая вибрация/дребезг корпуса", "en": "General vibration/cabinet rattle"}, "next": "noise_vibration"}
       ]
     },
 
@@ -594,26 +699,38 @@
       "type": "result",
       "severity": "warning",
       "ai": true,
-      "text": "Металлический стук/клапанный стук может указывать на floodback (жидкий холодильный агент возвращается в компрессор) — проверьте superheat на входе компрессора. Гудение без вращения — см. ветку 'не запускается'. Вой изношенных подшипников на старых компрессорах — рассмотрите замену."
+      "text": {
+        "ru": "Металлический стук/клапанный стук может указывать на floodback (жидкий холодильный агент возвращается в компрессор) — проверьте superheat на входе компрессора. Гудение без вращения — см. ветку 'не запускается'. Вой изношенных подшипников на старых компрессорах — рассмотрите замену.",
+        "en": "A metallic knock/valve clatter can indicate floodback (liquid refrigerant returning to the compressor) — check superheat at the compressor inlet. Humming without turning — see the 'won't start' branch. A whining sound from worn bearings on older compressors — consider replacement."
+      }
     },
 
     "noise_fan": {
       "type": "result",
       "severity": "info",
       "ai": false,
-      "text": "Проверьте балансировку крыльчатки (изгиб лопастей), подшипники двигателя (люфт вала), крепление крыльчатки на валу и задевание за кожух/шроуд."
+      "text": {
+        "ru": "Проверьте балансировку крыльчатки (изгиб лопастей), подшипники двигателя (люфт вала), крепление крыльчатки на валу и задевание за кожух/шроуд.",
+        "en": "Check fan-blade balance (bent blades), motor bearings (shaft play), the blade's mounting on the shaft, and contact with the fan shroud."
+      }
     },
 
     "noise_vibration": {
       "type": "result",
       "severity": "info",
       "ai": false,
-      "text": "Проверьте виброопоры/изоляторы блока, крепление на кровле/раме (для RTU — герметичность curb adaptor) и затяжку крепежа компрессора внутри блока (transport bolts иногда не снимают при монтаже — резонанс)."
+      "text": {
+        "ru": "Проверьте виброопоры/изоляторы блока, крепление на кровле/раме (для RTU — герметичность curb adaptor) и затяжку крепежа компрессора внутри блока (transport bolts иногда не снимают при монтаже — резонанс).",
+        "en": "Check the unit's vibration isolators/mounts, roof-curb/frame attachment (for RTUs — curb-adaptor sealing), and compressor mounting bolts inside the unit (transport bolts are sometimes left in during installation — causing resonance)."
+      }
     },
 
     "ai_freeform": {
       "type": "ai_prompt",
-      "text": "Опишите ситуацию максимально подробно (оборудование, что наблюдаете, показания приборов, история обслуживания) — передам AI-ассистенту для анализа."
+      "text": {
+        "ru": "Опишите ситуацию максимально подробно (оборудование, что наблюдаете, показания приборов, история обслуживания) — передам AI-ассистенту для анализа.",
+        "en": "Describe the situation in as much detail as possible (equipment, what you're observing, gauge readings, service history) — I'll pass this to the AI assistant for analysis."
+      }
     }
   }
 }

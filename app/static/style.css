@@ -34,8 +34,43 @@ body {
 
 header h1 {
   font-size: 1.3rem;
-  margin: 0 0 10px;
+  margin: 0;
   letter-spacing: 0.2px;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lang-btn {
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.lang-btn:hover { color: var(--text); border-color: var(--accent); }
+
+.lang-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: #16233a;
 }
 
 .breadcrumb {
