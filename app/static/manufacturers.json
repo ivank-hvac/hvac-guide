@@ -14,6 +14,6 @@
   {"id": "rheem", "name": "Rheem", "url": "https://www.rheem.com/"},
   {"id": "goodman", "name": "Goodman", "url": "https://www.goodmanmfg.com/"},
   {"id": "engineered-air", "name": "Engineered Air", "url": "https://www.engineeredair.com/"},
-  {"id": "delhi-industries", "name": "Delhi Industries", "url": "https://www.delhi-industries.com/"},
-  {"id": "ice-western", "name": "ICE Western", "url": "https://www.icewestern.com/"}
+  {"id": "ice-western", "name": "ICE Western", "url": "https://www.icewestern.com/"},
+  {"id": "ice-northern", "name": "ICE Northern", "url": "https://www.icesales.ca/"}
 ]
