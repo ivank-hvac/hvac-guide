@@ -8,6 +8,9 @@
   --ok: #3ecf8e;
   --warn: #f0b429;
   --crit: #ff5d5d;
+  --input-accent: #e0913f;
+  --input-accent-bg: #3a2510;
+  --step-text: #cf9a68;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
@@ -98,7 +101,7 @@ header h1 {
   font-size: 0.72rem;
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  color: var(--muted);
+  color: var(--step-text);
   border-radius: 999px;
   padding: 4px 10px;
 }
@@ -171,6 +174,14 @@ header h1 {
 
 .btn.ai:hover { background: #1c2e4d; }
 
+.btn.input-action {
+  border-color: var(--input-accent);
+  color: var(--input-accent);
+  background: var(--input-accent-bg);
+}
+
+.btn.input-action:hover { background: #4a3018; }
+
 .result-text {
   font-size: 0.98rem;
   line-height: 1.55;
@@ -215,26 +226,29 @@ textarea {
   min-width: 0;
   background: #0f1115;
   color: var(--text);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--input-accent);
   border-radius: 10px;
   padding: 12px 14px;
   font-family: inherit;
   font-size: 1.3rem;
+  box-shadow: 0 0 0 1px rgba(224, 145, 63, 0.15);
 }
 
 .numeric-input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--input-accent);
+  box-shadow: 0 0 0 3px rgba(224, 145, 63, 0.25);
 }
 
 .numeric-input.invalid {
   border-color: var(--crit);
+  box-shadow: none;
 }
 
 .numeric-unit {
   font-family: var(--mono);
   font-size: 1rem;
-  color: var(--muted);
+  color: var(--input-accent);
   white-space: nowrap;
 }
 
@@ -252,7 +266,7 @@ textarea {
 
 .measurement-field-label {
   font-size: 0.82rem;
-  color: var(--muted);
+  color: var(--input-accent);
 }
 
 .measurement-alert {

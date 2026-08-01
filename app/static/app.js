@@ -360,7 +360,7 @@ function renderNumericInput(node) {
   cardEl.appendChild(hint);
 
   const nextBtn = document.createElement("button");
-  nextBtn.className = "btn ai";
+  nextBtn.className = "btn input-action";
   nextBtn.textContent = strings.nextBtn;
   nextBtn.disabled = true;
   cardEl.appendChild(nextBtn);
@@ -495,7 +495,7 @@ function renderMeasurement(node) {
   cardEl.appendChild(alertBox);
 
   const nextBtn = document.createElement("button");
-  nextBtn.className = "btn ai";
+  nextBtn.className = "btn input-action";
   nextBtn.textContent = strings.nextBtn;
   nextBtn.disabled = true;
   cardEl.appendChild(nextBtn);
