@@ -25,6 +25,15 @@ const I18N = {
     measurementAlertText: "Измеренное значение превышает заводской RLA/FLA. Это требует внимания, но не обязательно означает немедленную замену — оцените общее состояние оборудования (возраст, история отказов, вибрация, шум).",
     measurementAlertFlag: "ВНИМАНИЕ: превышает заводской референс",
     measurementRefFlaSf: "FLA×SF",
+    manufacturerStepTitle: "Производитель оборудования (опционально)",
+    manufacturerLabel: "Производитель",
+    manufacturerNotSpecified: "— не указано —",
+    manufacturerOther: "Другой / Other",
+    manufacturerOtherPlaceholder: "Введите название производителя",
+    modelLabel: "Модель оборудования (опционально)",
+    manufacturerModelQuestion: "Модель оборудования",
+    modelPlaceholder: "Например, 48TC-A12...",
+    mfgDocLink: "Смотрите также: официальная техническая документация {name}",
   },
   en: {
     back: "← Back",
@@ -45,6 +54,15 @@ const I18N = {
     measurementAlertText: "The measured value exceeds the nameplate RLA/FLA. This needs attention, but doesn't necessarily mean immediate replacement — weigh the equipment's overall condition (age, failure history, vibration, noise).",
     measurementAlertFlag: "WARNING: exceeds nameplate rating",
     measurementRefFlaSf: "FLA×SF",
+    manufacturerStepTitle: "Equipment manufacturer (optional)",
+    manufacturerLabel: "Manufacturer",
+    manufacturerNotSpecified: "— not specified —",
+    manufacturerOther: "Other",
+    manufacturerOtherPlaceholder: "Enter manufacturer name",
+    modelLabel: "Equipment model (optional)",
+    manufacturerModelQuestion: "Equipment model",
+    modelPlaceholder: "e.g. 48TC-A12...",
+    mfgDocLink: "See also: official {name} technical documentation",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -173,10 +191,14 @@ function referenceLabelText(node) {
 }
 
 // Answers can come from a question node (an option was picked), a
-// numeric_input node (a value was typed), or a measurement node (a value
-// was typed, optionally against a nameplate reference) — this resolves any
-// shape to the text shown in the breadcrumb and sent to the AI assistant.
+// numeric_input node (a value was typed), a measurement node (a value was
+// typed, optionally against a nameplate reference), or the one-time
+// manufacturer/model step (entry.field) — this resolves any shape to the
+// text shown in the breadcrumb and sent to the AI assistant.
 function answerLabel(entry) {
+  if (entry.field === "manufacturer" || entry.field === "model") {
+    return entry.value;
+  }
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
   if (entry.optionIndex != null) {
@@ -196,7 +218,15 @@ function answerLabel(entry) {
   return "";
 }
 
+// Sentinel currentId for the one-time manufacturer/model step inserted
+// right after the equipment-type answer on the graph's start node. It isn't
+// a real graph.json node — render() and goBack() special-case it — because
+// it always leads to whatever node the chosen equipment type would have
+// gone to anyway; there's nothing for it to branch on.
+const MANUFACTURER_STEP_ID = "__manufacturer__";
+
 let GRAPH = null;
+let MANUFACTURERS = null;
 let LANG = localStorage.getItem("hvac_lang");
 if (!SUPPORTED_LANGS.includes(LANG)) {
   const browserLang = (navigator.language || "").slice(0, 2);
@@ -214,8 +244,12 @@ let state = {
   currentId: null,
   history: [],   // stack of previous node ids
   answers: [],   // [{nodeId, optionIndex}] for question; [{nodeId, value}] for numeric_input;
-                 // [{nodeId, value, reference, exceeds}] for measurement (reference/exceeds may be null/false)
+                 // [{nodeId, value, reference, exceeds}] for measurement (reference/exceeds may be null/false);
+                 // [{nodeId: MANUFACTURER_STEP_ID, field: "manufacturer"|"model", value}] for the mfg step
   sessionId: generateSessionId(),
+  manufacturer: null,       // {id, name, url} once picked/typed, else null
+  manufacturerAsked: false, // whether the one-time step has already run this session
+  pendingNodeId: null,      // where to go once the manufacturer step is submitted
 };
 
 function t(dict) {
@@ -230,9 +264,18 @@ function ui() {
 }
 
 async function loadGraph() {
-  const res = await fetch("./graph.json");
-  GRAPH = await res.json();
+  const [graphRes] = await Promise.all([fetch("./graph.json"), loadManufacturers()]);
+  GRAPH = await graphRes.json();
   goTo(GRAPH.start, { pushHistory: false });
+}
+
+async function loadManufacturers() {
+  try {
+    const res = await fetch("./manufacturers.json");
+    MANUFACTURERS = await res.json();
+  } catch {
+    MANUFACTURERS = [];
+  }
 }
 
 function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
@@ -245,15 +288,35 @@ function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
 
 function goBack() {
   if (state.history.length === 0) return;
-  // remove the last answer we recorded (assumes 1 answer per question step)
-  state.answers.pop();
   const prev = state.history.pop();
+  if (prev === MANUFACTURER_STEP_ID) {
+    // The manufacturer step can add 0, 1, or 2 answer entries (manufacturer
+    // and/or model, both optional) instead of the usual one — undo all of
+    // them, not just the last one, so re-submitting doesn't leave stragglers.
+    while (state.answers.length && state.answers[state.answers.length - 1].nodeId === MANUFACTURER_STEP_ID) {
+      state.answers.pop();
+    }
+  } else {
+    // assumes 1 answer per question/numeric_input/measurement step
+    state.answers.pop();
+  }
+  if (prev === MANUFACTURER_STEP_ID || prev === GRAPH.start) {
+    state.manufacturerAsked = false;
+  }
   state.currentId = prev;
   render();
 }
 
 function restart() {
-  state = { currentId: GRAPH.start, history: [], answers: [], sessionId: generateSessionId() };
+  state = {
+    currentId: GRAPH.start,
+    history: [],
+    answers: [],
+    sessionId: generateSessionId(),
+    manufacturer: null,
+    manufacturerAsked: false,
+    pendingNodeId: null,
+  };
   render();
 }
 
@@ -289,8 +352,14 @@ function renderBreadcrumb() {
 
 function render() {
   renderBreadcrumb();
-  const node = GRAPH.nodes[state.currentId];
   cardEl.innerHTML = "";
+
+  if (state.currentId === MANUFACTURER_STEP_ID) {
+    renderManufacturerStep();
+    return;
+  }
+
+  const node = GRAPH.nodes[state.currentId];
 
   if (node.type === "question") {
     renderQuestion(node);
@@ -319,11 +388,129 @@ function renderQuestion(node) {
     b.textContent = t(opt.label);
     b.onclick = () => {
       state.answers.push({ nodeId: state.currentId, optionIndex: idx });
+      // Right after the very first choice (equipment type, on the graph's
+      // start node) — and only once per session — detour through the
+      // manufacturer/model step before continuing to the chosen branch.
+      if (state.currentId === GRAPH.start && !state.manufacturerAsked) {
+        state.pendingNodeId = opt.next;
+        state.history.push(state.currentId);
+        state.currentId = MANUFACTURER_STEP_ID;
+        render();
+        return;
+      }
       goTo(opt.next, { prevId: state.currentId });
     };
     opts.appendChild(b);
   });
   cardEl.appendChild(opts);
+}
+
+// One-time step (not a graph.json node — see MANUFACTURER_STEP_ID) shown
+// once, right after equipment type is picked. Both fields are optional:
+// leaving the dropdown unset and the model blank and clicking Next just
+// skips straight to state.pendingNodeId without recording anything.
+function renderManufacturerStep() {
+  const strings = ui();
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = strings.manufacturerStepTitle;
+  cardEl.appendChild(q);
+
+  const mfgWrap = document.createElement("div");
+  mfgWrap.className = "measurement-field";
+  const mfgLabel = document.createElement("div");
+  mfgLabel.className = "measurement-field-label";
+  mfgLabel.textContent = strings.manufacturerLabel;
+  mfgWrap.appendChild(mfgLabel);
+
+  const select = document.createElement("select");
+  select.className = "numeric-input";
+  const blankOpt = document.createElement("option");
+  blankOpt.value = "";
+  blankOpt.textContent = strings.manufacturerNotSpecified;
+  select.appendChild(blankOpt);
+  (MANUFACTURERS || []).forEach((m) => {
+    const o = document.createElement("option");
+    o.value = m.id;
+    o.textContent = m.name;
+    select.appendChild(o);
+  });
+  const otherOpt = document.createElement("option");
+  otherOpt.value = "other";
+  otherOpt.textContent = strings.manufacturerOther;
+  select.appendChild(otherOpt);
+  mfgWrap.appendChild(select);
+  cardEl.appendChild(mfgWrap);
+
+  const otherInput = document.createElement("input");
+  otherInput.type = "text";
+  otherInput.className = "numeric-input";
+  otherInput.placeholder = strings.manufacturerOtherPlaceholder;
+  otherInput.style.display = "none";
+  cardEl.appendChild(otherInput);
+
+  select.addEventListener("change", () => {
+    otherInput.style.display = select.value === "other" ? "block" : "none";
+  });
+
+  const modelWrap = document.createElement("div");
+  modelWrap.className = "measurement-field";
+  const modelLabel = document.createElement("div");
+  modelLabel.className = "measurement-field-label";
+  modelLabel.textContent = strings.modelLabel;
+  modelWrap.appendChild(modelLabel);
+  const modelInput = document.createElement("input");
+  modelInput.type = "text";
+  modelInput.className = "numeric-input";
+  modelInput.placeholder = strings.modelPlaceholder;
+  modelWrap.appendChild(modelInput);
+  cardEl.appendChild(modelWrap);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent = strings.nextBtn;
+  cardEl.appendChild(nextBtn);
+
+  nextBtn.onclick = () => {
+    let manufacturer = null;
+    if (select.value === "other") {
+      const customName = otherInput.value.trim();
+      if (customName) manufacturer = { id: "other", name: customName, url: null };
+    } else if (select.value) {
+      manufacturer = (MANUFACTURERS || []).find((m) => m.id === select.value) || null;
+    }
+    const model = modelInput.value.trim();
+
+    if (manufacturer) {
+      state.answers.push({ nodeId: MANUFACTURER_STEP_ID, field: "manufacturer", value: manufacturer.name });
+    }
+    if (model) {
+      state.answers.push({ nodeId: MANUFACTURER_STEP_ID, field: "model", value: model });
+    }
+    state.manufacturer = manufacturer;
+    state.manufacturerAsked = true;
+
+    const target = state.pendingNodeId;
+    state.pendingNodeId = null;
+    goTo(target, { prevId: MANUFACTURER_STEP_ID });
+  };
+}
+
+// If a real (non-"Other") manufacturer was picked, every terminal node
+// (result / ai_prompt) offers a link to its official docs — never an
+// AI-guessed URL, only what's in manufacturers.json.
+function buildMfgDocLink() {
+  if (!state.manufacturer || !state.manufacturer.url) return null;
+  const box = document.createElement("div");
+  box.className = "mfg-doc-link";
+  const a = document.createElement("a");
+  a.href = state.manufacturer.url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  a.textContent = ui().mfgDocLink.replace("{name}", state.manufacturer.name);
+  box.appendChild(a);
+  return box;
 }
 
 function renderNumericInput(node) {
@@ -605,6 +792,9 @@ function renderResult(node) {
   });
   cardEl.appendChild(aiBox);
 
+  const mfgLink = buildMfgDocLink();
+  if (mfgLink) cardEl.appendChild(mfgLink);
+
   logSession({ finalNodeId: state.currentId, severity: node.severity || "info" });
 }
 
@@ -640,6 +830,9 @@ function renderAiPrompt(node) {
     });
   };
 
+  const mfgLink = buildMfgDocLink();
+  if (mfgLink) cardEl.appendChild(mfgLink);
+
   logSession({ finalNodeId: nodeId, severity: null });
 }
 
@@ -673,6 +866,12 @@ function buildAiBox({ context, highlighted, nodeId, severity }) {
 
 function currentAnswers() {
   return state.answers.map((entry) => {
+    if (entry.field === "manufacturer") {
+      return { question: ui().manufacturerLabel, answer: entry.value };
+    }
+    if (entry.field === "model") {
+      return { question: ui().manufacturerModelQuestion, answer: entry.value };
+    }
     const node = GRAPH.nodes[entry.nodeId];
     return { question: t(node.text), answer: answerLabel(entry) };
   });

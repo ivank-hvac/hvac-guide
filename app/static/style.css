@@ -296,6 +296,19 @@ textarea {
   gap: 10px;
 }
 
+.mfg-doc-link {
+  font-size: 0.85rem;
+}
+
+.mfg-doc-link a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.mfg-doc-link a:hover {
+  text-decoration: underline;
+}
+
 .ai-response {
   background: #0f1115;
   border: 1px solid #23324a;
