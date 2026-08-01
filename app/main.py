@@ -21,6 +21,18 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 # env when going public (see README "Phase 2: going public").
 AI_ASSIST_RATE_LIMIT = os.getenv("AI_ASSIST_RATE_LIMIT", "8/minute")
 
+# Cap on the model's response length. The prompt already asks for a concise,
+# no-filler answer, so this is a ceiling, not a target — most responses come
+# in well under it. It was previously 700, which was too tight for the
+# ranked-causes + diagnostic-steps + safety-considerations format (real
+# responses were getting cut off mid-sentence) — see the `stop_reason`
+# handling below for how a leftover truncation is surfaced instead of
+# silently shown as if it were complete. max_tokens isn't spent per request
+# the way AI_ASSIST_RATE_LIMIT caps request *frequency* — this only raises
+# the ceiling on worst-case cost for any single response, so it's the
+# rate limit above (not this) that bounds worst-case $/minute from one IP.
+AI_ASSIST_MAX_TOKENS = int(os.getenv("AI_ASSIST_MAX_TOKENS", "2048"))
+
 # How many checklist-path log writes a single IP may make per minute. This
 # endpoint doesn't call Anthropic (no $ cost) but is still rate-limited to
 # keep the local DB from being spammed.
@@ -298,7 +310,7 @@ async def ai_assist(request: Request, req: AssistRequest):
 
     payload = {
         "model": ANTHROPIC_MODEL,
-        "max_tokens": 700,
+        "max_tokens": AI_ASSIST_MAX_TOKENS,
         "system": build_system_prompt(req.lang),
         "messages": [{"role": "user", "content": user_message}],
     }
@@ -322,7 +334,12 @@ async def ai_assist(request: Request, req: AssistRequest):
 
     data = r.json()
     text = "\n".join(block["text"] for block in data.get("content", []) if block.get("type") == "text")
-    return {"analysis": text or EMPTY_MODEL_RESPONSE[req.lang]}
+    # Anthropic sets stop_reason to "max_tokens" when the response was cut
+    # off by the cap above rather than finishing naturally — that's a
+    # genuinely incomplete answer (mid-sentence, missing sections), not
+    # something to show the technician as if it were the full analysis.
+    truncated = data.get("stop_reason") == "max_tokens"
+    return {"analysis": text or EMPTY_MODEL_RESPONSE[req.lang], "truncated": truncated}
 
 
 @app.post("/api/log-session")
