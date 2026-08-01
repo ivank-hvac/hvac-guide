@@ -324,7 +324,23 @@
       "text": {"ru": "Перегрев (superheat) на всасывании:", "en": "Suction-line superheat:"},
       "options": [
         {"label": {"ru": "Высокий SH", "en": "High superheat"}, "next": "nc_sh_high"},
-        {"label": {"ru": "Низкий SH (близко к 0)", "en": "Low superheat (near 0)"}, "next": "nc_sh_low_highsuction"}
+        {"label": {"ru": "Низкий SH (близко к 0)", "en": "Low superheat (near 0)"}, "next": "nc_sh_low_highsuction"},
+        {"label": {"ru": "Ввести точное значение (°F)", "en": "Enter exact reading (°F)"}, "next": "nc_sh_exact"}
+      ]
+    },
+
+    "nc_sh_exact": {
+      "type": "numeric_input",
+      "text": {
+        "ru": "Введите измеренный перегрев (superheat) на всасывании",
+        "en": "Enter the measured suction-line superheat"
+      },
+      "unit": "°F",
+      "min": -20,
+      "max": 100,
+      "thresholds": [
+        {"max": 4, "next": "nc_sh_low_highsuction"},
+        {"next": "nc_sh_high"}
       ]
     },
 
