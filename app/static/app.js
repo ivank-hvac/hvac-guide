@@ -14,6 +14,7 @@ const I18N = {
     aiLoading: "Анализирую checklist...",
     aiErrorPrefix: "Ошибка: ",
     aiRequestError: "Ошибка запроса",
+    aiTruncatedWarning: "Ответ был обрезан из-за ограничения длины. Попробуйте уточнить вопрос или разбить его на части.",
     aiSendBtn: "🤖 Отправить AI-ассистенту",
     aiAskRecommended: "🤖 Уточнить у AI-ассистента (рекомендуется)",
     aiAsk: "🤖 Спросить AI-ассистента",
@@ -58,6 +59,7 @@ const I18N = {
     aiLoading: "Analyzing checklist...",
     aiErrorPrefix: "Error: ",
     aiRequestError: "Request error",
+    aiTruncatedWarning: "The response was cut off due to a length limit. Try refining your question or splitting it into parts.",
     aiSendBtn: "🤖 Send to AI Assistant",
     aiAskRecommended: "🤖 Ask AI Assistant (recommended)",
     aiAsk: "🤖 Ask AI Assistant",
@@ -1313,6 +1315,18 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
     if (!r.ok) throw new Error(data.detail || strings.aiRequestError);
     resp.className = "ai-response";
     renderAiText(resp, data.analysis);
+    if (data.truncated) {
+      const warning = document.createElement("div");
+      warning.className = "measurement-alert";
+      const warningIcon = document.createElement("span");
+      warningIcon.className = "measurement-alert-icon";
+      warningIcon.textContent = "⚠️";
+      const warningText = document.createElement("span");
+      warningText.textContent = strings.aiTruncatedWarning;
+      warning.appendChild(warningIcon);
+      warning.appendChild(warningText);
+      target.appendChild(warning);
+    }
     logSession({ finalNodeId: nodeId, severity, freeText, aiUsed: true, aiAnalysis: data.analysis });
   } catch (err) {
     resp.className = "ai-response error";
