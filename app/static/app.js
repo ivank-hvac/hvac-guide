@@ -21,6 +21,10 @@ const I18N = {
     disclaimer: "Этот инструмент даёт вспомогательные диагностические предположения на основе ИИ и не заменяет суждение квалифицированного специалиста. Перед любыми работами с электричеством, хладагентом или под давлением всегда соблюдайте LOTO и применимые нормы безопасности (OSHA/CSA/местные). Используется на свой риск.",
     nextBtn: "Далее",
     numericRangeLabel: "Диапазон:",
+    measuredLabel: "Измеренное значение",
+    measurementAlertText: "Измеренное значение превышает заводской RLA/FLA. Это требует внимания, но не обязательно означает немедленную замену — оцените общее состояние оборудования (возраст, история отказов, вибрация, шум).",
+    measurementAlertFlag: "ВНИМАНИЕ: превышает заводской референс",
+    measurementRefFlaSf: "FLA×SF",
   },
   en: {
     back: "← Back",
@@ -37,6 +41,10 @@ const I18N = {
     disclaimer: "This tool provides AI-assisted diagnostic suggestions only — it doesn't replace the judgment of a qualified technician. Always follow LOTO and applicable safety codes (OSHA/CSA/local) before working on live electrical, refrigerant, or pressurized components. Use at your own risk.",
     nextBtn: "Next",
     numericRangeLabel: "Range:",
+    measuredLabel: "Measured value",
+    measurementAlertText: "The measured value exceeds the nameplate RLA/FLA. This needs attention, but doesn't necessarily mean immediate replacement — weigh the equipment's overall condition (age, failure history, vibration, noise).",
+    measurementAlertFlag: "WARNING: exceeds nameplate rating",
+    measurementRefFlaSf: "FLA×SF",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -155,9 +163,19 @@ function resolveThresholdNext(node, value) {
   return node.thresholds[node.thresholds.length - 1]?.next;
 }
 
-// Answers can come from a question node (an option was picked) or a
-// numeric_input node (a value was typed) — this resolves either shape to
-// the text shown in the breadcrumb and sent to the AI assistant.
+// Short label for whatever nameplate reference a measurement entry was
+// checked against — used only for display, not stored (computed from the
+// node's own config so there's a single source of truth for the wording).
+function referenceLabelText(node) {
+  if (!node.reference) return "";
+  if (node.reference.mode === "fla_sf") return ui().measurementRefFlaSf;
+  return t(node.reference.label);
+}
+
+// Answers can come from a question node (an option was picked), a
+// numeric_input node (a value was typed), or a measurement node (a value
+// was typed, optionally against a nameplate reference) — this resolves any
+// shape to the text shown in the breadcrumb and sent to the AI assistant.
 function answerLabel(entry) {
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
@@ -166,7 +184,14 @@ function answerLabel(entry) {
     return opt ? t(opt.label) : "";
   }
   if (entry.value != null) {
-    return formatNumericValue(entry.value, node.unit);
+    let label = formatNumericValue(entry.value, node.unit);
+    if (entry.reference != null) {
+      label += ` (${referenceLabelText(node)}: ${formatNumericValue(entry.reference, node.unit)})`;
+    }
+    if (entry.exceeds) {
+      label += ` — ${ui().measurementAlertFlag}`;
+    }
+    return label;
   }
   return "";
 }
@@ -188,7 +213,8 @@ function generateSessionId() {
 let state = {
   currentId: null,
   history: [],   // stack of previous node ids
-  answers: [],   // [{nodeId, optionIndex}] for question nodes, [{nodeId, value}] for numeric_input
+  answers: [],   // [{nodeId, optionIndex}] for question; [{nodeId, value}] for numeric_input;
+                 // [{nodeId, value, reference, exceeds}] for measurement (reference/exceeds may be null/false)
   sessionId: generateSessionId(),
 };
 
@@ -254,7 +280,7 @@ function renderBreadcrumb() {
     const label = answerLabel(entry);
     if (!label) return;
     const chip = document.createElement("span");
-    chip.className = "chip";
+    chip.className = entry.exceeds ? "chip chip-alert" : "chip";
     chip.textContent = label;
     breadcrumbEl.appendChild(chip);
   });
@@ -274,6 +300,8 @@ function render() {
     renderAiPrompt(node);
   } else if (node.type === "numeric_input") {
     renderNumericInput(node);
+  } else if (node.type === "measurement") {
+    renderMeasurement(node);
   }
 }
 
@@ -388,6 +416,173 @@ function renderNumericInput(node) {
 
   validate();
   input.focus();
+}
+
+// A "measurement" node is pure data collection, never branching: it always
+// advances to a single fixed `node.next`, same as the intent behind a plain
+// question, so any diagnostic judgment call stays with the human/AI rather
+// than a threshold in graph.json. It optionally captures a nameplate
+// reference (RLA for a compressor, or FLA×SF for a fan motor) alongside the
+// measured value, and flags — visibly and in the AI context — when the
+// measured value exceeds it.
+function renderMeasurement(node) {
+  const strings = ui();
+  const nodeId = state.currentId;
+  const mode = node.reference?.mode;
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = t(node.text);
+  cardEl.appendChild(q);
+
+  function makeField(labelText, unit) {
+    const wrap = document.createElement("div");
+    wrap.className = "measurement-field";
+    if (labelText) {
+      const lab = document.createElement("div");
+      lab.className = "measurement-field-label";
+      lab.textContent = labelText;
+      wrap.appendChild(lab);
+    }
+    const row = document.createElement("div");
+    row.className = "numeric-row";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.className = "numeric-input";
+    input.placeholder = "0";
+    row.appendChild(input);
+    if (unit) {
+      const u = document.createElement("span");
+      u.className = "numeric-unit";
+      u.textContent = unit;
+      row.appendChild(u);
+    }
+    wrap.appendChild(row);
+    cardEl.appendChild(wrap);
+    return input;
+  }
+
+  let flaInput = null;
+  let sfInput = null;
+  let refInput = null;
+  if (mode === "fla_sf") {
+    flaInput = makeField(t(node.reference.flaLabel), node.unit);
+    sfInput = makeField(t(node.reference.sfLabel), "");
+  } else if (mode === "single") {
+    refInput = makeField(t(node.reference.label), node.unit);
+  }
+  const measuredInput = makeField(
+    node.measuredLabel ? t(node.measuredLabel) : strings.measuredLabel,
+    node.unit
+  );
+
+  const hint = document.createElement("div");
+  hint.className = "numeric-hint";
+  cardEl.appendChild(hint);
+
+  const alertBox = document.createElement("div");
+  alertBox.className = "measurement-alert";
+  alertBox.style.display = "none";
+  const alertIcon = document.createElement("span");
+  alertIcon.className = "measurement-alert-icon";
+  alertIcon.textContent = "⚠️";
+  const alertText = document.createElement("span");
+  alertText.textContent = strings.measurementAlertText;
+  alertBox.appendChild(alertIcon);
+  alertBox.appendChild(alertText);
+  cardEl.appendChild(alertBox);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn ai";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+  cardEl.appendChild(nextBtn);
+
+  function parseField(input) {
+    if (!input) return null;
+    if (input.value === "" || input.value === "-" || input.value === ".") return null;
+    const v = parseFloat(input.value);
+    return Number.isNaN(v) ? null : v;
+  }
+
+  function computeReference() {
+    if (mode === "fla_sf") {
+      const fla = parseField(flaInput);
+      const sf = parseField(sfInput);
+      return fla != null && sf != null ? fla * sf : null;
+    }
+    if (mode === "single") {
+      return parseField(refInput);
+    }
+    return null;
+  }
+
+  const allowNegative = typeof node.min === "number" && node.min < 0;
+
+  function validate() {
+    const measured = parseField(measuredInput);
+    let measuredValid = measured != null;
+    if (measuredValid && typeof node.min === "number" && measured < node.min) measuredValid = false;
+    if (measuredValid && typeof node.max === "number" && measured > node.max) measuredValid = false;
+    measuredInput.classList.toggle("invalid", measuredInput.value !== "" && !measuredValid);
+
+    const needsReference = mode === "single" || mode === "fla_sf";
+    const reference = computeReference();
+    const referenceValid = !needsReference || reference != null;
+    if (mode === "single") refInput.classList.toggle("invalid", refInput.value !== "" && reference == null);
+    if (mode === "fla_sf") {
+      flaInput.classList.toggle("invalid", flaInput.value !== "" && parseField(flaInput) == null);
+      sfInput.classList.toggle("invalid", sfInput.value !== "" && parseField(sfInput) == null);
+    }
+
+    const valid = measuredValid && referenceValid;
+    nextBtn.disabled = !valid;
+
+    let showConverted = "";
+    if (measured != null && node.unit) {
+      const raw = rawNumericString(measured, node.unit);
+      const annotated = annotateUnits(raw);
+      if (annotated !== raw) showConverted = annotated;
+    }
+    const range =
+      typeof node.min === "number" && typeof node.max === "number"
+        ? `${strings.numericRangeLabel} ${node.min}–${node.max}${node.unit ? " " + node.unit : ""}`
+        : "";
+    hint.textContent = [range, showConverted].filter(Boolean).join(" · ");
+
+    const exceeds = measuredValid && needsReference && reference != null && measured > reference;
+    alertBox.style.display = exceeds ? "flex" : "none";
+
+    return valid ? { measured, reference: needsReference ? reference : null, exceeds } : null;
+  }
+
+  [flaInput, sfInput, refInput, measuredInput].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("input", () => {
+      input.value = sanitizeNumericInput(input.value, input === measuredInput ? allowNegative : false);
+      validate();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !nextBtn.disabled) nextBtn.click();
+    });
+  });
+
+  nextBtn.onclick = () => {
+    const result = validate();
+    if (!result) return;
+    state.answers.push({
+      nodeId,
+      value: result.measured,
+      reference: result.reference,
+      exceeds: result.exceeds,
+    });
+    goTo(node.next, { prevId: nodeId });
+  };
+
+  validate();
+  (flaInput || refInput || measuredInput).focus();
 }
 
 function renderResult(node) {

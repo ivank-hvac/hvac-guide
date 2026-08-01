@@ -306,8 +306,56 @@
       "text": {"ru": "Двигатель вентилятора (blower) вращается?", "en": "Does the blower motor turn?"},
       "options": [
         {"label": {"ru": "Да, вращается", "en": "Yes, it turns"}, "next": "gas_airflow_spins"},
-        {"label": {"ru": "Нет, не вращается", "en": "No, it doesn't turn"}, "next": "gas_airflow_nospin"}
+        {"label": {"ru": "Нет, не вращается", "en": "No, it doesn't turn"}, "next": "gas_airflow_nospin"},
+        {"label": {"ru": "Записать измеренный ток вентилятора", "en": "Log measured blower motor current"}, "next": "fan_motor_type"}
       ]
+    },
+
+    "fan_motor_type": {
+      "type": "question",
+      "text": {"ru": "Тип двигателя вентилятора?", "en": "What type of motor is the blower?"},
+      "options": [
+        {"label": {"ru": "Обычный AC (PSC/асинхронный, постоянная скорость)", "en": "Standard AC (PSC/induction, fixed-speed)"}, "next": "fan_amp_measurement"},
+        {"label": {"ru": "ECM / VFD-управляемый", "en": "ECM / VFD-driven"}, "next": "fan_ecm_info"}
+      ]
+    },
+
+    "fan_amp_measurement": {
+      "type": "measurement",
+      "text": {
+        "ru": "Введите заводские FLA и Service Factor (SF) вентилятора (с шильдика) и фактически измеренный ток",
+        "en": "Enter the fan motor's nameplate FLA and Service Factor (SF), and the actual measured current"
+      },
+      "unit": "A",
+      "min": 0,
+      "max": 60,
+      "reference": {
+        "mode": "fla_sf",
+        "flaLabel": {"ru": "FLA (с шильдика вентилятора)", "en": "Nameplate FLA (fan motor)"},
+        "sfLabel": {"ru": "Service Factor (SF, с шильдика)", "en": "Service Factor (SF, from nameplate)"}
+      },
+      "measuredLabel": {"ru": "Измеренный ток вентилятора", "en": "Measured fan motor current"},
+      "next": "fan_amp_logged"
+    },
+
+    "fan_amp_logged": {
+      "type": "result",
+      "severity": "info",
+      "ai": true,
+      "text": {
+        "ru": "Ток вентилятора зафиксирован в истории чек-листа относительно FLA × SF. Превышение само по себе не означает немедленную замену двигателя — оцените общее состояние (возраст, история отказов, вибрация, шум, нагрев корпуса) в совокупности с этим показанием.",
+        "en": "Fan motor current has been logged against FLA × SF. Exceeding it alone doesn't mean the motor needs immediate replacement — weigh this reading together with the equipment's overall condition (age, failure history, vibration, noise, housing temperature)."
+      }
+    },
+
+    "fan_ecm_info": {
+      "type": "result",
+      "severity": "info",
+      "ai": true,
+      "text": {
+        "ru": "Для ECM/VFD-управляемых двигателей сравнение тока с FLA/RLA не применяется: электроника драйва сама регулирует ток под заданный крутящий момент/расход воздуха, поэтому «повышенный» ток не является прямым диагностическим признаком, как у обычного AC-мотора. Вместо этого проверьте: коды ошибок на модуле ECM/дисплее VFD, поведение и стабильность тока на разных % заданной скорости (совпадает ли с ожидаемой кривой или ток нестабилен/зависает на определённой ступени), сигнал управления (PWM/0-10В/serial) от платы к драйву, и историю срабатываний защиты драйва по перегрузке/перегреву.",
+        "en": "For ECM/VFD-driven motors, comparing current to FLA/RLA doesn't apply: the drive electronics regulate current to hit a commanded torque/airflow target, so an 'elevated' reading isn't a direct fault indicator the way it is on a standard AC motor. Instead check: fault/error codes on the ECM module or VFD display, current behavior and stability across different commanded speed percentages (does it track the expected curve, or is it erratic/stuck at a given step), the command signal from the board to the drive (PWM/0-10V/serial), and the drive's overload/overtemperature trip history."
+      }
     },
 
     "gas_airflow_nospin": {
@@ -364,8 +412,18 @@
       "options": [
         {"label": {"ru": "Выше нормы", "en": "Above normal"}, "next": "nc_suction_high"},
         {"label": {"ru": "Ниже нормы", "en": "Below normal"}, "next": "nc_suction_low"},
-        {"label": {"ru": "В целом в норме", "en": "Roughly normal"}, "next": "nc_pressures_ok"}
+        {"label": {"ru": "В целом в норме", "en": "Roughly normal"}, "next": "nc_pressures_ok"},
+        {"label": {"ru": "Записать точное давление всасывания (psig)", "en": "Log exact suction pressure reading (psig)"}, "next": "nc_suction_exact"}
       ]
+    },
+
+    "nc_suction_exact": {
+      "type": "measurement",
+      "text": {"ru": "Введите измеренное давление всасывания", "en": "Enter the measured suction pressure"},
+      "unit": "psig",
+      "min": 0,
+      "max": 500,
+      "next": "nc_pressures_ok"
     },
 
     "nc_suction_high": {
@@ -533,8 +591,36 @@
       "options": [
         {"label": {"ru": "Гудит, не крутится (locked rotor / hard start)", "en": "Hums but doesn't turn (locked rotor / hard start)"}, "next": "ws_locked_rotor"},
         {"label": {"ru": "Полная тишина, нагрузки нет", "en": "Complete silence, no load"}, "next": "ws_no_load"},
-        {"label": {"ru": "Запускается нормально", "en": "Starts normally"}, "next": "ws_started_ok"}
+        {"label": {"ru": "Запускается нормально", "en": "Starts normally"}, "next": "ws_started_ok"},
+        {"label": {"ru": "Записать измеренный ток компрессора (RLA check)", "en": "Log measured compressor current (RLA check)"}, "next": "ws_amp_measurement"}
       ]
+    },
+
+    "ws_amp_measurement": {
+      "type": "measurement",
+      "text": {
+        "ru": "Введите заводской RLA компрессора (с шильдика) и фактически измеренный ток",
+        "en": "Enter the compressor's nameplate RLA and the actual measured current"
+      },
+      "unit": "A",
+      "min": 0,
+      "max": 300,
+      "reference": {
+        "mode": "single",
+        "label": {"ru": "RLA (с шильдика компрессора)", "en": "Nameplate RLA (compressor data plate)"}
+      },
+      "measuredLabel": {"ru": "Измеренный линейный ток", "en": "Measured line current"},
+      "next": "ws_amp_logged"
+    },
+
+    "ws_amp_logged": {
+      "type": "result",
+      "severity": "info",
+      "ai": true,
+      "text": {
+        "ru": "Ток компрессора зафиксирован в истории чек-листа. Если значение в пределах RLA — это дополнительное подтверждение исправного пуска. Если выше — см. отметку выше в истории; это само по себе не приговор компрессору, но требует оценки общей картины (возраст, история отказов, вибрация, шум) перед решением о замене.",
+        "en": "Compressor current has been logged to the checklist history. If it's within RLA, that's additional confirmation of a healthy start. If it's above RLA, see the flag above in the history — that alone isn't a verdict on the compressor, but does call for weighing the bigger picture (age, failure history, vibration, noise) before deciding on replacement."
+      }
     },
 
     "ws_locked_rotor": {

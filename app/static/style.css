@@ -103,6 +103,12 @@ header h1 {
   padding: 4px 10px;
 }
 
+.chip.chip-alert {
+  background: #3a1616;
+  border-color: var(--crit);
+  color: #ffb3b3;
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -236,6 +242,35 @@ textarea {
   font-size: 0.78rem;
   color: var(--muted);
   min-height: 1.1em;
+}
+
+.measurement-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.measurement-field-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.measurement-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 2px solid var(--crit);
+  background: #3a1616;
+  color: #ffd6d6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.measurement-alert-icon {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .ai-box {
