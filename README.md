@@ -532,19 +532,39 @@ org.opencontainers.image.revision` и в `ENV`, а `main.py` отдаёт их �
 через `/api/version`, которое и подхватывает футер.
 
 Чтобы `.env` сам оставался актуальным (и `docker compose up -d --build`
-подхватывал текущий коммит без ручного шага) — **один раз на клон**
-включите git-хуки из `.githooks/`:
+подхватывал текущий коммит без ручного шага) — включите git-хуки из
+`.githooks/`:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-После этого `post-commit`/`post-checkout` сами обновляют
-`GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` при каждом коммите/переключении
-веток — тихо ничего не делают, если `.env` ещё не создан (сначала `cp
-.env.example .env`, как обычно). Без включённых хуков (или при ручном
-`docker build` без `--build-arg`) образ просто получит `unknown` вместо
-хэша — не ломается, но и не подскажет версию.
+**Важно: это локальная настройка git (`core.hooksPath`), она не приходит
+сама через `git clone`/`git pull` — включите её на КАЖДОЙ машине, которая
+собирает образ, включая сервер(а) деплоя, а не только на своей рабочей.**
+Если на деплое обычный процесс — `git pull && docker compose up -d
+--build` — то нужен именно хук `post-merge` (он и добавлен): `git pull` не
+вызывает ни `post-commit` (это для локальных коммитов), ни `post-checkout`
+(это для `git checkout`/`git switch`) — только `post-merge`, если
+подтягивание прошло fast-forward'ом или обычным merge.
+
+После включения хуков `post-commit`/`post-checkout`/`post-merge` сами
+обновляют `GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` при коммите,
+переключении веток и `git pull` соответственно — тихо ничего не делают,
+если `.env` ещё не создан (сначала `cp .env.example .env`, как обычно).
+Без включённых хуков (или при ручном `docker build` без `--build-arg`)
+образ просто получит `unknown` вместо хэша — не ломается, но и не
+подскажет версию.
+
+Если на уже развёрнутой машине лейбл показывает `unknown` (хуки не были
+включены до этого момента) — почините на месте:
+
+```bash
+cd /opt/hvac-guide   # или где лежит репозиторий на этой машине
+git config core.hooksPath .githooks   # один раз на эту машину
+.githooks/update-git-version-env       # прогнать сразу, не дожидаясь следующего pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
 ## Деплой по фазам (команда → публично)
 
