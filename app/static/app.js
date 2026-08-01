@@ -34,6 +34,21 @@ const I18N = {
     manufacturerModelQuestion: "Модель оборудования",
     modelPlaceholder: "Например, 48TC-A12...",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
+    refrigerantNotSpecified: "— выберите хладагент —",
+    refrigerantUnknown: "Не знаю / не могу определить",
+    refrigerantLabel: "Хладагент",
+    refrigerantStepHint: "Если не знаете хладагент — расчёт перегрева/переохлаждения по P-T таблице будет недоступен, но вы сможете продолжить по качественным показаниям манометров.",
+    superheatLabel: "Перегрев (superheat)",
+    subcoolingLabel: "Переохлаждение (subcooling)",
+    ptCalcLoading: "Расчёт...",
+    ptCalcUnavailable: "Хладагент не указан или данных недостаточно — количественный расчёт перегрева/переохлаждения недоступен. Ориентируйтесь на качественные показания манометров и P-T таблицу производителя.",
+    ptCalcTypicalRange: "Типичный целевой диапазон: перегрев ~8–12°F, переохлаждение ~10–15°F — уточняйте по паспорту конкретного оборудования.",
+    ptCalcAlertText: "Расчётное значение существенно выходит за типичный рабочий диапазон. Это не диагноз, а сигнал присмотреться внимательнее: проверьте показания манометров, места установки датчиков температуры и рассмотрите альтернативные причины.",
+    ptCalcAlertFlag: "ВНИМАНИЕ: SH/SC вне типичного диапазона",
+    ptCalcOutOfRangeText: "Введённое давление находится за пределами нормального рабочего диапазона P-T таблицы для этого хладагента. Это НЕ погрешность интерполяции — вероятная причина: серьёзная неисправность (утечка, неправильный/перепутанный хладагент, катастрофический отказ компонента). Прекратите обычную диагностику по SH/SC: проверьте системы безопасности, соблюдайте LOTO и рассмотрите немедленную остановку оборудования до выяснения причины.",
+    ptCalcOutOfRangeFlag: "ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ",
+    ptCalcOutOfRangeValue: "Давление вне табличного диапазона хладагента — SH/SC не рассчитаны",
+    ptCalcResultQuestion: "Перегрев/переохлаждение (расчёт по P-T таблице)",
   },
   en: {
     back: "← Back",
@@ -63,6 +78,21 @@ const I18N = {
     manufacturerModelQuestion: "Equipment model",
     modelPlaceholder: "e.g. 48TC-A12...",
     mfgDocLink: "See also: official {name} technical documentation",
+    refrigerantNotSpecified: "— select refrigerant —",
+    refrigerantUnknown: "Don't know / can't tell",
+    refrigerantLabel: "Refrigerant",
+    refrigerantStepHint: "If you don't know the refrigerant, the P-T-based superheat/subcooling calculation won't be available, but you can still continue using qualitative gauge readings.",
+    superheatLabel: "Superheat",
+    subcoolingLabel: "Subcooling",
+    ptCalcLoading: "Calculating...",
+    ptCalcUnavailable: "No refrigerant specified, or not enough data — quantitative superheat/subcooling calculation isn't available. Rely on qualitative gauge readings and the equipment's P-T chart.",
+    ptCalcTypicalRange: "Typical target range: superheat ~8-12°F, subcooling ~10-15°F — verify against the specific equipment's nameplate/spec.",
+    ptCalcAlertText: "The calculated value is well outside the typical operating range. This isn't a diagnosis by itself — it's a flag to look closer: double-check gauge readings, sensor placement, and consider other possible causes.",
+    ptCalcAlertFlag: "WARNING: SH/SC outside typical range",
+    ptCalcOutOfRangeText: "The entered pressure is outside the normal operating range of this refrigerant's P-T table. This is NOT an interpolation-precision issue — the likely cause is a serious fault (a leak, the wrong/mixed refrigerant, or a catastrophic component failure). Stop routine SH/SC diagnosis: check the system's safety devices, follow LOTO, and consider shutting the equipment down immediately until the cause is identified.",
+    ptCalcOutOfRangeFlag: "WARNING: pressure outside operating range — possible serious fault",
+    ptCalcOutOfRangeValue: "Pressure outside the refrigerant's table range — SH/SC not calculated",
+    ptCalcResultQuestion: "Superheat/Subcooling (calculated from P-T chart)",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -173,8 +203,11 @@ function sanitizeNumericInput(raw, allowNegative) {
 
 // Thresholds are evaluated in order; the first entry whose `max` the value
 // doesn't exceed wins. A trailing entry with no `max` is the catch-all for
-// "everything above the last threshold".
+// "everything above the last threshold". A numeric_input with no thresholds
+// at all is just a plain sequential reading (e.g. one step in a P-T
+// superheat/subcooling sequence) — it always advances to `node.next`.
 function resolveThresholdNext(node, value) {
+  if (!node.thresholds) return node.next;
   for (const th of node.thresholds) {
     if (th.max == null || value <= th.max) return th.next;
   }
@@ -190,14 +223,134 @@ function referenceLabelText(node) {
   return t(node.reference.label);
 }
 
+// ---- P-T superheat/subcooling calculator --------------------------------
+// A reusable module, not tied to any one branch of the graph: a
+// refrigerant_select node records state.refrigerant, a plain sequence of
+// numeric_input nodes (tagged with `role`) records suction/head pressure and
+// suction/liquid-line temperature wherever they're asked, and a pt_calc node
+// (placeable anywhere downstream) pulls all of that back out of
+// state.refrigerant/state.answers to compute superheat and subcooling. This
+// keeps the calculation logic in one place while letting graph.json wire it
+// into as many branches as needed by just adding nodes, no code changes.
+const REFRIGERANT_ROLES = ["suction_pressure", "suction_temp", "head_pressure", "liquid_temp"];
+const refrigerantTableCache = new Map();
+
+// Field techs read gauges to the nearest 1-2 psi/°F, so a wide "clearly
+// abnormal" band avoids false alarms on the normal spread between systems —
+// the typical target band shown to the user (~8-12°F SH, ~10-15°F SC) is
+// narrower than the alert band on purpose.
+const PT_SH_ALERT = { min: 3, max: 20 };
+const PT_SC_ALERT = { min: 5, max: 20 };
+
+async function loadRefrigerantTable(id) {
+  if (refrigerantTableCache.has(id)) return refrigerantTableCache.get(id);
+  const entry = (REFRIGERANTS || []).find((r) => r.id === id);
+  if (!entry) return null;
+  try {
+    const res = await fetch(`./${entry.file}`);
+    const points = await res.json();
+    refrigerantTableCache.set(id, points);
+    return points;
+  } catch {
+    return null;
+  }
+}
+
+// Piecewise-linear interpolation of temp_f as a function of pressure along
+// one curve (bubble for the liquid/condensing side, dew for the vapor/
+// evaporating side — the two differ for a blend with real glide, and
+// collapse to the same curve for a pure fluid/near-azeotrope). Points must
+// be sorted ascending by temp_f, which is also ascending by pressure.
+// Deliberately does NOT extrapolate beyond the table's range (-40F to
+// 150F, refrigerant-dependent): a suction/head pressure outside a normal
+// refrigeration/AC cycle's range isn't an interpolation-precision problem,
+// it's a sign the system itself isn't in a normal operating state (leak,
+// wrong refrigerant, a component failure) — returning a computed-looking
+// number there would be false precision. Callers must treat null as "can't
+// compute, and that's itself the finding" rather than a missing-data case.
+function saturationTemp(points, pressurePsig, curve) {
+  const key = curve === "bubble" ? "bubble_psig" : "dew_psig";
+  const n = points.length;
+  if (n === 0) return null;
+  if (pressurePsig < points[0][key] || pressurePsig > points[n - 1][key]) return null;
+  if (n === 1) return points[0].temp_f;
+  for (let i = 0; i < n - 1; i++) {
+    if (pressurePsig >= points[i][key] && pressurePsig <= points[i + 1][key]) {
+      const p0 = points[i][key];
+      const p1 = points[i + 1][key];
+      const t0 = points[i].temp_f;
+      const t1 = points[i + 1].temp_f;
+      if (p1 === p0) return t0;
+      return t0 + ((pressurePsig - p0) / (p1 - p0)) * (t1 - t0);
+    }
+  }
+  return null;
+}
+
+// Scans backward from the current point in the checklist for the most
+// recent numeric_input answer tagged with the given role — this is what
+// lets pt_calc sit anywhere downstream of the reading nodes rather than
+// needing to know their exact node ids.
+function findAnswerByRole(role) {
+  for (let i = state.answers.length - 1; i >= 0; i--) {
+    const entry = state.answers[i];
+    const node = GRAPH.nodes[entry.nodeId];
+    if (node && node.role === role && entry.value != null) return entry.value;
+  }
+  return null;
+}
+
+// status is one of:
+//   "unavailable"  - no refrigerant picked (or "don't know"), or a reading
+//                    is missing - nothing to compute, nothing alarming
+//   "out_of_range" - refrigerant known and readings present, but suction or
+//                    head pressure falls outside that refrigerant's P-T
+//                    table entirely - deliberately NOT computed (see
+//                    saturationTemp); this is itself the finding
+//   "ok"           - superheat/subcooling computed normally
+async function computePtResult() {
+  const suctionPressure = findAnswerByRole("suction_pressure");
+  const suctionTemp = findAnswerByRole("suction_temp");
+  const headPressure = findAnswerByRole("head_pressure");
+  const liquidTemp = findAnswerByRole("liquid_temp");
+  const refrigerant = state.refrigerant;
+
+  if (
+    !refrigerant ||
+    refrigerant.id === "unknown" ||
+    [suctionPressure, suctionTemp, headPressure, liquidTemp].some((v) => v == null)
+  ) {
+    return { status: "unavailable" };
+  }
+  const points = await loadRefrigerantTable(refrigerant.id);
+  if (!points) return { status: "unavailable" };
+
+  const satEvapTemp = saturationTemp(points, suctionPressure, "dew");
+  const satCondTemp = saturationTemp(points, headPressure, "bubble");
+  if (satEvapTemp == null || satCondTemp == null) {
+    return { status: "out_of_range" };
+  }
+  return {
+    status: "ok",
+    superheat: suctionTemp - satEvapTemp,
+    subcooling: satCondTemp - liquidTemp,
+  };
+}
+
 // Answers can come from a question node (an option was picked), a
 // numeric_input node (a value was typed), a measurement node (a value was
-// typed, optionally against a nameplate reference), or the one-time
-// manufacturer/model step (entry.field) — this resolves any shape to the
-// text shown in the breadcrumb and sent to the AI assistant.
+// typed, optionally against a nameplate reference), or a one-time field
+// captured outside graph.json nodes (entry.field, e.g. manufacturer/model,
+// refrigerant, or the pt_calc result) — this resolves any shape to the text
+// shown in the breadcrumb and sent to the AI assistant.
 function answerLabel(entry) {
-  if (entry.field === "manufacturer" || entry.field === "model") {
+  if (entry.field === "manufacturer" || entry.field === "model" || entry.field === "refrigerant") {
     return entry.value;
+  }
+  if (entry.field === "pt_result") {
+    if (!entry.exceeds) return entry.value;
+    const flag = entry.critical ? ui().ptCalcOutOfRangeFlag : ui().ptCalcAlertFlag;
+    return `${entry.value} — ${flag}`;
   }
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
@@ -227,6 +380,7 @@ const MANUFACTURER_STEP_ID = "__manufacturer__";
 
 let GRAPH = null;
 let MANUFACTURERS = null;
+let REFRIGERANTS = null;
 let LANG = localStorage.getItem("hvac_lang");
 if (!SUPPORTED_LANGS.includes(LANG)) {
   const browserLang = (navigator.language || "").slice(0, 2);
@@ -250,6 +404,7 @@ let state = {
   manufacturer: null,       // {id, name, url} once picked/typed, else null
   manufacturerAsked: false, // whether the one-time step has already run this session
   pendingNodeId: null,      // where to go once the manufacturer step is submitted
+  refrigerant: null,        // {id, name} once picked on a refrigerant_select node, else null
 };
 
 function t(dict) {
@@ -264,7 +419,11 @@ function ui() {
 }
 
 async function loadGraph() {
-  const [graphRes] = await Promise.all([fetch("./graph.json"), loadManufacturers()]);
+  const [graphRes] = await Promise.all([
+    fetch("./graph.json"),
+    loadManufacturers(),
+    loadRefrigerants(),
+  ]);
   GRAPH = await graphRes.json();
   goTo(GRAPH.start, { pushHistory: false });
 }
@@ -275,6 +434,15 @@ async function loadManufacturers() {
     MANUFACTURERS = await res.json();
   } catch {
     MANUFACTURERS = [];
+  }
+}
+
+async function loadRefrigerants() {
+  try {
+    const res = await fetch("./refrigerants.json");
+    REFRIGERANTS = await res.json();
+  } catch {
+    REFRIGERANTS = [];
   }
 }
 
@@ -297,8 +465,12 @@ function goBack() {
       state.answers.pop();
     }
   } else {
-    // assumes 1 answer per question/numeric_input/measurement step
-    state.answers.pop();
+    // assumes 1 answer per question/numeric_input/measurement/refrigerant_select/
+    // pt_calc step
+    const popped = state.answers.pop();
+    if (popped && popped.field === "refrigerant") {
+      state.refrigerant = null;
+    }
   }
   if (prev === MANUFACTURER_STEP_ID || prev === GRAPH.start) {
     state.manufacturerAsked = false;
@@ -316,6 +488,7 @@ function restart() {
     manufacturer: null,
     manufacturerAsked: false,
     pendingNodeId: null,
+    refrigerant: null,
   };
   render();
 }
@@ -371,6 +544,10 @@ function render() {
     renderNumericInput(node);
   } else if (node.type === "measurement") {
     renderMeasurement(node);
+  } else if (node.type === "refrigerant_select") {
+    renderRefrigerantSelect(node);
+  } else if (node.type === "pt_calc") {
+    renderPtCalc(node);
   }
 }
 
@@ -772,6 +949,198 @@ function renderMeasurement(node) {
   (flaInput || refInput || measuredInput).focus();
 }
 
+// A regular graph.json node (unlike the one-time manufacturer step): each
+// "no cooling"/"insufficient cooling" branch routes through its own
+// refrigerant_select node, dynamically populated from refrigerants.json,
+// with an explicit "don't know" option — picking it just means the later
+// pt_calc step can't compute superheat/subcooling and says so.
+function renderRefrigerantSelect(node) {
+  const strings = ui();
+  const nodeId = state.currentId;
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = t(node.text);
+  cardEl.appendChild(q);
+
+  const wrap = document.createElement("div");
+  wrap.className = "measurement-field";
+  const label = document.createElement("div");
+  label.className = "measurement-field-label";
+  label.textContent = strings.refrigerantLabel;
+  wrap.appendChild(label);
+
+  const select = document.createElement("select");
+  select.className = "numeric-input";
+  const blankOpt = document.createElement("option");
+  blankOpt.value = "";
+  blankOpt.textContent = strings.refrigerantNotSpecified;
+  select.appendChild(blankOpt);
+  (REFRIGERANTS || []).forEach((r) => {
+    const o = document.createElement("option");
+    o.value = r.id;
+    o.textContent = r.name;
+    select.appendChild(o);
+  });
+  const unknownOpt = document.createElement("option");
+  unknownOpt.value = "unknown";
+  unknownOpt.textContent = strings.refrigerantUnknown;
+  select.appendChild(unknownOpt);
+  wrap.appendChild(select);
+  cardEl.appendChild(wrap);
+
+  const hint = document.createElement("div");
+  hint.className = "numeric-hint";
+  hint.textContent = strings.refrigerantStepHint;
+  cardEl.appendChild(hint);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+  cardEl.appendChild(nextBtn);
+
+  select.addEventListener("change", () => {
+    nextBtn.disabled = !select.value;
+  });
+
+  nextBtn.onclick = () => {
+    if (!select.value) return;
+    const refrigerant =
+      select.value === "unknown"
+        ? { id: "unknown", name: strings.refrigerantUnknown }
+        : (REFRIGERANTS || []).find((r) => r.id === select.value) || null;
+    if (!refrigerant) return;
+    state.refrigerant = refrigerant;
+    state.answers.push({ nodeId, field: "refrigerant", value: refrigerant.name });
+    goTo(node.next, { prevId: nodeId });
+  };
+}
+
+// Terminal step of the P-T calculator sequence (refrigerant_select + a
+// handful of numeric_input readings tagged with `role`, see
+// computePtResult): shows superheat/subcooling explicitly rather than only
+// passing them to the AI, flags a result well outside the typical range the
+// same non-blocking way a measurement node flags an over-nameplate reading,
+// and always advances to a single fixed node.next — no threshold branching,
+// the judgment call stays with the human/AI.
+function renderPtCalc(node) {
+  const strings = ui();
+  const nodeId = state.currentId;
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = t(node.text);
+  cardEl.appendChild(q);
+
+  const body = document.createElement("div");
+  body.className = "numeric-hint";
+  body.textContent = strings.ptCalcLoading;
+  cardEl.appendChild(body);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+  cardEl.appendChild(nextBtn);
+
+  let resultEntry = null;
+
+  computePtResult().then((result) => {
+    body.innerHTML = "";
+    body.className = "";
+
+    if (result.status === "unavailable") {
+      const msg = document.createElement("div");
+      msg.className = "numeric-hint";
+      msg.textContent = strings.ptCalcUnavailable;
+      body.appendChild(msg);
+      resultEntry = { nodeId, field: "pt_result", value: strings.ptCalcUnavailable, exceeds: false };
+    } else if (result.status === "out_of_range") {
+      const badge = document.createElement("span");
+      badge.className = "badge critical";
+      badge.textContent = strings.badge.critical;
+      body.appendChild(badge);
+
+      const alertBox = document.createElement("div");
+      alertBox.className = "measurement-alert";
+      const alertIcon = document.createElement("span");
+      alertIcon.className = "measurement-alert-icon";
+      alertIcon.textContent = "⚠️";
+      const alertText = document.createElement("span");
+      alertText.textContent = strings.ptCalcOutOfRangeText;
+      alertBox.appendChild(alertIcon);
+      alertBox.appendChild(alertText);
+      body.appendChild(alertBox);
+
+      resultEntry = {
+        nodeId,
+        field: "pt_result",
+        value: strings.ptCalcOutOfRangeValue,
+        exceeds: true,
+        critical: true,
+      };
+    } else {
+      const superheat = roundTo(result.superheat, 1);
+      const subcooling = roundTo(result.subcooling, 1);
+      const shExceeds = superheat < PT_SH_ALERT.min || superheat > PT_SH_ALERT.max;
+      const scExceeds = subcooling < PT_SC_ALERT.min || subcooling > PT_SC_ALERT.max;
+      const exceeds = shExceeds || scExceeds;
+
+      const shRow = document.createElement("div");
+      shRow.className = "measurement-field";
+      const shLabel = document.createElement("div");
+      shLabel.className = "measurement-field-label";
+      shLabel.textContent = strings.superheatLabel;
+      const shVal = document.createElement("div");
+      shVal.className = "q-text";
+      shVal.textContent = formatNumericValue(superheat, "°F");
+      shRow.appendChild(shLabel);
+      shRow.appendChild(shVal);
+      body.appendChild(shRow);
+
+      const scRow = document.createElement("div");
+      scRow.className = "measurement-field";
+      const scLabel = document.createElement("div");
+      scLabel.className = "measurement-field-label";
+      scLabel.textContent = strings.subcoolingLabel;
+      const scVal = document.createElement("div");
+      scVal.className = "q-text";
+      scVal.textContent = formatNumericValue(subcooling, "°F");
+      scRow.appendChild(scLabel);
+      scRow.appendChild(scVal);
+      body.appendChild(scRow);
+
+      const rangeHint = document.createElement("div");
+      rangeHint.className = "numeric-hint";
+      rangeHint.textContent = strings.ptCalcTypicalRange;
+      body.appendChild(rangeHint);
+
+      if (exceeds) {
+        const alertBox = document.createElement("div");
+        alertBox.className = "measurement-alert";
+        const alertIcon = document.createElement("span");
+        alertIcon.className = "measurement-alert-icon";
+        alertIcon.textContent = "⚠️";
+        const alertText = document.createElement("span");
+        alertText.textContent = strings.ptCalcAlertText;
+        alertBox.appendChild(alertIcon);
+        alertBox.appendChild(alertText);
+        body.appendChild(alertBox);
+      }
+
+      const value = `${strings.superheatLabel} ${formatNumericValue(superheat, "°F")} / ${strings.subcoolingLabel} ${formatNumericValue(subcooling, "°F")}`;
+      resultEntry = { nodeId, field: "pt_result", value, exceeds };
+    }
+    nextBtn.disabled = false;
+  });
+
+  nextBtn.onclick = () => {
+    if (resultEntry) state.answers.push(resultEntry);
+    goTo(node.next, { prevId: nodeId });
+  };
+}
+
 function renderResult(node) {
   const strings = ui();
   const badge = document.createElement("span");
@@ -871,6 +1240,12 @@ function currentAnswers() {
     }
     if (entry.field === "model") {
       return { question: ui().manufacturerModelQuestion, answer: entry.value };
+    }
+    if (entry.field === "refrigerant") {
+      return { question: ui().refrigerantLabel, answer: entry.value };
+    }
+    if (entry.field === "pt_result") {
+      return { question: ui().ptCalcResultQuestion, answer: answerLabel(entry) };
     }
     const node = GRAPH.nodes[entry.nodeId];
     return { question: t(node.text), answer: answerLabel(entry) };
