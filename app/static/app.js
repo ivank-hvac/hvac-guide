@@ -349,6 +349,19 @@ function logSession({ finalNodeId, severity, freeText, aiUsed, aiAnalysis }) {
   }).catch(() => {});
 }
 
+// The AI assistant is instructed to write structured prose and commonly
+// reaches for **bold** to mark headers/root causes — but the response is
+// otherwise plain text, not full markdown. Escape first (the model's own
+// output isn't sanitized upstream), then convert just that one construct;
+// line breaks are already preserved by .ai-response's `white-space: pre-wrap`.
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderAiText(el, text) {
+  el.innerHTML = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 async function runAiAssist({ context, freeText, target, onDone, nodeId, severity }) {
   const strings = ui();
   target.innerHTML = "";
@@ -376,7 +389,7 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
     const data = await r.json();
     if (!r.ok) throw new Error(data.detail || strings.aiRequestError);
     resp.className = "ai-response";
-    resp.textContent = data.analysis;
+    renderAiText(resp, data.analysis);
     logSession({ finalNodeId: nodeId, severity, freeText, aiUsed: true, aiAnalysis: data.analysis });
   } catch (err) {
     resp.className = "ai-response error";
