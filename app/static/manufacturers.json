@@ -1,0 +1,19 @@
+[
+  {"id": "carrier", "name": "Carrier", "url": "https://www.carrier.com/"},
+  {"id": "trane", "name": "Trane", "url": "https://www.trane.com/"},
+  {"id": "lennox", "name": "Lennox", "url": "https://www.lennox.com/"},
+  {"id": "york", "name": "York", "url": "https://www.york.com/"},
+  {"id": "bryant", "name": "Bryant", "url": "https://www.bryant.com/"},
+  {"id": "american-standard", "name": "American Standard", "url": "https://www.americanstandardair.com/"},
+  {"id": "johnson-controls", "name": "Johnson Controls", "url": "https://www.johnsoncontrols.com/"},
+  {"id": "daikin", "name": "Daikin", "url": "https://www.daikin.com/"},
+  {"id": "mitsubishi-electric", "name": "Mitsubishi Electric", "url": "https://www.mitsubishicomfort.com/"},
+  {"id": "lg", "name": "LG", "url": "https://www.lghvac.com/"},
+  {"id": "copeland", "name": "Copeland", "url": "https://www.copeland.com/"},
+  {"id": "danfoss", "name": "Danfoss", "url": "https://www.danfoss.com/"},
+  {"id": "rheem", "name": "Rheem", "url": "https://www.rheem.com/"},
+  {"id": "goodman", "name": "Goodman", "url": "https://www.goodmanmfg.com/"},
+  {"id": "engineered-air", "name": "Engineered Air", "url": "https://www.engineeredair.com/"},
+  {"id": "delhi-industries", "name": "Delhi Industries", "url": "https://www.delhi-industries.com/"},
+  {"id": "ice-western", "name": "ICE Western", "url": "https://www.icewestern.com/"}
+]
