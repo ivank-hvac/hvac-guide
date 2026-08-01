@@ -20,7 +20,20 @@ body {
   font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.disclaimer {
+  width: 100%;
+  box-sizing: border-box;
+  background: #241c0d;
+  color: var(--muted);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 7px 16px;
 }
 
 .wrap {

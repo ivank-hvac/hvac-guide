@@ -3,6 +3,7 @@ const breadcrumbEl = document.getElementById("breadcrumb");
 const backBtn = document.getElementById("backBtn");
 const restartBtn = document.getElementById("restartBtn");
 const langButtons = document.querySelectorAll(".lang-btn");
+const disclaimerEl = document.getElementById("disclaimer");
 
 const I18N = {
   ru: {
@@ -17,6 +18,7 @@ const I18N = {
     aiAskRecommended: "🤖 Уточнить у AI-ассистента (рекомендуется)",
     aiAsk: "🤖 Спросить AI-ассистента",
     freeformPlaceholder: "Опишите наблюдения, показания приборов, модель оборудования...",
+    disclaimer: "Этот инструмент даёт вспомогательные диагностические предположения на основе ИИ и не заменяет суждение квалифицированного специалиста. Перед любыми работами с электричеством, хладагентом или под давлением всегда соблюдайте LOTO и применимые нормы безопасности (OSHA/CSA/местные). Используется на свой риск.",
   },
   en: {
     back: "← Back",
@@ -30,6 +32,7 @@ const I18N = {
     aiAskRecommended: "🤖 Ask AI Assistant (recommended)",
     aiAsk: "🤖 Ask AI Assistant",
     freeformPlaceholder: "Describe your observations, gauge readings, equipment model...",
+    disclaimer: "This tool provides AI-assisted diagnostic suggestions only — it doesn't replace the judgment of a qualified technician. Always follow LOTO and applicable safety codes (OSHA/CSA/local) before working on live electrical, refrigerant, or pressurized components. Use at your own risk.",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -180,6 +183,7 @@ function updateStaticUi() {
   const strings = ui();
   backBtn.textContent = strings.back;
   restartBtn.textContent = strings.restart;
+  disclaimerEl.textContent = strings.disclaimer;
   langButtons.forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
 }
 
