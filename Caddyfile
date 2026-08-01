@@ -1,9 +1,16 @@
 {$DOMAIN:localhost} {
 	# --- Фаза 1 (доступ только своей команде) ---
 	# Раскомментируйте блок ниже, чтобы включить логин/пароль на весь сайт.
-	# Хэш пароля генерируется так:
-	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ'
-	# Результат — в CADDY_BASIC_AUTH_HASH в .env
+	# Хэш пароля генерируется так (обязательно с `| sed` на конце!):
+	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ' | sed 's/\$/\$\$/g'
+	# Результат (уже с удвоенными $$) — в CADDY_BASIC_AUTH_HASH в .env.
+	# Без `sed`-экранирования docker compose съедает всё после первого "$" в
+	# значении из .env при подстановке ${CADDY_BASIC_AUTH_HASH} — хэш в
+	# контейнере окажется обрублен до 5-6 символов, basicauth не примет ни
+	# один пароль, и логин будет выпадать снова и снова у всех. Проверить,
+	# что реально долетело до контейнера:
+	#   docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
+	# (должна быть полная строка ~60 символов, а не обрубок вида "$2a$14").
 	#
 	# basicauth {
 	#     {$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
