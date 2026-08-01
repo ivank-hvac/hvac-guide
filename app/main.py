@@ -366,6 +366,21 @@ async def version():
     return {"commit": GIT_COMMIT, "commit_date": GIT_COMMIT_DATE}
 
 
+# Plain StaticFiles sends no Cache-Control at all, which lets browsers
+# apply heuristic caching (RFC 7234) and skip revalidation entirely for a
+# while — a deployed fix can then silently not show up until a hard
+# refresh, even though the server already has it (this bit us once: the
+# build-version footer showed the new commit while the page still ran old
+# JS). ETag/Last-Modified are still set by StaticFiles underneath, so
+# "no-cache" (always revalidate, not "never cache") keeps the cheap 304
+# path — it just stops the browser from skipping that check.
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # Static frontend (index.html, app.js, style.css, graph.json) — mounted last so
 # /api/* routes above take precedence.
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", NoCacheStaticFiles(directory="static", html=True), name="static")
