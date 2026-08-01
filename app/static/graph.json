@@ -419,9 +419,9 @@
       "type": "question",
       "text": {"ru": "Давление всасывания по сравнению с P-T таблицей для текущей температуры испарения:", "en": "Suction pressure compared to the P-T chart for the current evaporating temperature:"},
       "options": [
-        {"label": {"ru": "Выше нормы", "en": "Above normal"}, "next": "nc_suction_high"},
-        {"label": {"ru": "Ниже нормы", "en": "Below normal"}, "next": "nc_suction_low"},
-        {"label": {"ru": "В целом в норме", "en": "Roughly normal"}, "next": "nc_pressures_ok"},
+        {"label": {"ru": "Давление всасывания: выше нормы", "en": "Suction pressure: above normal"}, "next": "nc_suction_high"},
+        {"label": {"ru": "Давление всасывания: ниже нормы", "en": "Suction pressure: below normal"}, "next": "nc_suction_low"},
+        {"label": {"ru": "Давление всасывания: в целом в норме", "en": "Suction pressure: roughly normal"}, "next": "nc_pressures_ok"},
         {"label": {"ru": "Записать точное давление всасывания (psig)", "en": "Log exact suction pressure reading (psig)"}, "next": "nc_suction_exact"},
         {"label": {"ru": "Рассчитать перегрев/переохлаждение по показаниям манометров (точно)", "en": "Calculate superheat/subcooling from gauge readings (precise)"}, "next": "pt_suction_pressure"}
       ]
@@ -488,7 +488,7 @@
       "options": [
         {"label": {"ru": "Высокий SH", "en": "High superheat"}, "next": "nc_sh_high"},
         {"label": {"ru": "Низкий SH (близко к 0)", "en": "Low superheat (near 0)"}, "next": "nc_sh_low_highsuction"},
-        {"label": {"ru": "Ввести точное значение (°F)", "en": "Enter exact reading (°F)"}, "next": "nc_sh_exact"}
+        {"label": {"ru": "Ввести точное значение SH (°F)", "en": "Enter exact SH reading (°F)"}, "next": "nc_sh_exact"}
       ]
     },
 
@@ -498,7 +498,7 @@
         "ru": "Введите измеренный перегрев (superheat) на всасывании",
         "en": "Enter the measured suction-line superheat"
       },
-      "unit": "°F",
+      "unit": "Δ°F",
       "min": -20,
       "max": 100,
       "thresholds": [
@@ -542,7 +542,7 @@
       "options": [
         {"label": {"ru": "Низкий SC", "en": "Low subcooling"}, "next": "nc_sc_low"},
         {"label": {"ru": "Высокий SC", "en": "High subcooling"}, "next": "nc_sc_high"},
-        {"label": {"ru": "В норме", "en": "Normal"}, "next": "nc_lowsuction_okSC"}
+        {"label": {"ru": "Subcooling: в норме", "en": "Subcooling: normal"}, "next": "nc_lowsuction_okSC"}
       ]
     },
 
