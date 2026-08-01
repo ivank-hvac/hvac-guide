@@ -19,6 +19,8 @@ const I18N = {
     aiAsk: "🤖 Спросить AI-ассистента",
     freeformPlaceholder: "Опишите наблюдения, показания приборов, модель оборудования...",
     disclaimer: "Этот инструмент даёт вспомогательные диагностические предположения на основе ИИ и не заменяет суждение квалифицированного специалиста. Перед любыми работами с электричеством, хладагентом или под давлением всегда соблюдайте LOTO и применимые нормы безопасности (OSHA/CSA/местные). Используется на свой риск.",
+    nextBtn: "Далее",
+    numericRangeLabel: "Диапазон:",
   },
   en: {
     back: "← Back",
@@ -33,6 +35,8 @@ const I18N = {
     aiAsk: "🤖 Ask AI Assistant",
     freeformPlaceholder: "Describe your observations, gauge readings, equipment model...",
     disclaimer: "This tool provides AI-assisted diagnostic suggestions only — it doesn't replace the judgment of a qualified technician. Always follow LOTO and applicable safety codes (OSHA/CSA/local) before working on live electrical, refrigerant, or pressurized components. Use at your own risk.",
+    nextBtn: "Next",
+    numericRangeLabel: "Range:",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -110,6 +114,63 @@ function annotateUnits(text) {
   return out;
 }
 
+// ---- numeric_input node helpers -----------------------------------------
+// Formats a raw numeric answer with its native unit and, when that unit is
+// one annotateUnits() recognizes (psig/kPa, °F/°C, microns/inHg/mmHg), the
+// dual-unit equivalent gets appended automatically — same mechanism as any
+// other graph text, no separate formatting path.
+function rawNumericString(value, unit) {
+  if (!unit) return String(value);
+  return unit.startsWith("°") ? `${value}${unit}` : `${value} ${unit}`;
+}
+
+function formatNumericValue(value, unit) {
+  return annotateUnits(rawNumericString(value, unit));
+}
+
+// Strips everything that isn't a valid "in-progress" number as the user
+// types, so letters/junk simply never appear in the field. Keeps at most
+// one leading "-" (only when the node allows negative values) and one ".".
+function sanitizeNumericInput(raw, allowNegative) {
+  let s = raw.replace(allowNegative ? /[^0-9.\-]/g : /[^0-9.]/g, "");
+  if (allowNegative) {
+    const negative = s.startsWith("-");
+    s = s.replace(/-/g, "");
+    if (negative) s = "-" + s;
+  }
+  const parts = s.split(".");
+  if (parts.length > 2) {
+    s = parts[0] + "." + parts.slice(1).join("");
+  }
+  return s;
+}
+
+// Thresholds are evaluated in order; the first entry whose `max` the value
+// doesn't exceed wins. A trailing entry with no `max` is the catch-all for
+// "everything above the last threshold".
+function resolveThresholdNext(node, value) {
+  for (const th of node.thresholds) {
+    if (th.max == null || value <= th.max) return th.next;
+  }
+  return node.thresholds[node.thresholds.length - 1]?.next;
+}
+
+// Answers can come from a question node (an option was picked) or a
+// numeric_input node (a value was typed) — this resolves either shape to
+// the text shown in the breadcrumb and sent to the AI assistant.
+function answerLabel(entry) {
+  const node = GRAPH.nodes[entry.nodeId];
+  if (!node) return "";
+  if (entry.optionIndex != null) {
+    const opt = node.options?.[entry.optionIndex];
+    return opt ? t(opt.label) : "";
+  }
+  if (entry.value != null) {
+    return formatNumericValue(entry.value, node.unit);
+  }
+  return "";
+}
+
 let GRAPH = null;
 let LANG = localStorage.getItem("hvac_lang");
 if (!SUPPORTED_LANGS.includes(LANG)) {
@@ -127,7 +188,7 @@ function generateSessionId() {
 let state = {
   currentId: null,
   history: [],   // stack of previous node ids
-  answers: [],   // [{nodeId, optionIndex}]
+  answers: [],   // [{nodeId, optionIndex}] for question nodes, [{nodeId, value}] for numeric_input
   sessionId: generateSessionId(),
 };
 
@@ -189,12 +250,12 @@ function updateStaticUi() {
 
 function renderBreadcrumb() {
   breadcrumbEl.innerHTML = "";
-  state.answers.forEach(({ nodeId, optionIndex }) => {
-    const opt = GRAPH.nodes[nodeId]?.options?.[optionIndex];
-    if (!opt) return;
+  state.answers.forEach((entry) => {
+    const label = answerLabel(entry);
+    if (!label) return;
     const chip = document.createElement("span");
     chip.className = "chip";
-    chip.textContent = t(opt.label);
+    chip.textContent = label;
     breadcrumbEl.appendChild(chip);
   });
   backBtn.style.display = state.history.length ? "inline-block" : "none";
@@ -211,6 +272,8 @@ function render() {
     renderResult(node);
   } else if (node.type === "ai_prompt") {
     renderAiPrompt(node);
+  } else if (node.type === "numeric_input") {
+    renderNumericInput(node);
   }
 }
 
@@ -233,6 +296,98 @@ function renderQuestion(node) {
     opts.appendChild(b);
   });
   cardEl.appendChild(opts);
+}
+
+function renderNumericInput(node) {
+  const strings = ui();
+  const nodeId = state.currentId;
+  const allowNegative = typeof node.min === "number" && node.min < 0;
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = t(node.text);
+  cardEl.appendChild(q);
+
+  const row = document.createElement("div");
+  row.className = "numeric-row";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.className = "numeric-input";
+  input.placeholder = "0";
+  row.appendChild(input);
+
+  if (node.unit) {
+    const unitEl = document.createElement("span");
+    unitEl.className = "numeric-unit";
+    unitEl.textContent = node.unit;
+    row.appendChild(unitEl);
+  }
+  cardEl.appendChild(row);
+
+  const hint = document.createElement("div");
+  hint.className = "numeric-hint";
+  cardEl.appendChild(hint);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn ai";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+  cardEl.appendChild(nextBtn);
+
+  function rangeText() {
+    const hasMin = typeof node.min === "number";
+    const hasMax = typeof node.max === "number";
+    const unitSuffix = node.unit ? ` ${node.unit}` : "";
+    if (hasMin && hasMax) return `${strings.numericRangeLabel} ${node.min}–${node.max}${unitSuffix}`;
+    if (hasMax) return `${strings.numericRangeLabel} ≤ ${node.max}${unitSuffix}`;
+    if (hasMin) return `${strings.numericRangeLabel} ≥ ${node.min}${unitSuffix}`;
+    return "";
+  }
+
+  function parsedValue() {
+    if (input.value === "" || input.value === "-" || input.value === ".") return null;
+    const v = parseFloat(input.value);
+    return Number.isNaN(v) ? null : v;
+  }
+
+  function validate() {
+    const val = parsedValue();
+    let valid = val != null;
+    if (valid && typeof node.min === "number" && val < node.min) valid = false;
+    if (valid && typeof node.max === "number" && val > node.max) valid = false;
+    input.classList.toggle("invalid", input.value !== "" && !valid);
+    nextBtn.disabled = !valid;
+
+    let showConverted = "";
+    if (val != null && node.unit) {
+      const raw = rawNumericString(val, node.unit);
+      const annotated = annotateUnits(raw);
+      if (annotated !== raw) showConverted = annotated;
+    }
+    hint.textContent = [rangeText(), showConverted].filter(Boolean).join(" · ");
+    return valid ? val : null;
+  }
+
+  input.addEventListener("input", () => {
+    input.value = sanitizeNumericInput(input.value, allowNegative);
+    validate();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !nextBtn.disabled) nextBtn.click();
+  });
+
+  nextBtn.onclick = () => {
+    const val = validate();
+    if (val == null) return;
+    state.answers.push({ nodeId, value: val });
+    goTo(resolveThresholdNext(node, val), { prevId: nodeId });
+  };
+
+  validate();
+  input.focus();
 }
 
 function renderResult(node) {
@@ -322,10 +477,9 @@ function buildAiBox({ context, highlighted, nodeId, severity }) {
 }
 
 function currentAnswers() {
-  return state.answers.map(({ nodeId, optionIndex }) => {
-    const node = GRAPH.nodes[nodeId];
-    const opt = node.options[optionIndex];
-    return { question: t(node.text), answer: t(opt.label) };
+  return state.answers.map((entry) => {
+    const node = GRAPH.nodes[entry.nodeId];
+    return { question: t(node.text), answer: answerLabel(entry) };
   });
 }
 
