@@ -17,6 +17,13 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
+# Baked in at image build time from the Dockerfile's ARG GIT_COMMIT/
+# GIT_COMMIT_DATE (see docker-compose*.yml build.args) - lets /api/version
+# and the UI footer show exactly what's deployed. "unknown" outside Docker
+# (e.g. running main.py directly for local dev).
+GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
+GIT_COMMIT_DATE = os.getenv("GIT_COMMIT_DATE", "unknown")
+
 # How many AI-assist calls a single IP may make per minute. Tighten this via
 # env when going public (see README "Phase 2: going public").
 AI_ASSIST_RATE_LIMIT = os.getenv("AI_ASSIST_RATE_LIMIT", "8/minute")
@@ -352,6 +359,11 @@ async def log_session(request: Request, req: LogSessionRequest):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "ai_configured": bool(ANTHROPIC_API_KEY)}
+
+
+@app.get("/api/version")
+async def version():
+    return {"commit": GIT_COMMIT, "commit_date": GIT_COMMIT_DATE}
 
 
 # Static frontend (index.html, app.js, style.css, graph.json) — mounted last so

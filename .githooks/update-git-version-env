@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Keeps .env's GIT_COMMIT/GIT_COMMIT_DATE lines in sync with the current
+# git HEAD, so a plain `docker compose up -d --build` always bakes in the
+# right revision (see docker-compose*.yml build.args) without a manual
+# step. Called by the post-commit/post-checkout hooks in this directory.
+#
+# Enable once per clone with:
+#   git config core.hooksPath .githooks
+#
+# No-ops quietly if .env doesn't exist yet - first-time setup does
+# `cp .env.example .env` before this matters (see README).
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+ENV_FILE="$REPO_ROOT/.env"
+
+[ -f "$ENV_FILE" ] || exit 0
+
+COMMIT="$(git rev-parse --short HEAD)"
+COMMIT_DATE="$(git show -s --format=%cd --date=short HEAD)"
+
+# Idempotent: drop any existing GIT_COMMIT/GIT_COMMIT_DATE lines, then
+# append fresh ones, rather than trying to edit them in place.
+grep -v -e '^GIT_COMMIT=' -e '^GIT_COMMIT_DATE=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
+mv "$ENV_FILE.tmp" "$ENV_FILE"
+{
+  echo "GIT_COMMIT=$COMMIT"
+  echo "GIT_COMMIT_DATE=$COMMIT_DATE"
+} >> "$ENV_FILE"

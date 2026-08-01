@@ -337,3 +337,11 @@ footer {
   justify-content: space-between;
   gap: 8px;
 }
+
+.version-info {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.6;
+}

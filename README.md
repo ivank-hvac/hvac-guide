@@ -510,6 +510,42 @@ LIMIT 20;
 (бэкап, `DELETE ... WHERE created_at < ...` и т.п., в проекте не
 автоматизировано).
 
+## Версия сборки
+
+Каждый образ помечен коммитом, из которого он собран, — чтобы можно было
+быстро проверить, что реально задеплоено, без захода в браузер:
+
+1. **OCI-лейбл на образе** — `org.opencontainers.image.revision`. Проверить:
+
+   ```bash
+   docker inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' hvac-guide
+   ```
+
+2. **Футер UI** — короткий хэш + дата коммита мелким блёклым текстом внизу
+   страницы (не отвлекает от основного контента), берётся с `GET
+   /api/version`.
+
+Работает так: `docker-compose.yml`/`docker-compose.prod.yml` передают
+`GIT_COMMIT`/`GIT_COMMIT_DATE` как build args (`${GIT_COMMIT:-unknown}` —
+читаются из `.env`), `Dockerfile` кладёт их в `LABEL
+org.opencontainers.image.revision` и в `ENV`, а `main.py` отдаёт их же
+через `/api/version`, которое и подхватывает футер.
+
+Чтобы `.env` сам оставался актуальным (и `docker compose up -d --build`
+подхватывал текущий коммит без ручного шага) — **один раз на клон**
+включите git-хуки из `.githooks/`:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+После этого `post-commit`/`post-checkout` сами обновляют
+`GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` при каждом коммите/переключении
+веток — тихо ничего не делают, если `.env` ещё не создан (сначала `cp
+.env.example .env`, как обычно). Без включённых хуков (или при ручном
+`docker build` без `--build-arg`) образ просто получит `unknown` вместо
+хэша — не ломается, но и не подскажет версию.
+
 ## Деплой по фазам (команда → публично)
 
 Проект рассчитан на постепенное открытие доступа без переписывания кода.

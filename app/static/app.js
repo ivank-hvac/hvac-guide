@@ -4,6 +4,7 @@ const backBtn = document.getElementById("backBtn");
 const restartBtn = document.getElementById("restartBtn");
 const langButtons = document.querySelectorAll(".lang-btn");
 const disclaimerEl = document.getElementById("disclaimer");
+const versionInfoEl = document.getElementById("versionInfo");
 
 const I18N = {
   ru: {
@@ -445,6 +446,22 @@ async function loadRefrigerants() {
     REFRIGERANTS = await res.json();
   } catch {
     REFRIGERANTS = [];
+  }
+}
+
+// Shows exactly what's deployed (short commit hash + commit date), baked
+// into the image at build time — see Dockerfile / docker-compose*.yml
+// build.args and /api/version. Purely informational, so a failed fetch
+// just leaves the footer blank instead of blocking anything else.
+async function loadVersionInfo() {
+  try {
+    const res = await fetch("./api/version");
+    const data = await res.json();
+    if (data.commit && data.commit !== "unknown") {
+      versionInfoEl.textContent = `${data.commit} · ${data.commit_date}`;
+    }
+  } catch {
+    // leave blank
   }
 }
 
@@ -1345,3 +1362,4 @@ langButtons.forEach((b) => {
 document.documentElement.lang = LANG;
 updateStaticUi();
 loadGraph();
+loadVersionInfo();
