@@ -74,8 +74,57 @@
         {"label": {"ru": "Наледь на испарителе", "en": "Ice on the evaporator"}, "next": "ice_start"},
         {"label": {"ru": "Течь воды", "en": "Water leak"}, "next": "leak_start"},
         {"label": {"ru": "Шум / вибрация", "en": "Noise / vibration"}, "next": "noise_start"},
+        {"label": {"ru": "Скачет давление всасывания при стабильном высоком давлении (hot gas bypass «охотится»)", "en": "Suction pressure hunts while head pressure is stable (hot gas bypass valve hunting)"}, "next": "hgbp_start"},
         {"label": {"ru": "Другое / сложный случай", "en": "Other / complex case"}, "next": "ai_freeform"}
       ]
+    },
+
+    "hgbp_start": {
+      "type": "question",
+      "text": {"ru": "На каком режиме нагрузки чаще всего происходят скачки давления?", "en": "At what load condition does the hunting happen most?"},
+      "options": [
+        {"label": {"ru": "При низкой нагрузке / близко к минимальной ступени", "en": "At low load / near minimum capacity"}, "next": "hgbp_lowload"},
+        {"label": {"ru": "При любой нагрузке, непредсказуемо", "en": "At any load, unpredictably"}, "next": "hgbp_erratic"}
+      ]
+    },
+
+    "hgbp_lowload": {
+      "type": "result",
+      "severity": "warning",
+      "ai": true,
+      "text": {
+        "ru": "Классическая причина — конфликт между hot gas bypass valve (HGBV) и другой ступенью регулирования производительности (слайд-клапан, VFD, ступени компрессора) вблизи минимальной нагрузки: оба механизма одновременно пытаются управлять всасыванием, из-за чего клапан «охотится». Проверьте уставку открытия HGBV относительно точки переключения других ступеней (между ними должен быть зазор/dead band, а не пересечение диапазонов), выдержку времени контроллера и не активна ли механическая разгрузка компрессора в том же диапазоне нагрузки, что и HGBV.",
+        "en": "Classic cause — the hot gas bypass valve (HGBV) fighting another capacity-control stage (slide valve, VFD, compressor steps) near minimum load: both are trying to control suction at once, so the HGBV hunts. Check the HGBV setpoint against the switch point of the other stage (there should be a dead band between them, not overlap), the controller's dead time, and whether mechanical unloading is active in the same load range as the HGBV."
+      }
+    },
+
+    "hgbp_erratic": {
+      "type": "question",
+      "text": {"ru": "Клапан HGBV модулирует плавно или дёргается / залипает механически?", "en": "Does the HGBV move smoothly (modulating) or does it stick/jerk mechanically?"},
+      "options": [
+        {"label": {"ru": "Дёргается / залипает", "en": "Sticks / jerks"}, "next": "hgbp_mechanical"},
+        {"label": {"ru": "Модулирует плавно, но давление всё равно скачет", "en": "Modulates smoothly, but pressure still swings"}, "next": "hgbp_tuning"}
+      ]
+    },
+
+    "hgbp_mechanical": {
+      "type": "result",
+      "severity": "warning",
+      "ai": true,
+      "text": {
+        "ru": "Механическое залипание/рывки указывают на проблему привода клапана, а не логики управления: проверьте пилотный соленоид, чистоту седла клапана (грязь/обломки/коррозия), давление управляющего газа на приводе (actuator supply) и износ штока/сильфона. Плавность движения обычно восстанавливается после чистки или замены привода, без изменения настроек контроллера.",
+        "en": "Mechanical sticking/jerking points to an actuator problem, not a control-logic problem: check the pilot solenoid, valve seat cleanliness (debris/scale/corrosion), actuator supply pressure, and stem/bellows wear. Smooth motion is usually restored by cleaning or replacing the actuator, without touching controller settings."
+      }
+    },
+
+    "hgbp_tuning": {
+      "type": "result",
+      "severity": "warning",
+      "ai": true,
+      "text": {
+        "ru": "Если клапан сам движется плавно, но давление всё равно колеблется — ищите проблему в контуре регулирования: слишком резкий gain у ПИД-регулятора, зашумлённый или медленный датчик давления всасывания (нужно демпфирование сигнала), либо слишком короткий цикл опроса контроллера относительно тепловой/гидравлической инерции системы. Начните с увеличения демпфирования датчика и снижения gain, затем перенастраивайте по отклику.",
+        "en": "If the valve itself moves smoothly but pressure still oscillates, look at the control loop: PID gain set too aggressively, a noisy or slow suction-pressure transducer (needs signal damping), or a controller scan/cycle time too short relative to the system's thermal/hydraulic lag. Start by increasing transducer damping and lowering gain, then re-tune from the response curve."
+      }
     },
 
     "refrig_symptom": {
