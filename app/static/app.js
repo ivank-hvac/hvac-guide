@@ -134,6 +134,19 @@ function convertTemperature(value, unit) {
   return { value: roundTo((value * 9) / 5 + 32, 0), unit: "°F" };
 }
 
+// A *difference* between two temperatures (superheat, subcooling) does not
+// carry the +32 offset that an absolute reading does — only the 1.8:1
+// scale applies (a 1°F swing is a 1/1.8 = 0.56°C swing, not the -17.2°C
+// you'd get by feeding "1" through convertTemperature's absolute formula).
+// Keeping this as a separate function/unit ("Δ°F"/"Δ°C") is deliberate:
+// reusing convertTemperature for a delta is exactly the bug this fixes.
+function convertTemperatureDelta(value, unit) {
+  if (unit === "f") {
+    return { value: roundTo(value / 1.8, 1), unit: "Δ°C" };
+  }
+  return { value: roundTo(value * 1.8, 1), unit: "Δ°F" };
+}
+
 const MICRONS_PER_INHG = 25400;
 const MICRONS_PER_MMHG = 1000;
 
@@ -154,6 +167,7 @@ function convertVacuum(value, unit) {
 // annotated a second time.
 const PRESSURE_RE = /(?<![\d(.])(-?\d+(?:\.\d+)?)\s?(psig|kPa)\b(?!\s*\()/gi;
 const TEMPERATURE_RE = /(?<![\d(.])(-?\d+(?:\.\d+)?)\s?°([FfCc])(?!\s*\()/g;
+const DELTA_TEMPERATURE_RE = /(?<![\d(.])(-?\d+(?:\.\d+)?)\s?Δ°([FfCc])(?!\s*\()/g;
 const VACUUM_RE = /(?<![\d(.])(-?\d+(?:\.\d+)?)\s?(microns|inHg|mmHg)\b(?!\s*\()/gi;
 
 function annotateUnits(text) {
@@ -161,6 +175,12 @@ function annotateUnits(text) {
   let out = text.replace(PRESSURE_RE, (match, num, unit) => {
     const conv = convertPressure(parseFloat(num), unit.toLowerCase());
     return `${match} (${formatNum(conv.value)} ${conv.unit})`;
+  });
+  // Must run before TEMPERATURE_RE: "Δ°F" also matches "°F", and only this
+  // one applies the delta-safe (no +32 offset) conversion.
+  out = out.replace(DELTA_TEMPERATURE_RE, (match, num, unit) => {
+    const conv = convertTemperatureDelta(parseFloat(num), unit.toLowerCase());
+    return `${match} (${formatNum(conv.value)}${conv.unit})`;
   });
   out = out.replace(TEMPERATURE_RE, (match, num, unit) => {
     const conv = convertTemperature(parseFloat(num), unit.toLowerCase());
@@ -1113,7 +1133,7 @@ function renderPtCalc(node) {
       shLabel.textContent = strings.superheatLabel;
       const shVal = document.createElement("div");
       shVal.className = "q-text";
-      shVal.textContent = formatNumericValue(superheat, "°F");
+      shVal.textContent = formatNumericValue(superheat, "Δ°F");
       shRow.appendChild(shLabel);
       shRow.appendChild(shVal);
       body.appendChild(shRow);
@@ -1125,7 +1145,7 @@ function renderPtCalc(node) {
       scLabel.textContent = strings.subcoolingLabel;
       const scVal = document.createElement("div");
       scVal.className = "q-text";
-      scVal.textContent = formatNumericValue(subcooling, "°F");
+      scVal.textContent = formatNumericValue(subcooling, "Δ°F");
       scRow.appendChild(scLabel);
       scRow.appendChild(scVal);
       body.appendChild(scRow);
@@ -1148,7 +1168,7 @@ function renderPtCalc(node) {
         body.appendChild(alertBox);
       }
 
-      const value = `${strings.superheatLabel} ${formatNumericValue(superheat, "°F")} / ${strings.subcoolingLabel} ${formatNumericValue(subcooling, "°F")}`;
+      const value = `${strings.superheatLabel} ${formatNumericValue(superheat, "Δ°F")} / ${strings.subcoolingLabel} ${formatNumericValue(subcooling, "Δ°F")}`;
       resultEntry = { nodeId, field: "pt_result", value, exceeds };
     }
     nextBtn.disabled = false;
