@@ -45,6 +45,9 @@ const I18N = {
     ptCalcTypicalRange: "Типичный целевой диапазон: перегрев ~8–12°F, переохлаждение ~10–15°F — уточняйте по паспорту конкретного оборудования.",
     ptCalcAlertText: "Расчётное значение существенно выходит за типичный рабочий диапазон. Это не диагноз, а сигнал присмотреться внимательнее: проверьте показания манометров, места установки датчиков температуры и рассмотрите альтернативные причины.",
     ptCalcAlertFlag: "ВНИМАНИЕ: SH/SC вне типичного диапазона",
+    ptCalcOutOfRangeText: "Введённое давление находится за пределами нормального рабочего диапазона P-T таблицы для этого хладагента. Это НЕ погрешность интерполяции — вероятная причина: серьёзная неисправность (утечка, неправильный/перепутанный хладагент, катастрофический отказ компонента). Прекратите обычную диагностику по SH/SC: проверьте системы безопасности, соблюдайте LOTO и рассмотрите немедленную остановку оборудования до выяснения причины.",
+    ptCalcOutOfRangeFlag: "ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ",
+    ptCalcOutOfRangeValue: "Давление вне табличного диапазона хладагента — SH/SC не рассчитаны",
     ptCalcResultQuestion: "Перегрев/переохлаждение (расчёт по P-T таблице)",
   },
   en: {
@@ -86,6 +89,9 @@ const I18N = {
     ptCalcTypicalRange: "Typical target range: superheat ~8-12°F, subcooling ~10-15°F — verify against the specific equipment's nameplate/spec.",
     ptCalcAlertText: "The calculated value is well outside the typical operating range. This isn't a diagnosis by itself — it's a flag to look closer: double-check gauge readings, sensor placement, and consider other possible causes.",
     ptCalcAlertFlag: "WARNING: SH/SC outside typical range",
+    ptCalcOutOfRangeText: "The entered pressure is outside the normal operating range of this refrigerant's P-T table. This is NOT an interpolation-precision issue — the likely cause is a serious fault (a leak, the wrong/mixed refrigerant, or a catastrophic component failure). Stop routine SH/SC diagnosis: check the system's safety devices, follow LOTO, and consider shutting the equipment down immediately until the cause is identified.",
+    ptCalcOutOfRangeFlag: "WARNING: pressure outside operating range — possible serious fault",
+    ptCalcOutOfRangeValue: "Pressure outside the refrigerant's table range — SH/SC not calculated",
     ptCalcResultQuestion: "Superheat/Subcooling (calculated from P-T chart)",
   },
 };
@@ -255,37 +261,30 @@ async function loadRefrigerantTable(id) {
 // evaporating side — the two differ for a blend with real glide, and
 // collapse to the same curve for a pure fluid/near-azeotrope). Points must
 // be sorted ascending by temp_f, which is also ascending by pressure.
-// Readings outside the table's range are linearly extrapolated from the
-// nearest edge segment rather than clamped, since a slightly-out-of-range
-// gauge reading is far more likely than a genuinely wrong one.
+// Deliberately does NOT extrapolate beyond the table's range (-40F to
+// 150F, refrigerant-dependent): a suction/head pressure outside a normal
+// refrigeration/AC cycle's range isn't an interpolation-precision problem,
+// it's a sign the system itself isn't in a normal operating state (leak,
+// wrong refrigerant, a component failure) — returning a computed-looking
+// number there would be false precision. Callers must treat null as "can't
+// compute, and that's itself the finding" rather than a missing-data case.
 function saturationTemp(points, pressurePsig, curve) {
   const key = curve === "bubble" ? "bubble_psig" : "dew_psig";
   const n = points.length;
   if (n === 0) return null;
+  if (pressurePsig < points[0][key] || pressurePsig > points[n - 1][key]) return null;
   if (n === 1) return points[0].temp_f;
-  let lo = 0;
-  let hi = n - 1;
-  if (pressurePsig <= points[0][key]) {
-    lo = 0;
-    hi = 1;
-  } else if (pressurePsig >= points[n - 1][key]) {
-    lo = n - 2;
-    hi = n - 1;
-  } else {
-    for (let i = 0; i < n - 1; i++) {
-      if (pressurePsig >= points[i][key] && pressurePsig <= points[i + 1][key]) {
-        lo = i;
-        hi = i + 1;
-        break;
-      }
+  for (let i = 0; i < n - 1; i++) {
+    if (pressurePsig >= points[i][key] && pressurePsig <= points[i + 1][key]) {
+      const p0 = points[i][key];
+      const p1 = points[i + 1][key];
+      const t0 = points[i].temp_f;
+      const t1 = points[i + 1].temp_f;
+      if (p1 === p0) return t0;
+      return t0 + ((pressurePsig - p0) / (p1 - p0)) * (t1 - t0);
     }
   }
-  const p0 = points[lo][key];
-  const p1 = points[hi][key];
-  const t0 = points[lo].temp_f;
-  const t1 = points[hi].temp_f;
-  if (p1 === p0) return t0;
-  return t0 + ((pressurePsig - p0) / (p1 - p0)) * (t1 - t0);
+  return null;
 }
 
 // Scans backward from the current point in the checklist for the most
@@ -301,6 +300,14 @@ function findAnswerByRole(role) {
   return null;
 }
 
+// status is one of:
+//   "unavailable"  - no refrigerant picked (or "don't know"), or a reading
+//                    is missing - nothing to compute, nothing alarming
+//   "out_of_range" - refrigerant known and readings present, but suction or
+//                    head pressure falls outside that refrigerant's P-T
+//                    table entirely - deliberately NOT computed (see
+//                    saturationTemp); this is itself the finding
+//   "ok"           - superheat/subcooling computed normally
 async function computePtResult() {
   const suctionPressure = findAnswerByRole("suction_pressure");
   const suctionTemp = findAnswerByRole("suction_temp");
@@ -313,14 +320,18 @@ async function computePtResult() {
     refrigerant.id === "unknown" ||
     [suctionPressure, suctionTemp, headPressure, liquidTemp].some((v) => v == null)
   ) {
-    return null;
+    return { status: "unavailable" };
   }
   const points = await loadRefrigerantTable(refrigerant.id);
-  if (!points) return null;
+  if (!points) return { status: "unavailable" };
 
   const satEvapTemp = saturationTemp(points, suctionPressure, "dew");
   const satCondTemp = saturationTemp(points, headPressure, "bubble");
+  if (satEvapTemp == null || satCondTemp == null) {
+    return { status: "out_of_range" };
+  }
   return {
+    status: "ok",
     superheat: suctionTemp - satEvapTemp,
     subcooling: satCondTemp - liquidTemp,
   };
@@ -337,7 +348,9 @@ function answerLabel(entry) {
     return entry.value;
   }
   if (entry.field === "pt_result") {
-    return entry.exceeds ? `${entry.value} — ${ui().ptCalcAlertFlag}` : entry.value;
+    if (!entry.exceeds) return entry.value;
+    const flag = entry.critical ? ui().ptCalcOutOfRangeFlag : ui().ptCalcAlertFlag;
+    return `${entry.value} — ${flag}`;
   }
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
@@ -1037,12 +1050,36 @@ function renderPtCalc(node) {
     body.innerHTML = "";
     body.className = "";
 
-    if (!result) {
+    if (result.status === "unavailable") {
       const msg = document.createElement("div");
       msg.className = "numeric-hint";
       msg.textContent = strings.ptCalcUnavailable;
       body.appendChild(msg);
       resultEntry = { nodeId, field: "pt_result", value: strings.ptCalcUnavailable, exceeds: false };
+    } else if (result.status === "out_of_range") {
+      const badge = document.createElement("span");
+      badge.className = "badge critical";
+      badge.textContent = strings.badge.critical;
+      body.appendChild(badge);
+
+      const alertBox = document.createElement("div");
+      alertBox.className = "measurement-alert";
+      const alertIcon = document.createElement("span");
+      alertIcon.className = "measurement-alert-icon";
+      alertIcon.textContent = "⚠️";
+      const alertText = document.createElement("span");
+      alertText.textContent = strings.ptCalcOutOfRangeText;
+      alertBox.appendChild(alertIcon);
+      alertBox.appendChild(alertText);
+      body.appendChild(alertBox);
+
+      resultEntry = {
+        nodeId,
+        field: "pt_result",
+        value: strings.ptCalcOutOfRangeValue,
+        exceeds: true,
+        critical: true,
+      };
     } else {
       const superheat = roundTo(result.superheat, 1);
       const subcooling = roundTo(result.subcooling, 1);
