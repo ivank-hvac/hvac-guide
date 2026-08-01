@@ -19,7 +19,7 @@
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_start"},
+        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_refrigerant"},
         {"label": {"ru": "Нет обогрева", "en": "No heat"}, "next": "nh_type"},
         {"label": {"ru": "Не запускается вообще", "en": "Won't start at all"}, "next": "ws_start"},
         {"label": {"ru": "Срабатывает защита по высокому давлению", "en": "High-pressure safety trips"}, "next": "hp_start"},
@@ -35,7 +35,7 @@
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_start"},
+        {"label": {"ru": "Нет охлаждения", "en": "No cooling"}, "next": "nc_refrigerant"},
         {"label": {"ru": "Нет обогрева", "en": "No heat"}, "next": "nh_type"},
         {"label": {"ru": "Не запускается вообще", "en": "Won't start at all"}, "next": "ws_start"},
         {"label": {"ru": "Срабатывает защита по высокому давлению", "en": "High-pressure safety trips"}, "next": "hp_start"},
@@ -51,7 +51,7 @@
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": {"ru": "Нет охлаждения в зоне", "en": "No cooling in zone"}, "next": "nc_start"},
+        {"label": {"ru": "Нет охлаждения в зоне", "en": "No cooling in zone"}, "next": "nc_refrigerant"},
         {"label": {"ru": "Нет обогрева в зоне", "en": "No heat in zone"}, "next": "nh_type"},
         {"label": {"ru": "Вся система не работает", "en": "Entire system down"}, "next": "ws_start"},
         {"label": {"ru": "Ошибка / высокое давление", "en": "Fault / high pressure"}, "next": "hp_start"},
@@ -67,7 +67,7 @@
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": {"ru": "Недостаточное охлаждение / низкая производительность", "en": "Insufficient cooling / low capacity"}, "next": "nc_start"},
+        {"label": {"ru": "Недостаточное охлаждение / низкая производительность", "en": "Insufficient cooling / low capacity"}, "next": "nc_refrigerant"},
         {"label": {"ru": "Не запускается", "en": "Won't start"}, "next": "ws_start"},
         {"label": {"ru": "Высокое давление / защита", "en": "High pressure / safety trip"}, "next": "hp_start"},
         {"label": {"ru": "Низкое давление / защита", "en": "Low pressure / safety trip"}, "next": "lp_start"},
@@ -131,7 +131,7 @@
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
       "options": [
-        {"label": {"ru": "Температура в камере выше нормы", "en": "Box temperature above setpoint"}, "next": "nc_start"},
+        {"label": {"ru": "Температура в камере выше нормы", "en": "Box temperature above setpoint"}, "next": "nc_refrigerant"},
         {"label": {"ru": "Не запускается / короткие циклы", "en": "Won't start / short cycling"}, "next": "ws_start"},
         {"label": {"ru": "Высокое давление", "en": "High pressure"}, "next": "hp_start"},
         {"label": {"ru": "Низкое давление / замерзание", "en": "Low pressure / freeze-up"}, "next": "lp_start"},
@@ -378,6 +378,15 @@
       }
     },
 
+    "nc_refrigerant": {
+      "type": "refrigerant_select",
+      "text": {
+        "ru": "Какой хладагент в системе?",
+        "en": "What refrigerant is in the system?"
+      },
+      "next": "nc_start"
+    },
+
     "nc_start": {
       "type": "question",
       "text": {"ru": "Компрессор запускается и работает?", "en": "Does the compressor start and run?"},
@@ -413,8 +422,55 @@
         {"label": {"ru": "Выше нормы", "en": "Above normal"}, "next": "nc_suction_high"},
         {"label": {"ru": "Ниже нормы", "en": "Below normal"}, "next": "nc_suction_low"},
         {"label": {"ru": "В целом в норме", "en": "Roughly normal"}, "next": "nc_pressures_ok"},
-        {"label": {"ru": "Записать точное давление всасывания (psig)", "en": "Log exact suction pressure reading (psig)"}, "next": "nc_suction_exact"}
+        {"label": {"ru": "Записать точное давление всасывания (psig)", "en": "Log exact suction pressure reading (psig)"}, "next": "nc_suction_exact"},
+        {"label": {"ru": "Рассчитать перегрев/переохлаждение по показаниям манометров (точно)", "en": "Calculate superheat/subcooling from gauge readings (precise)"}, "next": "pt_suction_pressure"}
       ]
+    },
+
+    "pt_suction_pressure": {
+      "type": "numeric_input",
+      "role": "suction_pressure",
+      "text": {"ru": "Давление всасывания (манометр)", "en": "Suction pressure (gauge reading)"},
+      "unit": "psig",
+      "min": -10,
+      "max": 500,
+      "next": "pt_suction_temp"
+    },
+
+    "pt_suction_temp": {
+      "type": "numeric_input",
+      "role": "suction_temp",
+      "text": {"ru": "Температура линии всасывания (термометр/термопара на трубке)", "en": "Suction-line temperature (thermometer/thermocouple on the tubing)"},
+      "unit": "°F",
+      "min": -40,
+      "max": 150,
+      "next": "pt_head_pressure"
+    },
+
+    "pt_head_pressure": {
+      "type": "numeric_input",
+      "role": "head_pressure",
+      "text": {"ru": "Давление нагнетания (конденсации)", "en": "Discharge (head) pressure"},
+      "unit": "psig",
+      "min": 0,
+      "max": 700,
+      "next": "pt_liquid_temp"
+    },
+
+    "pt_liquid_temp": {
+      "type": "numeric_input",
+      "role": "liquid_temp",
+      "text": {"ru": "Температура жидкостной линии", "en": "Liquid-line temperature"},
+      "unit": "°F",
+      "min": -20,
+      "max": 180,
+      "next": "pt_calc_result"
+    },
+
+    "pt_calc_result": {
+      "type": "pt_calc",
+      "text": {"ru": "Результат расчёта", "en": "Calculation result"},
+      "next": "nc_pressures_ok"
     },
 
     "nc_suction_exact": {
