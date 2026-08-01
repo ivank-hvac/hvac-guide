@@ -2,9 +2,14 @@
 # Keeps .env's GIT_COMMIT/GIT_COMMIT_DATE lines in sync with the current
 # git HEAD, so a plain `docker compose up -d --build` always bakes in the
 # right revision (see docker-compose*.yml build.args) without a manual
-# step. Called by the post-commit/post-checkout hooks in this directory.
+# step. Called by the post-commit/post-checkout/post-merge hooks in this
+# directory - post-merge is the one that matters for a typical deploy
+# (`git pull` triggers post-merge on a fast-forward, NOT post-checkout or
+# post-commit, which are for local commits/branch switches instead).
 #
-# Enable once per clone with:
+# core.hooksPath is local git config, not something `git pull` brings in
+# on its own - enable once on EVERY machine/clone that will build the
+# image (dev machine(s) AND every deploy target):
 #   git config core.hooksPath .githooks
 #
 # No-ops quietly if .env doesn't exist yet - first-time setup does
