@@ -1,0 +1,137 @@
+[
+  {
+    "temp_f": -20,
+    "bubble_psig": 0.4,
+    "dew_psig": 0.4
+  },
+  {
+    "temp_f": -15,
+    "bubble_psig": 2.3,
+    "dew_psig": 2.3
+  },
+  {
+    "temp_f": -10,
+    "bubble_psig": 4.4,
+    "dew_psig": 4.4
+  },
+  {
+    "temp_f": -5,
+    "bubble_psig": 6.7,
+    "dew_psig": 6.7
+  },
+  {
+    "temp_f": 0,
+    "bubble_psig": 9.2,
+    "dew_psig": 9.2
+  },
+  {
+    "temp_f": 5,
+    "bubble_psig": 11.9,
+    "dew_psig": 11.9
+  },
+  {
+    "temp_f": 10,
+    "bubble_psig": 14.9,
+    "dew_psig": 14.9
+  },
+  {
+    "temp_f": 15,
+    "bubble_psig": 18.1,
+    "dew_psig": 18.1
+  },
+  {
+    "temp_f": 20,
+    "bubble_psig": 21.6,
+    "dew_psig": 21.6
+  },
+  {
+    "temp_f": 25,
+    "bubble_psig": 25.4,
+    "dew_psig": 25.4
+  },
+  {
+    "temp_f": 30,
+    "bubble_psig": 29.4,
+    "dew_psig": 29.4
+  },
+  {
+    "temp_f": 35,
+    "bubble_psig": 33.8,
+    "dew_psig": 33.8
+  },
+  {
+    "temp_f": 40,
+    "bubble_psig": 38.4,
+    "dew_psig": 38.4
+  },
+  {
+    "temp_f": 45,
+    "bubble_psig": 43.4,
+    "dew_psig": 43.4
+  },
+  {
+    "temp_f": 50,
+    "bubble_psig": 48.8,
+    "dew_psig": 48.8
+  },
+  {
+    "temp_f": 55,
+    "bubble_psig": 54.5,
+    "dew_psig": 54.5
+  },
+  {
+    "temp_f": 60,
+    "bubble_psig": 60.6,
+    "dew_psig": 60.6
+  },
+  {
+    "temp_f": 65,
+    "bubble_psig": 67.0,
+    "dew_psig": 67.0
+  },
+  {
+    "temp_f": 70,
+    "bubble_psig": 73.9,
+    "dew_psig": 73.9
+  },
+  {
+    "temp_f": 75,
+    "bubble_psig": 81.2,
+    "dew_psig": 81.2
+  },
+  {
+    "temp_f": 80,
+    "bubble_psig": 89.0,
+    "dew_psig": 89.0
+  },
+  {
+    "temp_f": 85,
+    "bubble_psig": 97.2,
+    "dew_psig": 97.2
+  },
+  {
+    "temp_f": 90,
+    "bubble_psig": 106.0,
+    "dew_psig": 106.0
+  },
+  {
+    "temp_f": 95,
+    "bubble_psig": 115.0,
+    "dew_psig": 115.0
+  },
+  {
+    "temp_f": 100,
+    "bubble_psig": 125.0,
+    "dew_psig": 125.0
+  },
+  {
+    "temp_f": 105,
+    "bubble_psig": 135.0,
+    "dew_psig": 135.0
+  },
+  {
+    "temp_f": 110,
+    "bubble_psig": 146.0,
+    "dew_psig": 146.0
+  }
+]

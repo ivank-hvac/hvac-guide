@@ -1,0 +1,77 @@
+[
+  {
+    "id": "r410a",
+    "name": "R-410A",
+    "file": "refrigerants/r410a.json"
+  },
+  {
+    "id": "r22",
+    "name": "R-22",
+    "file": "refrigerants/r22.json"
+  },
+  {
+    "id": "r404a",
+    "name": "R-404A",
+    "file": "refrigerants/r404a.json"
+  },
+  {
+    "id": "r507a",
+    "name": "R-507A",
+    "file": "refrigerants/r507a.json"
+  },
+  {
+    "id": "r407c",
+    "name": "R-407C",
+    "file": "refrigerants/r407c.json"
+  },
+  {
+    "id": "r32",
+    "name": "R-32",
+    "file": "refrigerants/r32.json"
+  },
+  {
+    "id": "r448a",
+    "name": "R-448A",
+    "file": "refrigerants/r448a.json"
+  },
+  {
+    "id": "r449a",
+    "name": "R-449A",
+    "file": "refrigerants/r449a.json"
+  },
+  {
+    "id": "r452a",
+    "name": "R-452A",
+    "file": "refrigerants/r452a.json"
+  },
+  {
+    "id": "r513a",
+    "name": "R-513A",
+    "file": "refrigerants/r513a.json"
+  },
+  {
+    "id": "r500",
+    "name": "R-500",
+    "file": "refrigerants/r500.json"
+  },
+  {
+    "id": "r502",
+    "name": "R-502",
+    "file": "refrigerants/r502.json"
+  },
+  {
+    "id": "r454b",
+    "name": "R-454B",
+    "file": "refrigerants/r454b.json"
+  },
+  {
+    "id": "r1234yf",
+    "name": "R-1234yf",
+    "file": "refrigerants/r1234yf.json"
+  },
+  {
+    "id": "r134a",
+    "name": "R-134a",
+    "file": "refrigerants/r134a.json"
+  }
+]

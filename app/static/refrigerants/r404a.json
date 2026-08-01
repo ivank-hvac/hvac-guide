@@ -1,0 +1,197 @@
+[
+  {
+    "temp_f": -40,
+    "bubble_psig": 4.9,
+    "dew_psig": 4.3
+  },
+  {
+    "temp_f": -35,
+    "bubble_psig": 7.5,
+    "dew_psig": 6.8
+  },
+  {
+    "temp_f": -30,
+    "bubble_psig": 10.3,
+    "dew_psig": 9.6
+  },
+  {
+    "temp_f": -25,
+    "bubble_psig": 13.4,
+    "dew_psig": 12.7
+  },
+  {
+    "temp_f": -20,
+    "bubble_psig": 16.8,
+    "dew_psig": 16.0
+  },
+  {
+    "temp_f": -15,
+    "bubble_psig": 20.5,
+    "dew_psig": 19.7
+  },
+  {
+    "temp_f": -10,
+    "bubble_psig": 24.6,
+    "dew_psig": 23.6
+  },
+  {
+    "temp_f": -5,
+    "bubble_psig": 28.9,
+    "dew_psig": 27.9
+  },
+  {
+    "temp_f": 0,
+    "bubble_psig": 33.7,
+    "dew_psig": 32.6
+  },
+  {
+    "temp_f": 5,
+    "bubble_psig": 38.8,
+    "dew_psig": 37.7
+  },
+  {
+    "temp_f": 10,
+    "bubble_psig": 44.3,
+    "dew_psig": 43.1
+  },
+  {
+    "temp_f": 15,
+    "bubble_psig": 50.2,
+    "dew_psig": 49.0
+  },
+  {
+    "temp_f": 20,
+    "bubble_psig": 56.6,
+    "dew_psig": 55.3
+  },
+  {
+    "temp_f": 25,
+    "bubble_psig": 63.4,
+    "dew_psig": 62.1
+  },
+  {
+    "temp_f": 30,
+    "bubble_psig": 70.7,
+    "dew_psig": 69.3
+  },
+  {
+    "temp_f": 35,
+    "bubble_psig": 78.6,
+    "dew_psig": 77.1
+  },
+  {
+    "temp_f": 40,
+    "bubble_psig": 86.9,
+    "dew_psig": 85.4
+  },
+  {
+    "temp_f": 45,
+    "bubble_psig": 95.8,
+    "dew_psig": 94.2
+  },
+  {
+    "temp_f": 50,
+    "bubble_psig": 105.3,
+    "dew_psig": 103.6
+  },
+  {
+    "temp_f": 55,
+    "bubble_psig": 115.3,
+    "dew_psig": 113.6
+  },
+  {
+    "temp_f": 60,
+    "bubble_psig": 126.0,
+    "dew_psig": 124.2
+  },
+  {
+    "temp_f": 65,
+    "bubble_psig": 137.3,
+    "dew_psig": 135.5
+  },
+  {
+    "temp_f": 70,
+    "bubble_psig": 149.3,
+    "dew_psig": 147.4
+  },
+  {
+    "temp_f": 75,
+    "bubble_psig": 162.0,
+    "dew_psig": 160.1
+  },
+  {
+    "temp_f": 80,
+    "bubble_psig": 175.4,
+    "dew_psig": 173.4
+  },
+  {
+    "temp_f": 85,
+    "bubble_psig": 189.5,
+    "dew_psig": 187.5
+  },
+  {
+    "temp_f": 90,
+    "bubble_psig": 204.5,
+    "dew_psig": 202.4
+  },
+  {
+    "temp_f": 95,
+    "bubble_psig": 220.2,
+    "dew_psig": 218.1
+  },
+  {
+    "temp_f": 100,
+    "bubble_psig": 236.8,
+    "dew_psig": 234.6
+  },
+  {
+    "temp_f": 105,
+    "bubble_psig": 254.2,
+    "dew_psig": 252.1
+  },
+  {
+    "temp_f": 110,
+    "bubble_psig": 272.5,
+    "dew_psig": 270.4
+  },
+  {
+    "temp_f": 115,
+    "bubble_psig": 291.8,
+    "dew_psig": 289.6
+  },
+  {
+    "temp_f": 120,
+    "bubble_psig": 312.1,
+    "dew_psig": 309.9
+  },
+  {
+    "temp_f": 125,
+    "bubble_psig": 333.3,
+    "dew_psig": 331.2
+  },
+  {
+    "temp_f": 130,
+    "bubble_psig": 355.7,
+    "dew_psig": 353.5
+  },
+  {
+    "temp_f": 135,
+    "bubble_psig": 379.1,
+    "dew_psig": 377.0
+  },
+  {
+    "temp_f": 140,
+    "bubble_psig": 403.7,
+    "dew_psig": 401.7
+  },
+  {
+    "temp_f": 145,
+    "bubble_psig": 429.6,
+    "dew_psig": 427.7
+  },
+  {
+    "temp_f": 150,
+    "bubble_psig": 456.8,
+    "dew_psig": 455.1
+  }
+]
