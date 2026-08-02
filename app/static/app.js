@@ -507,6 +507,10 @@ async function loadGraph() {
 
   const resumable = await checkResumableSession();
   if (resumable) {
+    // Reflect the session actually being offered (not the fresh id `state`
+    // was seeded with at module load) so the footer/screenshot is accurate
+    // even before the technician picks Continue vs. Start over.
+    state.sessionId = resumable.session_id;
     renderResumePrompt(resumable);
   } else {
     goTo(GRAPH.start, { pushHistory: false });
@@ -534,17 +538,33 @@ async function loadRefrigerants() {
 // Shows exactly what's deployed (short commit hash + commit date), baked
 // into the image at build time — see Dockerfile / docker-compose*.yml
 // build.args and /api/version. Purely informational, so a failed fetch
-// just leaves the footer blank instead of blocking anything else.
+// just leaves that part of the footer blank instead of blocking anything else.
+let versionData = null;
+
 async function loadVersionInfo() {
   try {
     const res = await fetch("./api/version");
     const data = await res.json();
     if (data.commit && data.commit !== "unknown") {
-      versionInfoEl.textContent = `${data.commit} · ${data.commit_date}`;
+      versionData = data;
     }
   } catch {
     // leave blank
   }
+  renderFooterInfo();
+}
+
+// Same footer line as the commit hash/date above, so a technician's
+// screenshot of a stuck screen carries the session_id needed to pull
+// node_path/checklist_state straight from the DB (see sessions table in
+// main.py) instead of a back-and-forth about what was clicked. Short form
+// (first 8 chars) is enough to disambiguate visually and by DB prefix
+// lookup — the full UUID is still in localStorage/the sessions table.
+function renderFooterInfo() {
+  const parts = [];
+  if (versionData) parts.push(`${versionData.commit} · ${versionData.commit_date}`);
+  if (state.sessionId) parts.push(`session: ${state.sessionId.slice(0, 8)}`);
+  versionInfoEl.textContent = parts.join(" · ");
 }
 
 // ---- Session persistence (resume across page reloads/lost signal) -------
@@ -625,6 +645,7 @@ function renderResumePrompt(data) {
   breadcrumbEl.innerHTML = "";
   backBtn.style.display = "none";
   cardEl.innerHTML = "";
+  renderFooterInfo();
 
   const title = document.createElement("div");
   title.className = "q-text";
@@ -1122,6 +1143,7 @@ function renderBreadcrumb() {
 
 function render() {
   renderBreadcrumb();
+  renderFooterInfo();
   cardEl.innerHTML = "";
   scheduleSessionSave();
 
