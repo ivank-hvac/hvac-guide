@@ -1,34 +1,36 @@
 {
-	# TLS уже терминируется выше по цепочке (внешний edge-Caddy на Linode) —
-	# этот, внутренний Caddy получает через WireGuard-туннель уже
-	# расшифрованный HTTP. Сайт ниже адресован голым ":80" (не доменом)
-	# именно поэтому — Caddy не триггерит automatic HTTPS для чистого
-	# порт-адреса. auto_https off — доп. страховка на случай, если кто-то
-	# позже заменит ":80" на доменное имя: без неё редирект на
-	# https://домен прилетает обратно сюда же как HTTP через внешний Caddy,
-	# и так по кругу — ERR_TOO_MANY_REDIRECTS у любого клиента, без
-	# исключений (было именно так, пока адрес был доменным).
+	# TLS is already terminated further up the chain (an external edge Caddy
+	# on Linode) — this, internal Caddy gets already-decrypted HTTP over a
+	# WireGuard tunnel. The site below is addressed with a bare ":80" (not a
+	# domain) specifically for that reason — Caddy doesn't trigger automatic
+	# HTTPS for a plain port address. auto_https off is an extra safety net
+	# in case someone later replaces ":80" with a domain name: without it, a
+	# redirect to https://domain comes right back here as HTTP through the
+	# external Caddy, in a loop — ERR_TOO_MANY_REDIRECTS for every client, no
+	# exceptions (this is exactly what happened while the address was a
+	# domain name).
 	auto_https off
 }
 
 :80 {
-	# --- Фаза 1 (доступ только своей команде) — basic auth включён по умолчанию ---
-	# Хэш пароля генерируется так (обязательно с `| sed` на конце!):
-	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ' | sed 's/\$/\$\$/g'
-	# Результат (уже с удвоенными $$) — в CADDY_BASIC_AUTH_HASH в .env.
-	# Без `sed`-экранирования docker compose съедает всё после первого "$" в
-	# значении из .env при подстановке ${CADDY_BASIC_AUTH_HASH} — хэш в
-	# контейнере окажется обрублен до 5-6 символов, basicauth не примет ни
-	# один пароль, и логин будет выпадать снова и снова у всех. Проверить,
-	# что реально долетело до контейнера:
+	# --- Phase 1 (team-only access) — basic auth enabled by default ---
+	# The password hash is generated like this (MUST end with `| sed`!):
+	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YOUR_PASSWORD' | sed 's/\$/\$\$/g'
+	# The result (with the doubled $$) goes into CADDY_BASIC_AUTH_HASH in .env.
+	# Without `sed`-escaping, docker compose swallows everything after the
+	# first "$" in the value from .env when substituting
+	# ${CADDY_BASIC_AUTH_HASH} — the hash ends up truncated to 5-6 characters
+	# in the container, basicauth won't accept any password, and the login
+	# prompt keeps reappearing for everyone. Check what actually made it into
+	# the container:
 	#   docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
-	# (должна быть полная строка ~60 символов, а не обрубок вида "$2a$14").
+	# (should be the full ~60-character string, not a stub like "$2a$14").
 	basicauth {
 		{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 	}
-	# --- Фаза 2 (публичный запуск) ---
-	# Чтобы отключить basic auth и открыть доступ всем — закомментируйте
-	# блок basicauth выше (код приложения трогать не нужно).
+	# --- Phase 2 (public launch) ---
+	# To disable basic auth and open access to everyone — comment out the
+	# basicauth block above (no need to touch the application code).
 
 	reverse_proxy {$CADDY_UPSTREAM}
 }

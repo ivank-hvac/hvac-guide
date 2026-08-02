@@ -1,117 +1,121 @@
-# Шпаргалка: команды на проде
+# Cheat sheet: prod commands
 
-Все команды — из директории репозитория на сервере (например `/opt/hvac-guide`).
-Подробности и объяснения — в README.md, здесь только сами команды.
+All commands are run from the repo directory on the server (e.g.
+`/opt/hvac-guide`). Details and explanations are in README.md — this is just
+the commands.
 
-## Обновление до последней версии (обычный деплой)
+## Update to the latest version (routine deploy)
 
 ```bash
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Хук `post-merge` сам обновит `GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` при
-`git pull` — при условии, что git-хуки включены на этой машине (см. ниже,
-разово).
+The `post-merge` hook automatically refreshes `GIT_COMMIT`/`GIT_COMMIT_DATE`
+in `.env` on `git pull` — provided git hooks are enabled on this machine
+(see below, one-time).
 
-## Первоначальная настройка (один раз на новой машине)
+## Initial setup (once, on a new machine)
 
 ```bash
 git clone <repo-url> /opt/hvac-guide
 cd /opt/hvac-guide
-git config core.hooksPath .githooks   # включить git-хуки (версия в футере/label)
+git config core.hooksPath .githooks   # enable git hooks (version in footer/label)
 cp .env.example .env
-# заполнить ANTHROPIC_API_KEY, CADDY_BASIC_AUTH_USER/HASH (см. ниже)
+# fill in ANTHROPIC_API_KEY, CADDY_BASIC_AUTH_USER/HASH (see below)
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-## Старт / стоп / рестарт
+## Start / stop / restart
 
 ```bash
-# Старт (или пересоздание после изменения .env/Caddyfile без пересборки кода)
+# Start (or recreate after changing .env/Caddyfile, no code rebuild)
 docker compose -f docker-compose.prod.yml up -d
 
-# Полная остановка (контейнеры удаляются, volumes остаются)
+# Full stop (containers removed, volumes kept)
 docker compose -f docker-compose.prod.yml down
 
-# Рестарт одного сервиса без пересборки (например после правки .env)
+# Restart a single service with no rebuild (e.g. after editing .env)
 docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 docker compose -f docker-compose.prod.yml up -d --force-recreate hvac-guide
 
-# Рестарт с пересборкой образа (после git pull, см. выше)
+# Restart with an image rebuild (after git pull, see above)
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-## Логи
+## Logs
 
 ```bash
-docker compose -f docker-compose.prod.yml logs -f              # оба сервиса, live
-docker compose -f docker-compose.prod.yml logs -f hvac-guide   # только приложение
-docker compose -f docker-compose.prod.yml logs -f caddy        # только Caddy (в т.ч. basic auth, TLS)
+docker compose -f docker-compose.prod.yml logs -f              # both services, live
+docker compose -f docker-compose.prod.yml logs -f hvac-guide   # app only
+docker compose -f docker-compose.prod.yml logs -f caddy        # Caddy only (incl. basic auth, TLS)
 docker compose -f docker-compose.prod.yml logs --tail 100 hvac-guide
 ```
 
-## Проверка, что реально задеплоено
+## Checking what's actually deployed
 
 ```bash
-# Короткий commit hash образа
+# Short commit hash of the image
 docker inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' hvac-guide
 
-# То же самое из работающего процесса
+# Same thing from the running process
 docker exec hvac-guide printenv GIT_COMMIT
 
-# Или просто в браузере — мелкая серая строка внизу страницы (hash · дата)
+# Or just in the browser — small gray text at the bottom of the page (hash · date)
 ```
 
-## Проверка здоровья
+## Health check
 
-`hvac-guide` в проде не публикует порт напрямую (только через Caddy), поэтому:
+`hvac-guide` in prod doesn't publish its port directly (only through Caddy),
+so:
 
 ```bash
-# Снаружи, через публичный домен (терминируется edge-прокси выше по цепочке,
-# не этим Caddy — см. DEPLOY.md "Требования")
-curl -s https://ваш-домен/api/health
-curl -s https://ваш-домен/api/version
+# From outside, through your public domain (terminated by the edge proxy
+# further up the chain, not this Caddy — see DEPLOY.md "Requirements")
+curl -s https://your-domain/api/health
+curl -s https://your-domain/api/version
 
-# Изнутри контейнера напрямую (не зависит от внешнего edge-прокси/TLS,
-# curl в образе может быть не установлен — используем python3, он есть всегда)
+# Directly from inside the container (doesn't depend on the external edge
+# proxy/TLS; curl may not be installed in the image — use python3 instead,
+# it's always there)
 docker exec hvac-guide python3 -c "import urllib.request as u; print(u.urlopen('http://localhost:8000/api/health').read().decode())"
 
-docker ps   # оба контейнера должны быть "Up"
+docker ps   # both containers should be "Up"
 ```
 
-## Basic auth (Фаза 1: логин/пароль на весь сайт)
+## Basic auth (Phase 1: login/password on the whole site)
 
 ```bash
-# Сгенерировать хэш пароля — ОБЯЗАТЕЛЬНО с | sed на конце (см. README/Caddyfile
-# про экранирование $, иначе docker compose обрубает хэш и пароль не примет НИКТО)
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'НОВЫЙ_ПАРОЛЬ' | sed 's/\$/\$\$/g'
-# результат вставить в .env -> CADDY_BASIC_AUTH_HASH, затем:
+# Generate the password hash — MUST end with | sed (see README/Caddyfile
+# about escaping $, otherwise docker compose truncates the hash and no one's
+# password will be accepted)
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'NEW_PASSWORD' | sed 's/\$/\$\$/g'
+# paste the result into .env -> CADDY_BASIC_AUTH_HASH, then:
 docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 
-# Проверить, что хэш реально долетел до контейнера целиком (~60 символов, не обрубок)
+# Confirm the full hash actually made it into the container (~60 chars, not a stub)
 docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
 
-# Отключить basic auth (Фаза 2 — открыть всем):
-# 1. Закомментировать блок basicauth { ... } в Caddyfile
+# Disable basic auth (Phase 2 — open to everyone):
+# 1. Comment out the basicauth { ... } block in Caddyfile
 # 2. docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 ```
 
-## Настройки (.env) без пересборки кода
+## Settings (.env) with no code rebuild
 
 ```bash
-nano .env   # или vim / любой редактор
-# поменять что нужно (AI_ASSIST_RATE_LIMIT, LOG_SESSION_RATE_LIMIT, ANTHROPIC_MODEL...)
+nano .env   # or vim / any editor
+# change whatever's needed (AI_ASSIST_RATE_LIMIT, LOG_SESSION_RATE_LIMIT, ANTHROPIC_MODEL...)
 docker compose -f docker-compose.prod.yml up -d --force-recreate hvac-guide
 ```
 
-## История чек-листов (SQLite)
+## Checklist history (SQLite)
 
-В образе нет `sqlite3` CLI (`python:3.12-slim` его не включает) — запросы
-через Python-модуль `sqlite3`, он есть всегда:
+There's no `sqlite3` CLI in the image (`python:3.12-slim` doesn't include
+it) — queries go through Python's `sqlite3` module, which is always there:
 
 ```bash
-# Топ финальных узлов по типу оборудования
+# Top final nodes by equipment type
 docker exec hvac-guide python3 -c "
 import sqlite3
 con = sqlite3.connect('/app/data/sessions.db')
@@ -123,41 +127,41 @@ for row in con.execute('''
     print(row)
 "
 
-# Сколько всего записей / когда последняя
+# Total record count / most recent one
 docker exec hvac-guide python3 -c "
 import sqlite3
 con = sqlite3.connect('/app/data/sessions.db')
 print(con.execute('SELECT COUNT(*), MAX(created_at) FROM checklist_sessions').fetchone())
 "
 
-# Бэкап базы (работает независимо от того, named volume это или bind mount)
+# Back up the database (works regardless of whether it's a named volume or a bind mount)
 docker cp hvac-guide:/app/data/sessions.db ./sessions-backup-$(date +%F).db
 ```
 
-## Откат на предыдущую версию
+## Rolling back to a previous version
 
 ```bash
-git log --oneline -10                 # найти нужный коммит
-git checkout <commit-hash>            # ! detached HEAD, это ожидаемо для отката
+git log --oneline -10                 # find the commit you want
+git checkout <commit-hash>            # ! detached HEAD, expected for a rollback
 docker compose -f docker-compose.prod.yml up -d --build
-# когда закончили и всё ок — вернуться на актуальный main:
+# once you're done and everything's fine — go back to the current main:
 git checkout main
 ```
 
-## Полная переустановка (например, испорченный volume/образ)
+## Full reinstall (e.g. a corrupted volume/image)
 
 ```bash
 docker compose -f docker-compose.prod.yml down
 docker compose -f docker-compose.prod.yml up -d --build
-# ⚠️ добавить -v к down только если реально нужно стереть данные (sessions.db) —
-# это удалит volume с историей чек-листов безвозвратно
+# ⚠️ only add -v to down if you actually need to wipe data (sessions.db) —
+# this permanently deletes the checklist-history volume
 ```
 
-## Полезное
+## Useful
 
 ```bash
-docker ps -a                          # все контейнеры, включая остановленные
-docker system df                      # сколько места занимают образы/volumes
-docker image prune -f                 # почистить неиспользуемые старые образы (после билдов)
-git status && git log --oneline -5    # что сейчас задеплоено / есть ли локальные правки
+docker ps -a                          # all containers, including stopped ones
+docker system df                      # how much space images/volumes are using
+docker image prune -f                 # clean up unused old images (after builds)
+git status && git log --oneline -5    # what's currently deployed / any local changes
 ```
