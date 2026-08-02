@@ -62,6 +62,11 @@ const I18N = {
     finishSummaryTitle: "Итоги сессии",
     finishCompleteBtn: "Завершить",
     finishCompletedMsg: "Сессия завершена. Спасибо!",
+    intakePhaseProgress: "Этап {n} из {total}",
+    intakeSkipLabel: "N/A",
+    intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
+    intakeNextPhaseBtn: "Следующий этап →",
+    intakeFinishBtn: "Завершить и перейти к диагностике",
   },
   en: {
     back: "← Back",
@@ -117,6 +122,11 @@ const I18N = {
     finishSummaryTitle: "Session summary",
     finishCompleteBtn: "Complete",
     finishCompletedMsg: "Session completed. Thank you!",
+    intakePhaseProgress: "Phase {n} of {total}",
+    intakeSkipLabel: "N/A",
+    intakeGateHint: "Mark every item as done or N/A to move on",
+    intakeNextPhaseBtn: "Next phase →",
+    intakeFinishBtn: "Finish and start diagnosis",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -427,6 +437,15 @@ const MANUFACTURER_STEP_ID = "__manufacturer__";
 // Also not a real graph.json node — same reasoning as MANUFACTURER_STEP_ID.
 const FINISH_STEP_ID = "__finish__";
 
+// Sentinel currentId for the one-time phased intake checklist (visual ->
+// electrical -> controls/safety -> refrigeration circuit), shown once right
+// after the manufacturer step and before symptom-specific branching —
+// "check the simple stuff first," independent of which symptom the tech
+// picks next. Content lives in graph.json's intake_checklist (not this
+// file), same editable-without-a-rebuild philosophy as everything else.
+// Not a real graph.json node — same reasoning as MANUFACTURER_STEP_ID.
+const INTAKE_STEP_ID = "__intake__";
+
 let GRAPH = null;
 let MANUFACTURERS = null;
 let REFRIGERANTS = null;
@@ -452,10 +471,13 @@ let state = {
   sessionId: generateSessionId(),
   manufacturer: null,       // {id, name, url} once picked/typed, else null
   manufacturerAsked: false, // whether the one-time step has already run this session
-  pendingNodeId: null,      // where to go once the manufacturer step is submitted
+  pendingNodeId: null,      // where to go once the manufacturer/intake step is submitted
   refrigerant: null,        // {id, name} once picked on a refrigerant_select node, else null
   checklist: {},            // {[resultNodeId]: {[itemId]: boolean|string}} — see renderChecklist
   finishNodeId: null,       // which result node's checklist the finish screen is summarizing
+  intake: {},               // {[phaseId]: {[itemId]: {value, skipped}}} — see renderIntakeChecklist
+  intakeAsked: false,       // whether the one-time intake checklist has already run this session
+  intakePhaseIndex: 0,      // which intake_checklist phase is currently shown
 };
 
 function t(dict) {
@@ -539,6 +561,9 @@ function serializeNodePath() {
     pendingNodeId: state.pendingNodeId,
     refrigerant: state.refrigerant,
     finishNodeId: state.finishNodeId,
+    intake: state.intake,
+    intakeAsked: state.intakeAsked,
+    intakePhaseIndex: state.intakePhaseIndex,
   };
 }
 
@@ -638,6 +663,9 @@ function resumeSession(data) {
     refrigerant: np.refrigerant || null,
     checklist: data.checklist_state || {},
     finishNodeId: np.finishNodeId || null,
+    intake: np.intake || {},
+    intakeAsked: !!np.intakeAsked,
+    intakePhaseIndex: np.intakePhaseIndex || 0,
   };
   render();
 }
@@ -807,6 +835,176 @@ function renderFinishScreen() {
   };
 }
 
+// ---- Phased intake checklist (visual -> electrical -> controls/safety ->
+// refrigeration circuit) -----------------------------------------------
+// Content lives in graph.json's intake_checklist (array of phases, each
+// {id, label, items: [{id, type, label, unit?, showIf?}]}) — same
+// editable-without-a-rebuild philosophy as the rest of the graph. Hard
+// gate BETWEEN phases (can't advance until every visible item in the
+// current phase is either done or explicitly skipped — see
+// intakeItemResolved) because the phase order (visual -> electrical ->
+// controls -> refrigeration) is a deliberate procedural rule, not a
+// diagnostic judgment call. No gate WITHIN a phase (soft nudge only, via
+// the "current" highlight) since item order there is just a suggestion.
+// showIf lets a later phase's item depend on an earlier phase's answer
+// (e.g. only ask about the TXV bulb if a TXV was actually noted present in
+// the visual/inventory phase).
+
+function intakeShowIfMet(showIf) {
+  if (!showIf) return true;
+  const entry = (state.intake[showIf.phase] || {})[showIf.item];
+  return !!(entry && entry.value) === !!showIf.equals;
+}
+
+// An item satisfies the phase gate once it's either done (see
+// isChecklistItemDone) or explicitly marked skipped/N-A — a bare unchecked
+// checkbox does NOT satisfy it, specifically so a tech can't silently
+// breeze past an item without at least an explicit "doesn't apply" call.
+function intakeItemResolved(entry, type) {
+  if (!entry) return false;
+  if (entry.skipped) return true;
+  return isChecklistItemDone(entry.value, type);
+}
+
+function finishIntakeChecklist() {
+  state.intakeAsked = true;
+  const target = state.pendingNodeId;
+  state.pendingNodeId = null;
+  goTo(target, { prevId: INTAKE_STEP_ID });
+}
+
+function renderIntakeChecklist() {
+  const strings = ui();
+  const phases = GRAPH.intake_checklist || [];
+  if (!phases.length) {
+    // No intake content defined in this graph.json — skip straight through
+    // rather than showing an empty gated screen.
+    finishIntakeChecklist();
+    return;
+  }
+  const phaseIndex = Math.min(state.intakePhaseIndex, phases.length - 1);
+  const phase = phases[phaseIndex];
+  if (!state.intake[phase.id]) state.intake[phase.id] = {};
+  const values = state.intake[phase.id];
+
+  const progress = document.createElement("div");
+  progress.className = "intake-progress";
+  progress.textContent = strings.intakePhaseProgress
+    .replace("{n}", phaseIndex + 1)
+    .replace("{total}", phases.length);
+  cardEl.appendChild(progress);
+
+  const title = document.createElement("div");
+  title.className = "q-text";
+  title.textContent = t(phase.label);
+  cardEl.appendChild(title);
+
+  const visibleItems = phase.items.filter((item) => intakeShowIfMet(item.showIf));
+  let firstUnresolvedFound = false;
+
+  const nextBtn = document.createElement("button");
+  const hint = document.createElement("div");
+  hint.className = "numeric-hint";
+
+  function updateGateState() {
+    const allResolved = visibleItems.every((item) => intakeItemResolved(values[item.id], item.type));
+    nextBtn.disabled = !allResolved;
+    hint.textContent = allResolved ? "" : strings.intakeGateHint;
+  }
+
+  visibleItems.forEach((item) => {
+    if (!values[item.id]) {
+      values[item.id] = { value: item.type === "field" ? "" : false, skipped: false };
+    }
+    const entry = values[item.id];
+    const resolved = intakeItemResolved(entry, item.type);
+    const isCurrent = !resolved && !firstUnresolvedFound;
+    if (isCurrent) firstUnresolvedFound = true;
+
+    const row = document.createElement("div");
+    row.className = "intake-item" + (isCurrent ? " current" : "");
+
+    const main = document.createElement("label");
+    main.className = "intake-item-main";
+
+    if (item.type === "field") {
+      const labelEl = document.createElement("span");
+      labelEl.textContent = t(item.label);
+      main.appendChild(labelEl);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "checklist-field-input";
+      if (item.unit) input.placeholder = item.unit;
+      input.value = entry.value || "";
+      input.disabled = entry.skipped;
+      // Only updates the gate (button/hint), never a full re-render — a
+      // full render() on every keystroke would reset focus/cursor position
+      // mid-typing. Safe here because showIf conditions in this graph only
+      // ever depend on checkbox items, never on a field's value.
+      input.addEventListener("input", () => {
+        entry.value = input.value;
+        scheduleSessionSave();
+        updateGateState();
+      });
+      main.appendChild(input);
+    } else {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!entry.value;
+      checkbox.disabled = entry.skipped;
+      // A full render() here (not just updateGateState()) is deliberate: a
+      // checkbox can be a showIf trigger for a later phase's item, so
+      // toggling one may need to reveal/hide other items, not just flip
+      // the gate.
+      checkbox.addEventListener("change", () => {
+        entry.value = checkbox.checked;
+        scheduleSessionSave();
+        render();
+      });
+      main.appendChild(checkbox);
+      const labelEl = document.createElement("span");
+      labelEl.textContent = t(item.label);
+      main.appendChild(labelEl);
+    }
+    row.appendChild(main);
+
+    const skipLabel = document.createElement("label");
+    skipLabel.className = "intake-skip";
+    const skipCheckbox = document.createElement("input");
+    skipCheckbox.type = "checkbox";
+    skipCheckbox.checked = !!entry.skipped;
+    skipCheckbox.addEventListener("change", () => {
+      entry.skipped = skipCheckbox.checked;
+      scheduleSessionSave();
+      render();
+    });
+    skipLabel.appendChild(skipCheckbox);
+    const skipText = document.createElement("span");
+    skipText.textContent = strings.intakeSkipLabel;
+    skipLabel.appendChild(skipText);
+    row.appendChild(skipLabel);
+
+    cardEl.appendChild(row);
+  });
+
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent =
+    phaseIndex === phases.length - 1 ? strings.intakeFinishBtn : strings.intakeNextPhaseBtn;
+  cardEl.appendChild(nextBtn);
+  cardEl.appendChild(hint);
+  updateGateState();
+
+  nextBtn.onclick = () => {
+    if (phaseIndex < phases.length - 1) {
+      state.intakePhaseIndex = phaseIndex + 1;
+      scheduleSessionSave();
+      render();
+    } else {
+      finishIntakeChecklist();
+    }
+  };
+}
+
 function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
   if (pushHistory && prevId) {
     state.history.push(prevId);
@@ -817,10 +1015,11 @@ function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
 
 function goBack() {
   if (state.history.length === 0) return;
-  // The finish screen is pure UI navigation (see the "Finish checklist"
-  // button in renderResult) — entering it never added an answer entry, so
-  // leaving it must not pop one either.
+  // The finish screen and the intake checklist screen are both pure UI
+  // navigation (see FINISH_STEP_ID/INTAKE_STEP_ID) — entering either never
+  // added an answer entry, so leaving them must not pop one either.
   const leavingFinishScreen = state.currentId === FINISH_STEP_ID;
+  const leavingIntakeScreen = state.currentId === INTAKE_STEP_ID;
   const prev = state.history.pop();
   if (prev === MANUFACTURER_STEP_ID) {
     // The manufacturer step can add 0, 1, or 2 answer entries (manufacturer
@@ -829,7 +1028,10 @@ function goBack() {
     while (state.answers.length && state.answers[state.answers.length - 1].nodeId === MANUFACTURER_STEP_ID) {
       state.answers.pop();
     }
-  } else if (!leavingFinishScreen) {
+  } else if (prev === INTAKE_STEP_ID) {
+    // Finishing the intake checklist never added an answer entry either —
+    // nothing to undo.
+  } else if (!leavingFinishScreen && !leavingIntakeScreen) {
     // assumes 1 answer per question/numeric_input/measurement/refrigerant_select/
     // pt_calc step
     const popped = state.answers.pop();
@@ -839,6 +1041,13 @@ function goBack() {
   }
   if (prev === MANUFACTURER_STEP_ID || prev === GRAPH.start) {
     state.manufacturerAsked = false;
+  }
+  if (prev === MANUFACTURER_STEP_ID || prev === INTAKE_STEP_ID || prev === GRAPH.start) {
+    // Redoing (or not yet having reached) the intake step — reset its
+    // progress so it starts clean from phase 0 next time it's entered.
+    state.intakeAsked = false;
+    state.intake = {};
+    state.intakePhaseIndex = 0;
   }
   state.currentId = prev;
   render();
@@ -856,6 +1065,9 @@ function restart() {
     refrigerant: null,
     checklist: {},
     finishNodeId: null,
+    intake: {},
+    intakeAsked: false,
+    intakePhaseIndex: 0,
   };
   render();
 }
@@ -902,6 +1114,10 @@ function render() {
   }
   if (state.currentId === FINISH_STEP_ID) {
     renderFinishScreen();
+    return;
+  }
+  if (state.currentId === INTAKE_STEP_ID) {
+    renderIntakeChecklist();
     return;
   }
 
@@ -1041,9 +1257,16 @@ function renderManufacturerStep() {
     state.manufacturer = manufacturer;
     state.manufacturerAsked = true;
 
-    const target = state.pendingNodeId;
-    state.pendingNodeId = null;
-    goTo(target, { prevId: MANUFACTURER_STEP_ID });
+    // Detour through the one-time phased intake checklist next, same
+    // pendingNodeId hand-off pattern as this step itself used — it's the
+    // intake step's job to clear pendingNodeId once it's done.
+    if (!state.intakeAsked && (GRAPH.intake_checklist || []).length) {
+      goTo(INTAKE_STEP_ID, { prevId: MANUFACTURER_STEP_ID });
+    } else {
+      const target = state.pendingNodeId;
+      state.pendingNodeId = null;
+      goTo(target, { prevId: MANUFACTURER_STEP_ID });
+    }
   };
 }
 
@@ -1658,6 +1881,28 @@ function checklistAnswers() {
   return rows;
 }
 
+// Same idea as checklistAnswers() above, for the phased intake checklist —
+// an explicit "N/A" is reported for skipped items rather than omitting them,
+// since a tech deliberately ruling something out (e.g. "TXV present: N/A"
+// on an equipment type with no TXV) is itself useful signal, not silence.
+function intakeAnswers() {
+  const rows = [];
+  (GRAPH.intake_checklist || []).forEach((phase) => {
+    const values = state.intake[phase.id] || {};
+    phase.items.forEach((item) => {
+      const entry = values[item.id];
+      if (!intakeItemResolved(entry, item.type)) return;
+      const answer = entry.skipped
+        ? "N/A"
+        : item.type === "field"
+        ? (item.unit ? `${entry.value} ${item.unit}` : String(entry.value))
+        : "✓";
+      rows.push({ question: t(item.label), answer });
+    });
+  });
+  return rows;
+}
+
 // currentAnswers() alone (graph path only) is what the finish screen's
 // read-only summary and logSession's history both use — checklist items are
 // already shown there as their own interactive widget, so folding them into
@@ -1665,7 +1910,7 @@ function checklistAnswers() {
 // never sees the checklist at all today (that's the bug this fixes) — so
 // only its payload gets the combined view.
 function aiContextAnswers() {
-  return currentAnswers().concat(checklistAnswers());
+  return currentAnswers().concat(checklistAnswers()).concat(intakeAnswers());
 }
 
 // Fire-and-forget: records the checklist path taken so far (which equipment,
