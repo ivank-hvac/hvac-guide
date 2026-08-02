@@ -575,13 +575,33 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```bash
 cp .env.example .env
 # заполнить ANTHROPIC_API_KEY, DOMAIN
-# сгенерировать хэш пароля:
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ'
-# вставить результат в CADDY_BASIC_AUTH_HASH в .env
+# сгенерировать хэш пароля — ОБЯЗАТЕЛЬНО с `| sed` на конце, см. ниже:
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ' | sed 's/\$/\$\$/g'
+# вставить результат (уже с удвоенными $$) в CADDY_BASIC_AUTH_HASH в .env
 
 # в Caddyfile раскомментировать блок basicauth { ... }
 
 docker compose -f docker-compose.prod.yml up --build -d
+```
+
+**Важно про `$` в хэше:** bcrypt-хэш от `caddy hash-password` содержит несколько
+`$` (`$2a$14$...`). Без экранирования (`| sed 's/\$/\$\$/g'` выше) docker
+compose при подстановке `${CADDY_BASIC_AUTH_HASH}` съедает всё после
+первого `$` в значении из `.env` — в контейнер попадает обрубок вида
+`$2a$14` вместо полного хэша (~60 символов). Basic auth в этом случае не
+примет НИКАКОЙ пароль, и логин будет выпадать снова и снова у всех —
+именно так это и проявляется на практике. Проверить, что реально долетело
+до контейнера:
+
+```bash
+docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
+```
+
+Если там короткий обрубок, а не полная строка ~60 символов — пересоздайте
+хэш через команду выше (с `| sed`), обновите `.env` и:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 ```
 
 Caddy сам получит Let's Encrypt сертификат по `DOMAIN` (нужен A-record, указывающий на IP этой машины, и открытые 80/443). За basic auth в это время сидит только твоя команда.
