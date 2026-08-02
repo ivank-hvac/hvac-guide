@@ -297,6 +297,124 @@ textarea {
   gap: 10px;
 }
 
+.intake-progress {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.intake-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.intake-item.current {
+  border-color: var(--input-accent);
+  background: rgba(224, 145, 63, 0.08);
+}
+
+.intake-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.intake-item-main input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--input-accent);
+  flex-shrink: 0;
+}
+
+.intake-skip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 14px;
+  margin-top: 6px;
+}
+
+.checklist-progress {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--input-accent);
+  flex-shrink: 0;
+}
+
+.checklist-field-input {
+  flex: 1;
+  min-width: 0;
+  background: #0f1115;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.finish-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+}
+
+.finish-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 6px;
+}
+
+.finish-summary-q {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.finish-summary-a {
+  color: var(--text);
+}
+
 .mfg-doc-link {
   font-size: 0.85rem;
 }

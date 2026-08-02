@@ -13,6 +13,7 @@ services:
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5}
       - AI_ASSIST_RATE_LIMIT=${AI_ASSIST_RATE_LIMIT:-8/minute}
       - LOG_SESSION_RATE_LIMIT=${LOG_SESSION_RATE_LIMIT:-30/minute}
+      - SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-20/minute}
     volumes:
       - hvac_data:/app/data
     restart: unless-stopped
