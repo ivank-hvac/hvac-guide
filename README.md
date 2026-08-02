@@ -19,6 +19,18 @@ See also: [ROADMAP.md](ROADMAP.md) — future feature direction;
 explanations; [CHANGELOG.md](CHANGELOG.md) — change history by date
 (kept in Russian, by choice — its only real audience is the author).
 
+## Disclaimer
+
+This is an independent personal project, built and maintained in my free
+time — not affiliated with any HVAC/R manufacturer, refrigerant supplier, or
+standards body. It's provided as-is, with no warranty of any kind, and I'm
+not liable for outcomes from using it. It doesn't replace manufacturer
+documentation, local codes, or the judgment of a qualified, licensed
+technician. (This is separate from the narrower AI-specific safety
+disclaimer shown as a banner in the app and appended to every AI response —
+that one is about the AI's answers specifically; this one is about using the
+tool at all.)
+
 ## Quick start
 
 ```bash
@@ -38,24 +50,31 @@ error — that's the only part that requires an API key.
 
 ```
 hvac-guide/
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── Caddyfile
+├── docker-compose.yml       # local/dev: no Caddy, no TLS/auth, port 8080
+├── docker-compose.prod.yml # prod: adds the Caddy reverse-proxy service + SQLite volume
+├── Caddyfile                # reverse proxy: basic auth (Phase 1), upstream via CADDY_UPSTREAM
 ├── Dockerfile
 ├── requirements.txt
 ├── .env.example
+├── .githooks/               # post-commit/post-checkout/post-merge — keep GIT_COMMIT in .env current
+├── tools/
+│   └── visualize_graph.py  # dev-only: renders graph.json as a Mermaid flowchart, excluded from the image
+├── README.md / README.ru.md, ROADMAP.md, DEPLOY.md, commands.md, CHANGELOG.md
 └── app/
     ├── main.py            # FastAPI: /api/ai-assist (proxy to the Anthropic API),
-    │                      # /api/log-session (checklist history) + serves static files
+    │                      # /api/log-session (checklist history), /api/version + serves static files
     └── static/
         ├── index.html
         ├── style.css
-        ├── app.js              # all the graph logic: rendering questions/results, calling the AI
-        ├── graph.json          # the decision graph itself (editable without rebuilding the container)
-        └── manufacturers.json  # manufacturer list for the step after equipment-type selection
+        ├── app.js                # graph logic, unit conversion, AI calls, P-T calculator math
+        ├── graph.json            # the decision graph itself (editable without rebuilding the container)
+        ├── manufacturers.json    # manufacturer list for the step after equipment-type selection
+        ├── refrigerants.json     # manifest of refrigerants for the P-T calculator (id/name/file)
+        └── refrigerants/*.json   # per-refrigerant P-T tables, one file per refrigerant
 ```
 
-One container, port 8000 inside / 8080 outside (change in docker-compose.yml).
+One container, port 8000 inside / 8080 outside in dev (`docker-compose.yml`);
+behind Caddy in prod (`docker-compose.prod.yml`, see [DEPLOY.md](DEPLOY.md)).
 The API key never reaches the frontend — every request to Anthropic goes
 through the backend `/api/ai-assist`. Completed checklist history is stored in
 SQLite on a mounted volume `hvac_data:/app/data` — see "Checklist history"
