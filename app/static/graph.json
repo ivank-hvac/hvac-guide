@@ -1,5 +1,49 @@
 {
   "start": "start",
+  "intake_checklist": [
+    {
+      "id": "visual",
+      "label": {"ru": "Визуальный осмотр / инвентаризация", "en": "Visual inspection / inventory"},
+      "items": [
+        {"id": "metering_txv", "type": "checkbox", "label": {"ru": "ТРВ (TXV) присутствует", "en": "TXV (thermostatic expansion valve) present"}},
+        {"id": "metering_captube", "type": "checkbox", "label": {"ru": "Капиллярная трубка присутствует", "en": "Capillary tube present"}},
+        {"id": "metering_other", "type": "field", "label": {"ru": "Другой metering device (опишите)", "en": "Other metering device (describe)"}},
+        {"id": "filter_drier", "type": "checkbox", "label": {"ru": "Фильтр-осушитель присутствует", "en": "Filter-drier present"}},
+        {"id": "moisture_indicator", "type": "checkbox", "label": {"ru": "Moisture/liquid indicator присутствует", "en": "Moisture/liquid indicator present"}},
+        {"id": "liquid_solenoid", "type": "checkbox", "label": {"ru": "Соленоидный клапан на жидкостной линии присутствует", "en": "Liquid-line solenoid valve present"}},
+        {"id": "hot_gas_bypass", "type": "checkbox", "label": {"ru": "Hot gas bypass присутствует", "en": "Hot gas bypass present"}},
+        {"id": "unusual", "type": "field", "label": {"ru": "Что-то необычное (опишите)", "en": "Anything unusual (describe)"}}
+      ]
+    },
+    {
+      "id": "electrical",
+      "label": {"ru": "Электрика / питание", "en": "Electrical / power"},
+      "items": [
+        {"id": "breaker_ok", "type": "checkbox", "label": {"ru": "Circuit breaker/fuses в норме, следов срабатывания нет", "en": "Circuit breaker/fuses OK, no signs of tripping"}},
+        {"id": "contactor_ok", "type": "checkbox", "label": {"ru": "Контакты contactor в норме (нет питтинга/сварки)", "en": "Contactor contacts OK (no pitting/welding)"}},
+        {"id": "relays_ok", "type": "checkbox", "label": {"ru": "Relays в норме (не чатерят)", "en": "Relays OK (not chattering)"}}
+      ]
+    },
+    {
+      "id": "controls",
+      "label": {"ru": "Controls / safety", "en": "Controls / safety"},
+      "items": [
+        {"id": "safeties_ok", "type": "checkbox", "label": {"ru": "Safety switches в норме (high/low pressure, freeze stat)", "en": "Safety switches OK (high/low pressure, freeze stat)"}},
+        {"id": "thermostat_call_ok", "type": "checkbox", "label": {"ru": "Термостат/контроллер корректно подаёт команду", "en": "Thermostat/controller is calling correctly"}},
+        {"id": "fault_code_present", "type": "checkbox", "label": {"ru": "На контроллере есть код ошибки", "en": "Fault code present on controller"}},
+        {"id": "fault_code_detail", "type": "field", "label": {"ru": "Код ошибки / описание", "en": "Fault code / description"}, "showIf": {"phase": "controls", "item": "fault_code_present", "equals": true}}
+      ]
+    },
+    {
+      "id": "refrigeration",
+      "label": {"ru": "Холодильный контур (уточнения)", "en": "Refrigeration circuit (follow-up)"},
+      "items": [
+        {"id": "txv_bulb_checked", "type": "checkbox", "label": {"ru": "Колба/уравнительная линия TXV проверены", "en": "TXV bulb/equalizer line checked"}, "showIf": {"phase": "visual", "item": "metering_txv", "equals": true}},
+        {"id": "moisture_reading", "type": "field", "label": {"ru": "Показание moisture indicator (wet/dry)", "en": "Moisture indicator reading (wet/dry)"}, "showIf": {"phase": "visual", "item": "moisture_indicator", "equals": true}},
+        {"id": "solenoid_energizes", "type": "checkbox", "label": {"ru": "Соленоид корректно запитывается по команде", "en": "Solenoid energizes properly when called"}, "showIf": {"phase": "visual", "item": "liquid_solenoid", "equals": true}}
+      ]
+    }
+  ],
   "nodes": {
 
     "start": {
