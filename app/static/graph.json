@@ -59,6 +59,34 @@
       ]
     },
 
+    "power_check": {
+      "type": "question",
+      "text": {"ru": "Питание на оборудование подано?", "en": "Is the unit powered up?"},
+      "options": [
+        {"label": {"ru": "Да, питание есть", "en": "Yes, powered up"}, "next": "thermostat_check"},
+        {"label": {"ru": "Нет, питания нет", "en": "No power"}, "next": "ws_no_power"}
+      ]
+    },
+
+    "thermostat_check": {
+      "type": "question",
+      "text": {"ru": "Термостат/контроллер настроен и подаёт команду на охлаждение/обогрев?", "en": "Is the thermostat/controller calling for heat/cooling (asking the equipment to run)?"},
+      "options": [
+        {"label": {"ru": "Да, команда подаётся", "en": "Yes, it's calling"}, "next": "__pending__"},
+        {"label": {"ru": "Нет / не уверен", "en": "No / not sure"}, "next": "no_tstat_call_result"}
+      ]
+    },
+
+    "no_tstat_call_result": {
+      "type": "result",
+      "severity": "info",
+      "ai": true,
+      "text": {
+        "ru": "Убедитесь, что термостат/контроллер реально запрашивает нужный режим: выбран правильный режим (heat/cool/auto), уставка явно выше/ниже текущей температуры в помещении, нет активного расписания/hold, которое перебивает команду, и (если на батарейках) батарейки не сели. Для проводного коммерческого контроллера проверьте проводку сигнала вызова между контроллером и оборудованием/платой, а также собственную уставку/дифференциал контроллера.",
+        "en": "Confirm the thermostat/controller is actually asking for the mode you expect: correct mode selected (heat/cool/auto), setpoint clearly above/below the current space temperature, no active schedule or hold overriding it, and (if battery-powered) batteries aren't dead. For a hardwired commercial controller, verify the call-signal wiring between the controller and the equipment/board, and the controller's own setpoint/differential."
+      }
+    },
+
     "rtu_symptom": {
       "type": "question",
       "text": {"ru": "Какой основной симптом?", "en": "What's the main symptom?"},
