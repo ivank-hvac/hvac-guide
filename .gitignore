@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Private project context for Claude Code (infra details, roadmap,
+# unreleased plans) - never meant for the public repo
+CLAUDE.md
+
 # Python
 __pycache__/
 *.py[cod]
