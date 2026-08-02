@@ -41,7 +41,7 @@
       "label": {"ru": "Холодильный контур (уточнения)", "en": "Refrigeration circuit (follow-up)"},
       "items": [
         {"id": "txv_bulb_checked", "type": "checkbox", "label": {"ru": "Колба/уравнительная линия TXV проверены", "en": "TXV bulb/equalizer line checked"}, "showIf": {"phase": "visual", "item": "metering_txv", "equals": true}},
-        {"id": "moisture_reading", "type": "field", "label": {"ru": "Показание moisture indicator (wet/dry)", "en": "Moisture indicator reading (wet/dry)"}, "showIf": {"phase": "visual", "item": "moisture_indicator", "equals": true}},
+        {"id": "moisture_reading", "type": "select", "label": {"ru": "Показание moisture indicator", "en": "Moisture indicator reading"}, "options": ["Dry", "Wet"], "normal": "Dry", "showIf": {"phase": "visual", "item": "moisture_indicator", "equals": true}},
         {"id": "solenoid_energizes", "type": "checkbox", "label": {"ru": "Соленоид корректно запитывается по команде", "en": "Solenoid energizes properly when called"}, "showIf": {"phase": "visual", "item": "liquid_solenoid", "equals": true}}
       ]
     }
