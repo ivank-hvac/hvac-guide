@@ -21,7 +21,7 @@ git clone <repo-url> /opt/hvac-guide
 cd /opt/hvac-guide
 git config core.hooksPath .githooks   # включить git-хуки (версия в футере/label)
 cp .env.example .env
-# заполнить ANTHROPIC_API_KEY, DOMAIN, CADDY_BASIC_AUTH_USER/HASH (см. ниже)
+# заполнить ANTHROPIC_API_KEY, CADDY_BASIC_AUTH_USER/HASH (см. ниже)
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -68,11 +68,12 @@ docker exec hvac-guide printenv GIT_COMMIT
 `hvac-guide` в проде не публикует порт напрямую (только через Caddy), поэтому:
 
 ```bash
-# Снаружи, через Caddy — подставь реальный DOMAIN из .env
+# Снаружи, через публичный домен (терминируется edge-прокси выше по цепочке,
+# не этим Caddy — см. DEPLOY.md "Требования")
 curl -s https://ваш-домен/api/health
 curl -s https://ваш-домен/api/version
 
-# Изнутри контейнера напрямую (не зависит от Caddy/TLS/DOMAIN,
+# Изнутри контейнера напрямую (не зависит от внешнего edge-прокси/TLS,
 # curl в образе может быть не установлен — используем python3, он есть всегда)
 docker exec hvac-guide python3 -c "import urllib.request as u; print(u.urlopen('http://localhost:8000/api/health').read().decode())"
 
