@@ -773,6 +773,20 @@ function renderFinishScreen() {
     renderChecklist(nodeId, node.checklist, cardEl);
   }
 
+  // The finish screen has the fullest picture available (graph path +
+  // checklist, both now in aiContextAnswers()) — worth an AI box here even
+  // though the result screen already has one, since checklist values are
+  // often filled in only after that first AI ask.
+  if (node) {
+    const aiBox = buildAiBox({
+      context: t(node.text),
+      highlighted: !!node.ai,
+      nodeId,
+      severity: node.severity || "info",
+    });
+    cardEl.appendChild(aiBox);
+  }
+
   const completeBtn = document.createElement("button");
   completeBtn.className = "btn input-action";
   completeBtn.textContent = strings.finishCompleteBtn;
@@ -1625,6 +1639,35 @@ function currentAnswers() {
   });
 }
 
+// Only completed items (see isChecklistItemDone) — an unchecked/blank item
+// means "not yet verified," not "no," so including it as a false-ish answer
+// would misrepresent it to the AI.
+function checklistAnswers() {
+  const rows = [];
+  Object.keys(state.checklist).forEach((nodeId) => {
+    const node = GRAPH.nodes[nodeId];
+    if (!node || !node.checklist) return;
+    const values = state.checklist[nodeId];
+    node.checklist.forEach((item) => {
+      const value = values[item.id];
+      if (!isChecklistItemDone(value, item.type)) return;
+      const answer = item.type === "field" ? (item.unit ? `${value} ${item.unit}` : String(value)) : "✓";
+      rows.push({ question: t(item.label), answer });
+    });
+  });
+  return rows;
+}
+
+// currentAnswers() alone (graph path only) is what the finish screen's
+// read-only summary and logSession's history both use — checklist items are
+// already shown there as their own interactive widget, so folding them into
+// that same list would duplicate them on screen. The AI, on the other hand,
+// never sees the checklist at all today (that's the bug this fixes) — so
+// only its payload gets the combined view.
+function aiContextAnswers() {
+  return currentAnswers().concat(checklistAnswers());
+}
+
 // Fire-and-forget: records the checklist path taken so far (which equipment,
 // which branches, where it ended up, and whether/what the AI answered) for
 // later pattern analysis. Never blocks or disrupts the checklist UI.
@@ -1676,7 +1719,7 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        answers: currentAnswers(),
+        answers: aiContextAnswers(),
         context,
         free_text: freeText,
         lang: LANG,
