@@ -53,6 +53,15 @@ const I18N = {
     ptCalcOutOfRangeFlag: "ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ",
     ptCalcOutOfRangeValue: "Давление вне табличного диапазона хладагента — SH/SC не рассчитаны",
     ptCalcResultQuestion: "Перегрев/переохлаждение (расчёт по P-T таблице)",
+    resumeTitle: "У вас есть незавершённая сессия",
+    resumeEquipmentLabel: "Оборудование",
+    resumeContinue: "Продолжить",
+    resumeStartOver: "Начать заново",
+    checklistProgress: "Выполнено: {done} из {total}",
+    finishBtn: "✓ Завершить чек-лист",
+    finishSummaryTitle: "Итоги сессии",
+    finishCompleteBtn: "Завершить",
+    finishCompletedMsg: "Сессия завершена. Спасибо!",
   },
   en: {
     back: "← Back",
@@ -99,6 +108,15 @@ const I18N = {
     ptCalcOutOfRangeFlag: "WARNING: pressure outside operating range — possible serious fault",
     ptCalcOutOfRangeValue: "Pressure outside the refrigerant's table range — SH/SC not calculated",
     ptCalcResultQuestion: "Superheat/Subcooling (calculated from P-T chart)",
+    resumeTitle: "You have an unfinished session",
+    resumeEquipmentLabel: "Equipment",
+    resumeContinue: "Continue",
+    resumeStartOver: "Start Over",
+    checklistProgress: "Completed: {done} of {total}",
+    finishBtn: "✓ Finish checklist",
+    finishSummaryTitle: "Session summary",
+    finishCompleteBtn: "Complete",
+    finishCompletedMsg: "Session completed. Thank you!",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -404,6 +422,11 @@ function answerLabel(entry) {
 // gone to anyway; there's nothing for it to branch on.
 const MANUFACTURER_STEP_ID = "__manufacturer__";
 
+// Sentinel currentId for the final summary/completion screen, reached via a
+// button on a result node's checklist (see renderChecklist/renderResult).
+// Also not a real graph.json node — same reasoning as MANUFACTURER_STEP_ID.
+const FINISH_STEP_ID = "__finish__";
+
 let GRAPH = null;
 let MANUFACTURERS = null;
 let REFRIGERANTS = null;
@@ -431,6 +454,8 @@ let state = {
   manufacturerAsked: false, // whether the one-time step has already run this session
   pendingNodeId: null,      // where to go once the manufacturer step is submitted
   refrigerant: null,        // {id, name} once picked on a refrigerant_select node, else null
+  checklist: {},            // {[resultNodeId]: {[itemId]: boolean|string}} — see renderChecklist
+  finishNodeId: null,       // which result node's checklist the finish screen is summarizing
 };
 
 function t(dict) {
@@ -451,7 +476,13 @@ async function loadGraph() {
     loadRefrigerants(),
   ]);
   GRAPH = await graphRes.json();
-  goTo(GRAPH.start, { pushHistory: false });
+
+  const resumable = await checkResumableSession();
+  if (resumable) {
+    renderResumePrompt(resumable);
+  } else {
+    goTo(GRAPH.start, { pushHistory: false });
+  }
 }
 
 async function loadManufacturers() {
@@ -488,6 +519,280 @@ async function loadVersionInfo() {
   }
 }
 
+// ---- Session persistence (resume across page reloads/lost signal) -------
+// Everything the checklist needs to pick back up exactly where it left off
+// (currentId, history, answers, manufacturer/refrigerant picks, and the
+// finish-screen's target node) is serialized as one opaque blob the backend
+// just stores and returns — see SessionUpsertRequest.node_path in main.py.
+// checklist_state (the per-result-node checkbox/field values) is kept as a
+// separate blob since it's conceptually distinct from graph position.
+const SESSION_SAVE_DEBOUNCE_MS = 800;
+let sessionSaveTimer = null;
+
+function serializeNodePath() {
+  return {
+    currentId: state.currentId,
+    history: state.history,
+    answers: state.answers,
+    manufacturer: state.manufacturer,
+    manufacturerAsked: state.manufacturerAsked,
+    pendingNodeId: state.pendingNodeId,
+    refrigerant: state.refrigerant,
+    finishNodeId: state.finishNodeId,
+  };
+}
+
+// The first answer is always the equipment-type choice from the graph's
+// start node — same convention as the equipment_type column in
+// checklist_sessions (see main.py _save_session).
+function equipmentLabel() {
+  const first = state.answers[0];
+  if (!first || first.nodeId !== GRAPH.start || first.optionIndex == null) return null;
+  return answerLabel(first);
+}
+
+function saveSession(status = "active") {
+  localStorage.setItem("hvac_session_id", state.sessionId);
+  fetch("./api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: state.sessionId,
+      equipment: equipmentLabel(),
+      node_path: serializeNodePath(),
+      checklist_state: state.checklist,
+      status,
+    }),
+  }).catch(() => {});
+}
+
+function scheduleSessionSave() {
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => saveSession(), SESSION_SAVE_DEBOUNCE_MS);
+}
+
+// Checked once at boot (see loadGraph). Returns the saved session record
+// only if it's still "active" — a completed or already-abandoned session
+// (including one the TTL cleanup task in main.py reclassified) is treated
+// the same as "nothing to resume", so the user lands on a fresh start
+// without an unnecessary prompt.
+async function checkResumableSession() {
+  const savedId = localStorage.getItem("hvac_session_id");
+  if (!savedId) return null;
+  try {
+    const res = await fetch(`./api/session/${encodeURIComponent(savedId)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.status === "active" ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderResumePrompt(data) {
+  const strings = ui();
+  breadcrumbEl.innerHTML = "";
+  backBtn.style.display = "none";
+  cardEl.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "q-text";
+  title.textContent = strings.resumeTitle;
+  cardEl.appendChild(title);
+
+  if (data.equipment) {
+    const hint = document.createElement("div");
+    hint.className = "numeric-hint";
+    hint.textContent = `${strings.resumeEquipmentLabel}: ${data.equipment}`;
+    cardEl.appendChild(hint);
+  }
+
+  const opts = document.createElement("div");
+  opts.className = "options";
+
+  const continueBtn = document.createElement("button");
+  continueBtn.className = "btn input-action";
+  continueBtn.textContent = strings.resumeContinue;
+  continueBtn.onclick = () => resumeSession(data);
+  opts.appendChild(continueBtn);
+
+  const startOverBtn = document.createElement("button");
+  startOverBtn.className = "btn ghost";
+  startOverBtn.textContent = strings.resumeStartOver;
+  startOverBtn.onclick = () => abandonAndRestart(data);
+  opts.appendChild(startOverBtn);
+
+  cardEl.appendChild(opts);
+}
+
+function resumeSession(data) {
+  const np = data.node_path || {};
+  state = {
+    currentId: np.currentId || GRAPH.start,
+    history: np.history || [],
+    answers: np.answers || [],
+    sessionId: data.session_id,
+    manufacturer: np.manufacturer || null,
+    manufacturerAsked: !!np.manufacturerAsked,
+    pendingNodeId: np.pendingNodeId || null,
+    refrigerant: np.refrigerant || null,
+    checklist: data.checklist_state || {},
+    finishNodeId: np.finishNodeId || null,
+  };
+  render();
+}
+
+// The declined session is marked abandoned (not deleted — kept around as
+// future outcome-tracking data, same as the TTL cleanup's classification)
+// before a brand-new session starts. Reuses the same upsert shape, just
+// with the last-known node_path/checklist_state resubmitted as-is.
+function abandonAndRestart(data) {
+  fetch("./api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: data.session_id,
+      equipment: data.equipment,
+      node_path: data.node_path,
+      checklist_state: data.checklist_state,
+      status: "abandoned",
+    }),
+  }).catch(() => {});
+  restart();
+}
+
+// ---- Checklist (on result nodes) + finish screen -------------------------
+// graph.json's optional `checklist` field on a result node is a plain list
+// of {id, type: "checkbox"|"field", label, unit?} items — a lightweight
+// "confirm you actually did this" follow-through list shown right under the
+// recommendation, distinct from the AI box above it. State lives in
+// state.checklist[nodeId][itemId], persisted via the same debounced
+// session save as everything else.
+function isChecklistItemDone(value, type) {
+  return type === "field" ? !!(value && String(value).trim()) : !!value;
+}
+
+function checklistProgressText(nodeId, items) {
+  const values = state.checklist[nodeId] || {};
+  const done = items.filter((item) => isChecklistItemDone(values[item.id], item.type)).length;
+  return ui()
+    .checklistProgress.replace("{done}", done)
+    .replace("{total}", items.length);
+}
+
+function renderChecklist(nodeId, items, container) {
+  if (!items || !items.length) return;
+  if (!state.checklist[nodeId]) state.checklist[nodeId] = {};
+  const values = state.checklist[nodeId];
+
+  const wrap = document.createElement("div");
+  wrap.className = "checklist";
+
+  const progress = document.createElement("div");
+  progress.className = "checklist-progress";
+  wrap.appendChild(progress);
+
+  function updateProgress() {
+    progress.textContent = checklistProgressText(nodeId, items);
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("label");
+    row.className = "checklist-item";
+
+    if (item.type === "field") {
+      const labelEl = document.createElement("span");
+      labelEl.textContent = t(item.label);
+      row.appendChild(labelEl);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "checklist-field-input";
+      if (item.unit) input.placeholder = item.unit;
+      input.value = values[item.id] || "";
+      input.addEventListener("input", () => {
+        values[item.id] = input.value;
+        updateProgress();
+        scheduleSessionSave();
+      });
+      row.appendChild(input);
+    } else {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = !!values[item.id];
+      checkbox.addEventListener("change", () => {
+        values[item.id] = checkbox.checked;
+        updateProgress();
+        scheduleSessionSave();
+      });
+      row.appendChild(checkbox);
+      const labelEl = document.createElement("span");
+      labelEl.textContent = t(item.label);
+      row.appendChild(labelEl);
+    }
+    wrap.appendChild(row);
+  });
+
+  updateProgress();
+  container.appendChild(wrap);
+}
+
+// Reached via the "Finish checklist" button on a result node (see
+// renderResult) — a dedicated recap screen (full answer path + the same
+// checklist state, still editable) ending in an explicit "Complete" action
+// that marks the session status=completed server-side. Pure UI navigation,
+// not a graph.json node — see FINISH_STEP_ID and the goBack() special case.
+function renderFinishScreen() {
+  const strings = ui();
+  const nodeId = state.finishNodeId;
+  const node = nodeId ? GRAPH.nodes[nodeId] : null;
+
+  const title = document.createElement("div");
+  title.className = "q-text";
+  title.textContent = strings.finishSummaryTitle;
+  cardEl.appendChild(title);
+
+  const summary = document.createElement("div");
+  summary.className = "finish-summary";
+  currentAnswers().forEach((qa) => {
+    if (!qa.answer) return;
+    const row = document.createElement("div");
+    row.className = "finish-summary-row";
+    const q = document.createElement("div");
+    q.className = "finish-summary-q";
+    q.textContent = qa.question;
+    const a = document.createElement("div");
+    a.className = "finish-summary-a";
+    a.textContent = qa.answer;
+    row.appendChild(q);
+    row.appendChild(a);
+    summary.appendChild(row);
+  });
+  cardEl.appendChild(summary);
+
+  if (node && node.checklist && node.checklist.length) {
+    renderChecklist(nodeId, node.checklist, cardEl);
+  }
+
+  const completeBtn = document.createElement("button");
+  completeBtn.className = "btn input-action";
+  completeBtn.textContent = strings.finishCompleteBtn;
+  cardEl.appendChild(completeBtn);
+
+  const doneMsg = document.createElement("div");
+  doneMsg.className = "numeric-hint";
+  cardEl.appendChild(doneMsg);
+
+  completeBtn.onclick = () => {
+    if (sessionSaveTimer) {
+      clearTimeout(sessionSaveTimer);
+      sessionSaveTimer = null;
+    }
+    saveSession("completed");
+    completeBtn.disabled = true;
+    doneMsg.textContent = strings.finishCompletedMsg;
+  };
+}
+
 function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
   if (pushHistory && prevId) {
     state.history.push(prevId);
@@ -498,6 +803,10 @@ function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
 
 function goBack() {
   if (state.history.length === 0) return;
+  // The finish screen is pure UI navigation (see the "Finish checklist"
+  // button in renderResult) — entering it never added an answer entry, so
+  // leaving it must not pop one either.
+  const leavingFinishScreen = state.currentId === FINISH_STEP_ID;
   const prev = state.history.pop();
   if (prev === MANUFACTURER_STEP_ID) {
     // The manufacturer step can add 0, 1, or 2 answer entries (manufacturer
@@ -506,7 +815,7 @@ function goBack() {
     while (state.answers.length && state.answers[state.answers.length - 1].nodeId === MANUFACTURER_STEP_ID) {
       state.answers.pop();
     }
-  } else {
+  } else if (!leavingFinishScreen) {
     // assumes 1 answer per question/numeric_input/measurement/refrigerant_select/
     // pt_calc step
     const popped = state.answers.pop();
@@ -531,6 +840,8 @@ function restart() {
     manufacturerAsked: false,
     pendingNodeId: null,
     refrigerant: null,
+    checklist: {},
+    finishNodeId: null,
   };
   render();
 }
@@ -569,9 +880,14 @@ function renderBreadcrumb() {
 function render() {
   renderBreadcrumb();
   cardEl.innerHTML = "";
+  scheduleSessionSave();
 
   if (state.currentId === MANUFACTURER_STEP_ID) {
     renderManufacturerStep();
+    return;
+  }
+  if (state.currentId === FINISH_STEP_ID) {
+    renderFinishScreen();
     return;
   }
 
@@ -1206,6 +1522,20 @@ function renderResult(node) {
 
   const mfgLink = buildMfgDocLink();
   if (mfgLink) cardEl.appendChild(mfgLink);
+
+  if (node.checklist && node.checklist.length) {
+    const resultNodeId = state.currentId;
+    renderChecklist(resultNodeId, node.checklist, cardEl);
+
+    const finishBtn = document.createElement("button");
+    finishBtn.className = "btn input-action";
+    finishBtn.textContent = strings.finishBtn;
+    finishBtn.onclick = () => {
+      state.finishNodeId = resultNodeId;
+      goTo(FINISH_STEP_ID, { prevId: resultNodeId });
+    };
+    cardEl.appendChild(finishBtn);
+  }
 
   logSession({ finalNodeId: state.currentId, severity: node.severity || "info" });
 }
