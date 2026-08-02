@@ -64,7 +64,9 @@ const I18N = {
     finishCompletedMsg: "Сессия завершена. Спасибо!",
     intakePhaseProgress: "Этап {n} из {total}",
     intakeSkipLabel: "N/A",
-    intakeDoneLabel: "✓ Сделано",
+    intakeYesLabel: "Да",
+    intakeNoLabel: "Нет",
+    intakeNotSureLabel: "Не уверен",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
@@ -131,7 +133,9 @@ const I18N = {
     finishCompletedMsg: "Session completed. Thank you!",
     intakePhaseProgress: "Phase {n} of {total}",
     intakeSkipLabel: "N/A",
-    intakeDoneLabel: "✓ Done",
+    intakeYesLabel: "Yes",
+    intakeNoLabel: "No",
+    intakeNotSureLabel: "Not sure",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
@@ -907,7 +911,10 @@ function renderFinishScreen() {
 function intakeShowIfMet(showIf) {
   if (!showIf) return true;
   const entry = (state.intake[showIf.phase] || {})[showIf.item];
-  return !!(entry && entry.value) === !!showIf.equals;
+  // "Not sure" (entry.skipped) can't satisfy either branch of a showIf —
+  // only a definite Yes/No does, since we don't actually know the answer.
+  if (!entry || entry.skipped) return false;
+  return entry.value === (showIf.equals ? "Yes" : "No");
 }
 
 // An item satisfies the phase gate once it's either done (see
@@ -981,7 +988,10 @@ function renderIntakeChecklist() {
 
   visibleItems.forEach((item) => {
     if (!values[item.id]) {
-      values[item.id] = { value: item.type === "checkbox" ? false : "", skipped: false };
+      // "" means unanswered for every type now, including checkbox — see
+      // the checkbox branch below for why it's a "Yes"/"No" string tri-
+      // state (plus skipped for "Not sure"), not a boolean.
+      values[item.id] = { value: "", skipped: false };
     }
     const entry = values[item.id];
     const resolved = intakeItemResolved(entry, item.type);
@@ -1064,8 +1074,9 @@ function renderIntakeChecklist() {
       // Row border communicates at a glance whether the reading is what
       // you'd expect (green), a flag worth a closer look (red/amber), or
       // ruled out (neutral) — see CLAUDE.md UI task for the color rule.
-      // Deliberately NOT applied to checkbox items: those have no "bad"
-      // outcome, only done/not-applicable.
+      // Not applied to checkbox (Yes/No) items yet — pending the separate
+      // alertValues design (which value(s) count as an alert vs. just
+      // off-normal), not because a "No" answer can't matter.
       if (entry.skipped) {
         // neutral — no extra class needed, same look as an untouched row
       } else if (entry.value && item.normal != null) {
@@ -1098,29 +1109,50 @@ function renderIntakeChecklist() {
       group.appendChild(naBtn);
       row.appendChild(group);
     } else {
+      // checkbox items are actually yes/no assertions ("TXV present?",
+      // "breaker in norm?"), not "did I do this task" — so this is a real
+      // tri-state (Yes/No/Not sure), not a 2-state done/skip toggle.
+      // entry.value is a "Yes"/"No" string (or "" if unanswered), same
+      // shape as select — "No" is a genuine, resolved answer, distinct
+      // from "Not sure" (entry.skipped), which is what N/A used to
+      // conflate it with. No color-coding yet (deliberately neutral,
+      // same generic "active" fill as everything else) — that's pending
+      // the separate alertValues design (see CLAUDE.md).
       const group = document.createElement("div");
       group.className = "intake-toggle-group";
-      const doneBtn = document.createElement("button");
-      doneBtn.type = "button";
-      doneBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value ? " active" : "");
-      doneBtn.textContent = strings.intakeDoneLabel;
+      const yesBtn = document.createElement("button");
+      yesBtn.type = "button";
+      yesBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "Yes" ? " active" : "");
+      yesBtn.textContent = strings.intakeYesLabel;
       // A full render() here (not just updateGateState()) is deliberate: a
       // checkbox can be a showIf trigger for a later phase's item, so
       // toggling one may need to reveal/hide other items, not just flip
       // the gate.
-      doneBtn.onclick = () => {
-        entry.value = true;
+      yesBtn.onclick = () => {
+        entry.value = "Yes";
         entry.skipped = false;
         scheduleSessionSave();
         render();
       };
+      const noBtn = document.createElement("button");
+      noBtn.type = "button";
+      noBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "No" ? " active" : "");
+      noBtn.textContent = strings.intakeNoLabel;
+      noBtn.onclick = () => {
+        entry.value = "No";
+        entry.skipped = false;
+        scheduleSessionSave();
+        render();
+      };
+      naBtn.textContent = strings.intakeNotSureLabel;
       naBtn.onclick = () => {
-        entry.value = false;
+        entry.value = "";
         entry.skipped = true;
         scheduleSessionSave();
         render();
       };
-      group.appendChild(doneBtn);
+      group.appendChild(yesBtn);
+      group.appendChild(noBtn);
       group.appendChild(naBtn);
       row.appendChild(group);
     }
@@ -2186,13 +2218,14 @@ function intakeAnswers() {
     phase.items.forEach((item) => {
       const entry = values[item.id];
       if (!intakeItemResolved(entry, item.type)) return;
+      // checkbox/select/component_check all store a plain string value
+      // now (checkbox is "Yes"/"No" — see the intake render loop) — only
+      // "field" needs the unit-suffix special case.
       const answer = entry.skipped
         ? "N/A"
         : item.type === "field"
         ? (item.unit ? `${entry.value} ${item.unit}` : String(entry.value))
-        : item.type === "select" || item.type === "component_check"
-        ? String(entry.value)
-        : "✓";
+        : String(entry.value);
       rows.push({ question: t(item.label), answer });
     });
   });
