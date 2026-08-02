@@ -1181,7 +1181,13 @@ function renderQuestion(node) {
         render();
         return;
       }
-      goTo(opt.next, { prevId: state.currentId });
+      // "__pending__" is a graph.json convention (used by thermostat_check's
+      // "Yes" option) for "resume wherever the equipment-type choice was
+      // originally headed" — lets the universal power/thermostat gate
+      // questions live as plain shared nodes instead of being duplicated
+      // per equipment type just to know where to route afterward.
+      const nextId = opt.next === "__pending__" ? state.pendingNodeId : opt.next;
+      goTo(nextId, { prevId: state.currentId });
     };
     opts.appendChild(b);
   });
@@ -1274,9 +1280,21 @@ function renderManufacturerStep() {
     state.manufacturer = manufacturer;
     state.manufacturerAsked = true;
 
-    const target = state.pendingNodeId;
-    state.pendingNodeId = null;
-    goTo(target, { prevId: MANUFACTURER_STEP_ID });
+    // Two universal "check the simple stuff first" gate questions (power,
+    // then thermostat/controller call) come next for every equipment type,
+    // before symptom-specific branching — regular graph.json question
+    // nodes, not a JS sentinel, since they're just plain yes/no content.
+    // thermostat_check's "Yes" option resolves the "__pending__" marker
+    // (see renderQuestion) back to whatever symptom node this equipment
+    // type would have led to — pendingNodeId is deliberately NOT cleared
+    // here so that resolution can happen later, once both gates pass.
+    if (GRAPH.nodes["power_check"]) {
+      goTo("power_check", { prevId: MANUFACTURER_STEP_ID });
+    } else {
+      const target = state.pendingNodeId;
+      state.pendingNodeId = null;
+      goTo(target, { prevId: MANUFACTURER_STEP_ID });
+    }
   };
 }
 
