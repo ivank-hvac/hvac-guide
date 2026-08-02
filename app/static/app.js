@@ -4,6 +4,7 @@ const backBtn = document.getElementById("backBtn");
 const restartBtn = document.getElementById("restartBtn");
 const langButtons = document.querySelectorAll(".lang-btn");
 const disclaimerEl = document.getElementById("disclaimer");
+const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
 
 const I18N = {
@@ -21,6 +22,7 @@ const I18N = {
     aiAsk: "🤖 Спросить AI-ассистента",
     freeformPlaceholder: "Опишите наблюдения, показания приборов, модель оборудования...",
     disclaimer: "Этот инструмент даёт вспомогательные диагностические предположения на основе ИИ и не заменяет суждение квалифицированного специалиста. Перед любыми работами с электричеством, хладагентом или под давлением всегда соблюдайте LOTO и применимые нормы безопасности (OSHA/CSA/местные). Используется на свой риск.",
+    footerDisclaimer: "Независимый личный проект, предоставляется как есть, без гарантий. Не заменяет документацию производителя, местные нормы или суждение квалифицированного специалиста.",
     nextBtn: "Далее",
     numericRangeLabel: "Диапазон:",
     measuredLabel: "Измеренное значение",
@@ -66,6 +68,7 @@ const I18N = {
     aiAsk: "🤖 Ask AI Assistant",
     freeformPlaceholder: "Describe your observations, gauge readings, equipment model...",
     disclaimer: "This tool provides AI-assisted diagnostic suggestions only — it doesn't replace the judgment of a qualified technician. Always follow LOTO and applicable safety codes (OSHA/CSA/local) before working on live electrical, refrigerant, or pressurized components. Use at your own risk.",
+    footerDisclaimer: "Independent personal project, provided as-is, with no warranty. Doesn't replace manufacturer documentation, local codes, or the judgment of a qualified technician.",
     nextBtn: "Next",
     numericRangeLabel: "Range:",
     measuredLabel: "Measured value",
@@ -546,6 +549,7 @@ function updateStaticUi() {
   backBtn.textContent = strings.back;
   restartBtn.textContent = strings.restart;
   disclaimerEl.textContent = strings.disclaimer;
+  footerDisclaimerEl.textContent = strings.footerDisclaimer;
   langButtons.forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
 }
 
