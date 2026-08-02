@@ -42,10 +42,245 @@
       "items": [
         {"id": "txv_bulb_checked", "type": "checkbox", "label": {"ru": "Колба/уравнительная линия TXV проверены", "en": "TXV bulb/equalizer line checked"}, "showIf": {"phase": "visual", "item": "metering_txv", "equals": true}},
         {"id": "moisture_reading", "type": "select", "label": {"ru": "Показание moisture indicator", "en": "Moisture indicator reading"}, "options": ["Dry", "Wet"], "normal": "Dry", "showIf": {"phase": "visual", "item": "moisture_indicator", "equals": true}},
-        {"id": "solenoid_energizes", "type": "checkbox", "label": {"ru": "Соленоид корректно запитывается по команде", "en": "Solenoid energizes properly when called"}, "showIf": {"phase": "visual", "item": "liquid_solenoid", "equals": true}}
+        {"id": "solenoid_energizes", "type": "checkbox", "label": {"ru": "Соленоид корректно запитывается по команде", "en": "Solenoid energizes properly when called"}, "showIf": {"phase": "visual", "item": "liquid_solenoid", "equals": true}},
+        {"id": "metering_device_check", "type": "component_check", "label": {"ru": "Metering device — детальная проверка (тип, состояние, характер неисправности)", "en": "Metering device — detailed check (type, condition, failure mode)"}, "checkId": "metering_device"}
       ]
     }
   ],
+  "component_checks": {
+    "metering_device": {
+      "root": "start",
+      "nodes": {
+
+        "start": {
+          "type": "question",
+          "text": {"ru": "Установлен metering device на этой машине?", "en": "Is a metering device installed on this equipment?"},
+          "options": [
+            {"label": {"ru": "Да", "en": "Yes"}, "next": "type"},
+            {"label": {"ru": "Нет / не обнаружен", "en": "No / not found"}, "next": "not_present"}
+          ]
+        },
+
+        "not_present": {
+          "type": "result",
+          "severity": "info",
+          "text": {"ru": "Metering device не установлен или не идентифицирован на этой машине.", "en": "No metering device installed or identified on this equipment."}
+        },
+
+        "type": {
+          "type": "question",
+          "text": {"ru": "Какой тип metering device?", "en": "What type of metering device?"},
+          "options": [
+            {"label": {"ru": "Капиллярная трубка", "en": "Capillary tube"}, "next": "captube_status"},
+            {"label": {"ru": "Fixed orifice / piston", "en": "Fixed orifice / piston"}, "next": "orifice_status"},
+            {"label": {"ru": "ТРВ (TXV, с выносной колбой)", "en": "TXV (thermostatic, with remote bulb)"}, "next": "txv_status"},
+            {"label": {"ru": "EEV (электронный клапан)", "en": "EEV (electronic expansion valve)"}, "next": "eev_status"}
+          ]
+        },
+
+        "captube_status": {
+          "type": "question",
+          "text": {"ru": "Состояние капиллярной трубки?", "en": "Condition of the capillary tube?"},
+          "options": [
+            {"label": {"ru": "В норме (OK)", "en": "OK"}, "next": "captube_ok"},
+            {"label": {"ru": "Неисправность", "en": "Faulty"}, "next": "captube_nok"}
+          ]
+        },
+        "captube_ok": {
+          "type": "result",
+          "severity": "info",
+          "text": {"ru": "Капиллярная трубка в норме. Продолжайте по интейк-чеклисту.", "en": "Capillary tube is OK. Continue with the intake checklist."}
+        },
+        "captube_nok": {
+          "type": "question",
+          "text": {"ru": "Характер неисправности?", "en": "What kind of failure?"},
+          "options": [
+            {"label": {"ru": "Пережата/перегнута (kinked)", "en": "Kinked/bent"}, "next": "captube_kinked"},
+            {"label": {"ru": "Частично забита (restricted)", "en": "Partially restricted"}, "next": "captube_restricted"},
+            {"label": {"ru": "Разрушена/лопнула", "en": "Ruptured/broken"}, "next": "captube_broken"},
+            {"label": {"ru": "Неправильный размер (после замены компрессора)", "en": "Wrong size (after a compressor swap)"}, "next": "captube_wrong_size"},
+            {"label": {"ru": "Масляные потёки в нетипичных местах (признак утечки)", "en": "Oil residue in atypical spots (leak indicator)"}, "next": "captube_oil_residue"}
+          ]
+        },
+        "captube_kinked": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Капиллярная трубка пережата/перегнута — механическое ограничение потока хладагента. Проверьте маршрут трубки, устраните перегиб; если повреждение необратимо — замените трубку.", "en": "The capillary tube is kinked/bent — a mechanical restriction on refrigerant flow. Check the tube's routing and straighten it out; replace the tube if the damage isn't reversible."}
+        },
+        "captube_restricted": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Частичное засорение капиллярной трубки (мусор, воск, лёд) — проверьте фильтр-осушитель перед трубкой; при необходимости замените и трубку, и осушитель, и промойте контур.", "en": "Partial restriction in the capillary tube (debris, wax, ice) — check the filter-drier upstream of the tube; replace both the tube and the drier if needed, and flush the circuit."}
+        },
+        "captube_broken": {
+          "type": "result",
+          "severity": "critical",
+          "text": {"ru": "Капиллярная трубка разрушена/лопнула — полная потеря заряда хладагента. Требуется замена трубки, поиск причины разрушения (вибрация, коррозия) и полная перезаправка по массе согласно шильдику.", "en": "The capillary tube has ruptured — full loss of refrigerant charge. Replace the tube, find the root cause (vibration, corrosion), and do a full recharge by weight per the nameplate."}
+        },
+        "captube_wrong_size": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Подозрение на неправильный подбор капиллярной трубки после замены компрессора — несоответствие диаметра/длины даёт неправильное дросселирование. Сверьтесь со спецификацией производителя для установленного компрессора.", "en": "Suspected wrong capillary tube sizing after a compressor swap — a diameter/length mismatch gives incorrect metering. Check the manufacturer's spec for the installed compressor."}
+        },
+        "captube_oil_residue": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Масляные потёки в нетипичных местах вокруг капиллярной трубки — характерный признак утечки хладагента, а не просто загрязнения. Используйте электронный детектор или УФ-краситель для точной локализации перед доливкой.", "en": "Oil residue in atypical spots around the capillary tube — a characteristic leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it before topping off."}
+        },
+
+        "orifice_status": {
+          "type": "question",
+          "text": {"ru": "Состояние fixed orifice / piston?", "en": "Condition of the fixed orifice / piston?"},
+          "options": [
+            {"label": {"ru": "В норме (OK)", "en": "OK"}, "next": "orifice_ok"},
+            {"label": {"ru": "Неисправность", "en": "Faulty"}, "next": "orifice_nok"}
+          ]
+        },
+        "orifice_ok": {
+          "type": "result",
+          "severity": "info",
+          "text": {"ru": "Fixed orifice / piston в норме. Продолжайте по интейк-чеклисту.", "en": "Fixed orifice/piston is OK. Continue with the intake checklist."}
+        },
+        "orifice_nok": {
+          "type": "question",
+          "text": {"ru": "Характер неисправности?", "en": "What kind of failure?"},
+          "options": [
+            {"label": {"ru": "Забит мусором/оксидом меди", "en": "Clogged with debris/copper oxide"}, "next": "orifice_clogged"},
+            {"label": {"ru": "Неправильный размер piston", "en": "Wrong piston size"}, "next": "orifice_wrong_size"},
+            {"label": {"ru": "Эрозия/износ отверстия", "en": "Bore eroded/worn"}, "next": "orifice_eroded"},
+            {"label": {"ru": "Масляные потёки в нетипичных местах (признак утечки)", "en": "Oil residue in atypical spots (leak indicator)"}, "next": "orifice_oil_residue"}
+          ]
+        },
+        "orifice_clogged": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Piston забит мусором/оксидом меди — ограничение потока хладагента. Прочистите или замените piston, проверьте фильтр-осушитель и чистоту контура после ремонта.", "en": "The piston is clogged with debris/copper oxide — restricting refrigerant flow. Clean or replace the piston, check the filter-drier, and flush the circuit clean after the repair."}
+        },
+        "orifice_wrong_size": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Подозрение на неправильный подбор piston (диаметр отверстия не соответствует нагрузке/производительности) — сверьтесь со спецификацией производителя.", "en": "Suspected wrong piston size (bore diameter doesn't match the unit's capacity) — check the manufacturer's spec."}
+        },
+        "orifice_eroded": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Эрозия/износ отверстия piston — увеличенное отверстие пропускает больше хладагента, чем рассчитано, что может давать симптомы недостаточного перегрева. Замените piston.", "en": "Bore erosion/wear on the piston — the enlarged opening passes more refrigerant than designed, which can look like low superheat symptoms. Replace the piston."}
+        },
+        "orifice_oil_residue": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Масляные потёки в нетипичных местах вокруг piston/распределителя — характерный признак утечки хладагента, а не просто загрязнения. Используйте электронный детектор или УФ-краситель для точной локализации перед доливкой.", "en": "Oil residue in atypical spots around the piston/distributor — a characteristic leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it before topping off."}
+        },
+
+        "txv_status": {
+          "type": "question",
+          "text": {"ru": "Состояние ТРВ (TXV)?", "en": "Condition of the TXV?"},
+          "options": [
+            {"label": {"ru": "В норме (OK)", "en": "OK"}, "next": "txv_ok"},
+            {"label": {"ru": "Неисправность", "en": "Faulty"}, "next": "txv_nok"}
+          ]
+        },
+        "txv_ok": {
+          "type": "result",
+          "severity": "info",
+          "text": {"ru": "ТРВ в норме. Продолжайте по интейк-чеклисту.", "en": "TXV is OK. Continue with the intake checklist."}
+        },
+        "txv_nok": {
+          "type": "question",
+          "text": {"ru": "Характер неисправности?", "en": "What kind of failure?"},
+          "options": [
+            {"label": {"ru": "Колба потеряла заряд/оторвалась", "en": "Bulb lost its charge/came loose"}, "next": "txv_bulb_lost_charge"},
+            {"label": {"ru": "Колба неправильно закреплена (плохой термоконтакт)", "en": "Bulb poorly mounted (bad thermal contact)"}, "next": "txv_bulb_poor_contact"},
+            {"label": {"ru": "Залипание клапана (oil-logged)", "en": "Valve stuck (oil-logged)"}, "next": "txv_oil_logged"},
+            {"label": {"ru": "Утечка через клапан (не закрывается полностью)", "en": "Internal leak-by (won't fully close)"}, "next": "txv_leaking"},
+            {"label": {"ru": "Повреждена мембрана", "en": "Diaphragm damaged"}, "next": "txv_diaphragm"},
+            {"label": {"ru": "Масляные потёки в нетипичных местах (признак утечки)", "en": "Oil residue in atypical spots (leak indicator)"}, "next": "txv_oil_residue"}
+          ]
+        },
+        "txv_bulb_lost_charge": {
+          "type": "result",
+          "severity": "critical",
+          "text": {"ru": "Выносная колба ТРВ потеряла заряд или оторвалась от линии всасывания — клапан перестаёт реагировать на перегрев и может застрять в одном положении. Замените силовой элемент/колбу в сборе.", "en": "The TXV's remote bulb lost its charge or came loose from the suction line — the valve stops responding to superheat and can stick in one position. Replace the power element/bulb assembly."}
+        },
+        "txv_bulb_poor_contact": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Колба закреплена с плохим термическим контактом (неверное положение на трубе, нет теплопроводной пасты/ленты, нет изоляции от окружающего воздуха) — даёт ложные показания перегрева. Переустановите колбу по спецификации производителя.", "en": "The bulb is mounted with poor thermal contact (wrong clock position, no thermal paste/strap, not insulated from ambient air) — gives false superheat readings. Remount the bulb per the manufacturer's spec."}
+        },
+        "txv_oil_logged": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Клапан 'залит маслом' (oil-logged) — застревание в одном положении из-за загрязнения маслом/смолами. Проверьте качество и количество масла в системе и общее состояние компрессора.", "en": "The valve is oil-logged — stuck in one position from oil/varnish contamination. Check the system's oil quality/quantity and the compressor's overall condition."}
+        },
+        "txv_leaking": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Внутренняя утечка через клапан (не закрывается полностью) — повышенное давление всасывания и низкий перегрев даже при малой нагрузке. Замените клапан.", "en": "Internal leak-by through the valve (won't fully close) — elevated suction pressure and low superheat even at light load. Replace the valve."}
+        },
+        "txv_diaphragm": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Повреждена мембрана силового элемента — клапан теряет способность модулировать открытие. Замените силовой элемент/ТРВ в сборе.", "en": "The power element's diaphragm is damaged — the valve loses its ability to modulate. Replace the power element/TXV assembly."}
+        },
+        "txv_oil_residue": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Масляные потёки в нетипичных местах вокруг ТРВ — характерный признак утечки хладагента, а не просто загрязнения. Используйте электронный детектор или УФ-краситель для точной локализации перед доливкой.", "en": "Oil residue in atypical spots around the TXV — a characteristic leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it before topping off."}
+        },
+
+        "eev_status": {
+          "type": "question",
+          "text": {"ru": "Состояние EEV (электронный клапан)?", "en": "Condition of the EEV (electronic expansion valve)?"},
+          "options": [
+            {"label": {"ru": "В норме (OK)", "en": "OK"}, "next": "eev_ok"},
+            {"label": {"ru": "Неисправность", "en": "Faulty"}, "next": "eev_nok"}
+          ]
+        },
+        "eev_ok": {
+          "type": "result",
+          "severity": "info",
+          "text": {"ru": "EEV в норме. Продолжайте по интейк-чеклисту.", "en": "EEV is OK. Continue with the intake checklist."}
+        },
+        "eev_nok": {
+          "type": "question",
+          "text": {"ru": "Характер неисправности?", "en": "What kind of failure?"},
+          "options": [
+            {"label": {"ru": "Залипание/пропуск шагов шагового двигателя", "en": "Stepper motor sticking/skipping steps"}, "next": "eev_stepper_stuck"},
+            {"label": {"ru": "Потеряна калибровка (не находит домашнюю позицию)", "en": "Lost calibration (won't find home position)"}, "next": "eev_lost_calibration"},
+            {"label": {"ru": "Неверный сигнал от платы управления", "en": "Bad signal from the control board"}, "next": "eev_bad_signal"},
+            {"label": {"ru": "Механическое заклинивание", "en": "Mechanical jam"}, "next": "eev_mechanical_jam"},
+            {"label": {"ru": "Масляные потёки в нетипичных местах (признак утечки)", "en": "Oil residue in atypical spots (leak indicator)"}, "next": "eev_oil_residue"}
+          ]
+        },
+        "eev_stepper_stuck": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Шаговый двигатель клапана залипает/пропускает шаги — клапан не отрабатывает команды точно. Проверьте обмотки двигателя и механическую свободу хода штока.", "en": "The valve's stepper motor sticks/skips steps — the valve doesn't track commands accurately. Check the motor windings and the stem's mechanical freedom of movement."}
+        },
+        "eev_lost_calibration": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Клапан не находит домашнюю (референсную) позицию при калибровке — проверьте процедуру инициализации по документации производителя, разъём и проводку катушки.", "en": "The valve won't find its home (reference) position during calibration — check the init procedure per the manufacturer's docs, and the coil's connector/wiring."}
+        },
+        "eev_bad_signal": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Плата управления не даёт корректный управляющий сигнал на клапан (обрыв, неверная полярность, неисправный драйвер) — проверьте проводку и выходные сигналы платы согласно схеме.", "en": "The control board isn't sending a correct drive signal to the valve (open circuit, wrong polarity, bad driver) — check the wiring and the board's output signals against the schematic."}
+        },
+        "eev_mechanical_jam": {
+          "type": "result",
+          "severity": "critical",
+          "text": {"ru": "Механическое заклинивание штока клапана (мусор, коррозия, деформация) — клапан не может изменить открытие независимо от сигнала управления. Требуется разборка/замена клапана.", "en": "Mechanical jam on the valve stem (debris, corrosion, deformation) — the valve can't change its opening regardless of the drive signal. The valve needs to be disassembled/replaced."}
+        },
+        "eev_oil_residue": {
+          "type": "result",
+          "severity": "warning",
+          "text": {"ru": "Масляные потёки в нетипичных местах вокруг EEV — характерный признак утечки хладагента, а не просто загрязнения. Используйте электронный детектор или УФ-краситель для точной локализации перед доливкой.", "en": "Oil residue in atypical spots around the EEV — a characteristic leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it before topping off."}
+        }
+
+      }
+    }
+  },
   "nodes": {
 
     "start": {
@@ -976,7 +1211,7 @@
       "text": {"ru": "Это конденсатный дренаж или похоже на утечку холодильного контура?", "en": "Is this condensate drainage or does it look like a refrigerant circuit leak?"},
       "options": [
         {"label": {"ru": "Конденсатный дренаж", "en": "Condensate drainage"}, "next": "leak_condensate"},
-        {"label": {"ru": "Похоже на утечку по контуру (масляные следы)", "en": "Looks like a refrigerant leak (oil residue)"}, "next": "leak_refrig"},
+        {"label": {"ru": "Похоже на утечку по контуру (масляные потёки в нетипичных местах)", "en": "Looks like a refrigerant leak (oil residue in atypical spots)"}, "next": "leak_refrig"},
         {"label": {"ru": "Другое", "en": "Other"}, "next": "ai_freeform"}
       ]
     },
@@ -1015,8 +1250,8 @@
       "severity": "critical",
       "ai": true,
       "text": {
-        "ru": "Признаки утечки холодильного агента (масляные следы) — используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику.",
-        "en": "Signs of a refrigerant leak (oil residue) — use an electronic leak detector or UV dye to pinpoint it exactly. Don't top off 'by feel' before repairing — find and fix the leak first, then do a full recharge by weight per the nameplate."
+        "ru": "Признаки утечки холодильного агента — масляные потёки в нетипичных местах (на фитингах, изгибах трубок, вокруг паяных соединений) являются надёжным индикатором утечки, а не просто загрязнением. Используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику.",
+        "en": "Signs of a refrigerant leak — oil residue in atypical spots (fittings, tubing bends, around brazed joints) is a reliable leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it exactly. Don't top off 'by feel' before repairing — find and fix the leak first, then do a full recharge by weight per the nameplate."
       },
       "checklist": [
         {"id": "leak_located", "type": "checkbox", "label": {"ru": "Утечка локализована (детектор/УФ-краситель)", "en": "Leak located (electronic detector/UV dye)"}},

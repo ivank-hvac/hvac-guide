@@ -70,6 +70,10 @@ const I18N = {
     intakeFinishBtn: "Готово — вернуться к результату",
     intakeStartBtn: "🔍 Углублённая диагностика (полный чек-лист)",
     intakeReviewBtn: "✓ Чек-лист пройден (посмотреть)",
+    componentCheckStartBtn: "▶ Начать проверку",
+    componentCheckReviewBtn: "↺ Посмотреть/изменить",
+    componentCheckSaveBtn: "✓ Сохранить и вернуться к чек-листу",
+    componentCheckDescPlaceholder: "Дополнительное описание (опционально)",
   },
   en: {
     back: "← Back",
@@ -133,6 +137,10 @@ const I18N = {
     intakeFinishBtn: "Done — back to results",
     intakeStartBtn: "🔍 Deeper diagnosis (full checklist)",
     intakeReviewBtn: "✓ Checklist completed (review)",
+    componentCheckStartBtn: "▶ Start check",
+    componentCheckReviewBtn: "↺ View/change",
+    componentCheckSaveBtn: "✓ Save & return to checklist",
+    componentCheckDescPlaceholder: "Additional description (optional)",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -454,6 +462,17 @@ const FINISH_STEP_ID = "__finish__";
 // graph.json node — same reasoning as MANUFACTURER_STEP_ID.
 const INTAKE_STEP_ID = "__intake__";
 
+// Sentinel currentId for a "component check" mini-subtree, embedded inside
+// a `component_check`-type intake item (currently piloted only for the
+// metering device — see graph.json's `component_checks`). Walks its own
+// tiny question/result subtree (same node shape as the main graph, reusing
+// renderQuestion-style option buttons — see renderComponentCheck), but
+// deliberately does NOT touch state.answers/state.history: unlike the main
+// graph, "answering" here means recording one finding into the intake
+// item, not extending the top-level symptom-diagnosis trail. Not a real
+// graph.json node — same reasoning as MANUFACTURER_STEP_ID.
+const COMPONENT_CHECK_STEP_ID = "__component_check__";
+
 let GRAPH = null;
 let MANUFACTURERS = null;
 let REFRIGERANTS = null;
@@ -486,6 +505,8 @@ let state = {
   intake: {},               // {[phaseId]: {[itemId]: {value, skipped}}} — see renderIntakeChecklist
   intakeAsked: false,       // whether the one-time intake checklist has already run this session
   intakePhaseIndex: 0,      // which intake_checklist phase is currently shown
+  componentCheck: null,     // {phaseId, itemId, checkId, currentId, history, description} while a
+                            // component-check subtree is active (see COMPONENT_CHECK_STEP_ID), else null
 };
 
 function t(dict) {
@@ -592,6 +613,7 @@ function serializeNodePath() {
     intake: state.intake,
     intakeAsked: state.intakeAsked,
     intakePhaseIndex: state.intakePhaseIndex,
+    componentCheck: state.componentCheck,
   };
 }
 
@@ -695,6 +717,7 @@ function resumeSession(data) {
     intake: np.intake || {},
     intakeAsked: !!np.intakeAsked,
     intakePhaseIndex: np.intakePhaseIndex || 0,
+    componentCheck: np.componentCheck || null,
   };
   render();
 }
@@ -726,7 +749,9 @@ function abandonAndRestart(data) {
 // state.checklist[nodeId][itemId], persisted via the same debounced
 // session save as everything else.
 function isChecklistItemDone(value, type) {
-  return type === "field" || type === "select" ? !!(value && String(value).trim()) : !!value;
+  return type === "field" || type === "select" || type === "component_check"
+    ? !!(value && String(value).trim())
+    : !!value;
 }
 
 function checklistProgressText(nodeId, items) {
@@ -1046,6 +1071,32 @@ function renderIntakeChecklist() {
       } else if (entry.value && item.normal != null) {
         row.classList.add(entry.value === item.normal ? "intake-select-normal" : "intake-select-abnormal");
       }
+    } else if (item.type === "component_check") {
+      // entry.value holds the finding text once the subtree's been walked
+      // (see finishComponentCheck) — shown as a summary so the tech can see
+      // the outcome without re-entering the subtree.
+      if (entry.value) {
+        const summary = document.createElement("div");
+        summary.className = "numeric-hint";
+        summary.textContent = entry.value;
+        row.appendChild(summary);
+      }
+      const group = document.createElement("div");
+      group.className = "intake-toggle-group";
+      const startBtn = document.createElement("button");
+      startBtn.type = "button";
+      startBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value ? " active" : "");
+      startBtn.textContent = entry.value ? strings.componentCheckReviewBtn : strings.componentCheckStartBtn;
+      startBtn.onclick = () => startComponentCheck(phase.id, item.id, item.checkId);
+      naBtn.onclick = () => {
+        entry.value = "";
+        entry.skipped = true;
+        scheduleSessionSave();
+        render();
+      };
+      group.appendChild(startBtn);
+      group.appendChild(naBtn);
+      row.appendChild(group);
     } else {
       const group = document.createElement("div");
       group.className = "intake-toggle-group";
@@ -1093,6 +1144,119 @@ function renderIntakeChecklist() {
       finishIntakeChecklist();
     }
   };
+}
+
+// ---- Component check (pilot: metering device only) ----------------------
+// A `component_check`-type intake item embeds a tiny question/result
+// subtree — same node shape as the main graph (type/text/options/next for
+// question, type/text/severity for result), just scoped under its own
+// namespace in graph.json (`component_checks`) instead of the shared 42-
+// node graph. It's walked with its own local currentId/history rather than
+// the main graph's, so navigating it never touches state.answers/
+// state.history — "answering" here means recording one finding into the
+// intake item, not extending the top-level symptom-diagnosis trail.
+// Deliberately piloted on metering device only — see CLAUDE.md's
+// "Component sub-tree pattern" task for why the other components
+// (moisture indicator, filter-drier, solenoid) wait for this to prove out
+// on a live deploy first.
+
+function componentCheckNode() {
+  const cc = state.componentCheck;
+  return GRAPH.component_checks[cc.checkId].nodes[cc.currentId];
+}
+
+function startComponentCheck(phaseId, itemId, checkId) {
+  const def = GRAPH.component_checks && GRAPH.component_checks[checkId];
+  if (!def) return;
+  state.componentCheck = { phaseId, itemId, checkId, currentId: def.root, history: [], description: "" };
+  state.currentId = COMPONENT_CHECK_STEP_ID;
+  render();
+}
+
+function componentCheckBack() {
+  const cc = state.componentCheck;
+  if (cc.history.length) {
+    cc.currentId = cc.history.pop();
+    render();
+  } else {
+    // Backed out before reaching a finding — nothing to save, just return
+    // to the intake phase this item lives on.
+    state.componentCheck = null;
+    state.currentId = INTAKE_STEP_ID;
+    render();
+  }
+}
+
+function finishComponentCheck(node) {
+  const cc = state.componentCheck;
+  if (!state.intake[cc.phaseId]) state.intake[cc.phaseId] = {};
+  const finding = t(node.text) + (cc.description.trim() ? ` — ${cc.description.trim()}` : "");
+  state.intake[cc.phaseId][cc.itemId] = { value: finding, skipped: false };
+  state.componentCheck = null;
+  state.currentId = INTAKE_STEP_ID;
+  scheduleSessionSave();
+  render();
+}
+
+function renderComponentCheck() {
+  const strings = ui();
+  const node = componentCheckNode();
+  // Overrides render()'s default backBtn.onclick = goBack (reset on every
+  // render) — this screen has its own back stack, separate from the main
+  // graph's, so it must not pop state.history.
+  backBtn.onclick = componentCheckBack;
+  backBtn.style.display = "inline-block";
+
+  if (node.type === "question") {
+    const q = document.createElement("div");
+    q.className = "q-text";
+    q.textContent = t(node.text);
+    cardEl.appendChild(q);
+
+    const opts = document.createElement("div");
+    opts.className = "options";
+    node.options.forEach((opt) => {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = t(opt.label);
+      b.onclick = () => {
+        state.componentCheck.history.push(state.componentCheck.currentId);
+        state.componentCheck.currentId = opt.next;
+        render();
+      };
+      opts.appendChild(b);
+    });
+    cardEl.appendChild(opts);
+    return;
+  }
+
+  // Terminal node (type: "result") — same content shape as any main-graph
+  // result node (text/severity), but with a "save & return" action instead
+  // of the checklist/AI machinery: this finding belongs to one intake
+  // item, not a standalone diagnostic endpoint.
+  const badge = document.createElement("span");
+  badge.className = `badge ${node.severity || "info"}`;
+  badge.textContent = strings.badge[node.severity || "info"];
+  cardEl.appendChild(badge);
+
+  const text = document.createElement("div");
+  text.className = "result-text";
+  text.textContent = t(node.text);
+  cardEl.appendChild(text);
+
+  const descInput = document.createElement("textarea");
+  descInput.placeholder = strings.componentCheckDescPlaceholder;
+  descInput.value = state.componentCheck.description;
+  descInput.addEventListener("input", () => {
+    state.componentCheck.description = descInput.value;
+  });
+  cardEl.appendChild(descInput);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "btn input-action";
+  saveBtn.textContent = strings.componentCheckSaveBtn;
+  saveBtn.onclick = () => finishComponentCheck(node);
+  cardEl.appendChild(saveBtn);
 }
 
 function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
@@ -1156,6 +1320,7 @@ function restart() {
     intake: {},
     intakeAsked: false,
     intakePhaseIndex: 0,
+    componentCheck: null,
   };
   render();
 }
@@ -1196,6 +1361,10 @@ function render() {
   renderFooterInfo();
   cardEl.innerHTML = "";
   scheduleSessionSave();
+  // renderComponentCheck() overrides this to its own back handler — reset
+  // here first so every other screen gets the normal global back behavior
+  // regardless of what the previous screen left it as.
+  backBtn.onclick = goBack;
 
   if (state.currentId === MANUFACTURER_STEP_ID) {
     renderManufacturerStep();
@@ -1207,6 +1376,10 @@ function render() {
   }
   if (state.currentId === INTAKE_STEP_ID) {
     renderIntakeChecklist();
+    return;
+  }
+  if (state.currentId === COMPONENT_CHECK_STEP_ID) {
+    renderComponentCheck();
     return;
   }
 
@@ -2017,7 +2190,7 @@ function intakeAnswers() {
         ? "N/A"
         : item.type === "field"
         ? (item.unit ? `${entry.value} ${item.unit}` : String(entry.value))
-        : item.type === "select"
+        : item.type === "select" || item.type === "component_check"
         ? String(entry.value)
         : "✓";
       rows.push({ question: t(item.label), answer });
@@ -2091,6 +2264,12 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
         context,
         free_text: freeText,
         lang: LANG,
+        // Lets the backend spend a higher max_tokens ceiling on this
+        // request — see AI_DEEP_DIVE_MAX_TOKENS in main.py — once the
+        // technician has actually gone through the intake checklist this
+        // session, since that answer set has real extra grounding to
+        // reason over, not just the plain symptom-graph path.
+        deep_dive: state.intakeAsked,
       }),
     });
     const data = await r.json();
