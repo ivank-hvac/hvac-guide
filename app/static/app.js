@@ -64,6 +64,7 @@ const I18N = {
     finishCompletedMsg: "Сессия завершена. Спасибо!",
     intakePhaseProgress: "Этап {n} из {total}",
     intakeSkipLabel: "N/A",
+    intakeDoneLabel: "✓ Сделано",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
@@ -126,6 +127,7 @@ const I18N = {
     finishCompletedMsg: "Session completed. Thank you!",
     intakePhaseProgress: "Phase {n} of {total}",
     intakeSkipLabel: "N/A",
+    intakeDoneLabel: "✓ Done",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
@@ -724,7 +726,7 @@ function abandonAndRestart(data) {
 // state.checklist[nodeId][itemId], persisted via the same debounced
 // session save as everything else.
 function isChecklistItemDone(value, type) {
-  return type === "field" ? !!(value && String(value).trim()) : !!value;
+  return type === "field" || type === "select" ? !!(value && String(value).trim()) : !!value;
 }
 
 function checklistProgressText(nodeId, items) {
@@ -954,7 +956,7 @@ function renderIntakeChecklist() {
 
   visibleItems.forEach((item) => {
     if (!values[item.id]) {
-      values[item.id] = { value: item.type === "field" ? "" : false, skipped: false };
+      values[item.id] = { value: item.type === "checkbox" ? false : "", skipped: false };
     }
     const entry = values[item.id];
     const resolved = intakeItemResolved(entry, item.type);
@@ -964,13 +966,22 @@ function renderIntakeChecklist() {
     const row = document.createElement("div");
     row.className = "intake-item" + (isCurrent ? " current" : "");
 
-    const main = document.createElement("label");
-    main.className = "intake-item-main";
+    const labelEl = document.createElement("div");
+    labelEl.className = "intake-item-label";
+    labelEl.textContent = t(item.label);
+    row.appendChild(labelEl);
+
+    // Every item gets its N/A as a large tappable button, not a small
+    // checkbox — glove-friendly (~52-56px min tap height, see CSS) and
+    // visually explicit about what's been decided vs. still untouched.
+    const naBtn = document.createElement("button");
+    naBtn.type = "button";
+    naBtn.className = "intake-toggle-btn intake-na-btn" + (entry.skipped ? " active" : "");
+    naBtn.textContent = strings.intakeSkipLabel;
 
     if (item.type === "field") {
-      const labelEl = document.createElement("span");
-      labelEl.textContent = t(item.label);
-      main.appendChild(labelEl);
+      const fieldRow = document.createElement("div");
+      fieldRow.className = "intake-item-field-row";
       const input = document.createElement("input");
       input.type = "text";
       input.className = "checklist-field-input";
@@ -986,43 +997,82 @@ function renderIntakeChecklist() {
         scheduleSessionSave();
         updateGateState();
       });
-      main.appendChild(input);
+      naBtn.onclick = () => {
+        entry.skipped = !entry.skipped;
+        scheduleSessionSave();
+        render();
+      };
+      fieldRow.appendChild(input);
+      fieldRow.appendChild(naBtn);
+      row.appendChild(fieldRow);
+    } else if (item.type === "select") {
+      const group = document.createElement("div");
+      group.className = "intake-toggle-group";
+      (item.options || []).forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const isActive = !entry.skipped && entry.value === opt;
+        const isNormal = item.normal != null && opt === item.normal;
+        btn.className =
+          "intake-toggle-btn" + (isActive ? (isNormal ? " active normal" : " active abnormal") : "");
+        btn.textContent = opt;
+        // Same reasoning as the checkbox branch below: a select answer can
+        // gate a later phase's item, so this needs a full render(), not
+        // just the gate hint.
+        btn.onclick = () => {
+          entry.value = opt;
+          entry.skipped = false;
+          scheduleSessionSave();
+          render();
+        };
+        group.appendChild(btn);
+      });
+      naBtn.onclick = () => {
+        entry.value = "";
+        entry.skipped = true;
+        scheduleSessionSave();
+        render();
+      };
+      group.appendChild(naBtn);
+      row.appendChild(group);
+
+      // Row border communicates at a glance whether the reading is what
+      // you'd expect (green), a flag worth a closer look (red/amber), or
+      // ruled out (neutral) — see CLAUDE.md UI task for the color rule.
+      // Deliberately NOT applied to checkbox items: those have no "bad"
+      // outcome, only done/not-applicable.
+      if (entry.skipped) {
+        // neutral — no extra class needed, same look as an untouched row
+      } else if (entry.value && item.normal != null) {
+        row.classList.add(entry.value === item.normal ? "intake-select-normal" : "intake-select-abnormal");
+      }
     } else {
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = !!entry.value;
-      checkbox.disabled = entry.skipped;
+      const group = document.createElement("div");
+      group.className = "intake-toggle-group";
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value ? " active" : "");
+      doneBtn.textContent = strings.intakeDoneLabel;
       // A full render() here (not just updateGateState()) is deliberate: a
       // checkbox can be a showIf trigger for a later phase's item, so
       // toggling one may need to reveal/hide other items, not just flip
       // the gate.
-      checkbox.addEventListener("change", () => {
-        entry.value = checkbox.checked;
+      doneBtn.onclick = () => {
+        entry.value = true;
+        entry.skipped = false;
         scheduleSessionSave();
         render();
-      });
-      main.appendChild(checkbox);
-      const labelEl = document.createElement("span");
-      labelEl.textContent = t(item.label);
-      main.appendChild(labelEl);
+      };
+      naBtn.onclick = () => {
+        entry.value = false;
+        entry.skipped = true;
+        scheduleSessionSave();
+        render();
+      };
+      group.appendChild(doneBtn);
+      group.appendChild(naBtn);
+      row.appendChild(group);
     }
-    row.appendChild(main);
-
-    const skipLabel = document.createElement("label");
-    skipLabel.className = "intake-skip";
-    const skipCheckbox = document.createElement("input");
-    skipCheckbox.type = "checkbox";
-    skipCheckbox.checked = !!entry.skipped;
-    skipCheckbox.addEventListener("change", () => {
-      entry.skipped = skipCheckbox.checked;
-      scheduleSessionSave();
-      render();
-    });
-    skipLabel.appendChild(skipCheckbox);
-    const skipText = document.createElement("span");
-    skipText.textContent = strings.intakeSkipLabel;
-    skipLabel.appendChild(skipText);
-    row.appendChild(skipLabel);
 
     cardEl.appendChild(row);
   });
@@ -1967,6 +2017,8 @@ function intakeAnswers() {
         ? "N/A"
         : item.type === "field"
         ? (item.unit ? `${entry.value} ${item.unit}` : String(entry.value))
+        : item.type === "select"
+        ? String(entry.value)
         : "✓";
       rows.push({ question: t(item.label), answer });
     });

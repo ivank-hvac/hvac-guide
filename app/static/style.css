@@ -307,10 +307,9 @@ textarea {
 
 .intake-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
   border-radius: 8px;
   border: 1px solid transparent;
 }
@@ -320,33 +319,90 @@ textarea {
   background: rgba(224, 145, 63, 0.08);
 }
 
-.intake-item-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
+/* select-type items only — the row border reflects whether the chosen
+   reading matches `normal` (green), doesn't (red/amber), or was ruled N/A
+   (neutral, no extra class). Checkbox items never get this: there's no
+   "bad" outcome for them, only done/not-applicable. */
+.intake-item.intake-select-normal {
+  border-color: var(--ok);
+  background: rgba(62, 207, 142, 0.08);
+}
+
+.intake-item.intake-select-abnormal {
+  border-color: var(--crit);
+  background: rgba(255, 93, 93, 0.08);
+}
+
+.intake-item-label {
   font-size: 0.92rem;
-  cursor: pointer;
+  line-height: 1.4;
 }
 
-.intake-item-main input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--input-accent);
-  flex-shrink: 0;
-}
-
-.intake-skip {
+.intake-item-field-row {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--mono);
-  font-size: 0.7rem;
+  gap: 8px;
+}
+
+.intake-item-field-row .intake-toggle-btn {
+  flex: 0 0 84px;
+}
+
+/* Button-toggle group shared by checkbox (Done/N-A) and select (options +
+   N-A) items — replaces the old native checkbox + tiny "N/A" checkbox with
+   large, unambiguous, glove-friendly tap targets (see CLAUDE.md intake UI
+   task: the old checkbox-only UI was easy to misread at a glance). */
+.intake-toggle-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.intake-toggle-btn {
+  flex: 1;
+  min-width: 64px;
+  min-height: 52px;
+  border: 1px solid var(--panel-border);
+  background: #1e2330;
   color: var(--muted);
-  white-space: nowrap;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
-  flex-shrink: 0;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.intake-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+
+.intake-toggle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Generic "selected" fill — used as-is for checkbox's Done button (no
+   good/bad judgment, just an explicit confirmation) and as the base for
+   select's normal/abnormal variants below. */
+.intake-toggle-btn.active {
+  background: #16233a;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.intake-toggle-btn.active.normal {
+  background: rgba(62, 207, 142, 0.18);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.intake-toggle-btn.active.abnormal {
+  background: rgba(255, 93, 93, 0.18);
+  border-color: var(--crit);
+  color: #ffb3b3;
+}
+
+.intake-toggle-btn.intake-na-btn.active {
+  background: #262b36;
+  border-color: var(--muted);
+  color: var(--text);
 }
 
 .checklist {
