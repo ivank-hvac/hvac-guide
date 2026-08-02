@@ -1,147 +1,151 @@
-# Деплой
+# Deploy
 
-Пошаговый деплой/откат с объяснениями. Голые команды без объяснений — в
-[commands.md](commands.md); история изменений — в
+Step-by-step deploy/rollback with explanations. Bare commands with no
+explanations are in [commands.md](commands.md); change history is in
 [CHANGELOG.md](CHANGELOG.md).
 
-Проект рассчитан на постепенное открытие доступа без переписывания кода:
-сначала только команда (basic auth через Caddy), потом публично.
+The project is built for gradually opening up access without rewriting code:
+team-only first (basic auth via Caddy), then public.
 
-## Требования
+## Requirements
 
-- Docker + Docker Compose на целевой машине.
-- Для прода (Фаза 1/2): Caddy в этом репозитории (`docker-compose.prod.yml`)
-  слушает `:80` и сам TLS не терминирует — предполагается edge-прокси
-  выше по цепочке (например внешний Caddy на отдельном хосте с публичным
-  IP, который и получает сертификат и заворачивает трафик сюда, скажем
-  через WireGuard-туннель). Если у вас TLS терминируется прямо на этой
-  машине — потребуется отдельно донастроить Caddy на реальный домен и
-  порт 443, конфигурация ниже для этого не рассчитана.
-- Git-хуки для версии сборки — см. "Версия сборки" ниже, включаются один
-  раз на каждой машине.
+- Docker + Docker Compose on the target machine.
+- For prod (Phase 1/2): the Caddy in this repo (`docker-compose.prod.yml`)
+  listens on `:80` and doesn't terminate TLS itself — an edge proxy further
+  up the chain is assumed (e.g. an external Caddy on a separate host with a
+  public IP, which gets the certificate and forwards traffic here, say over
+  a WireGuard tunnel). If you terminate TLS directly on this machine, you'll
+  need to reconfigure Caddy separately for a real domain and port 443 — the
+  config below isn't built for that.
+- Git hooks for the build version — see "Build version" below, enabled once
+  per machine.
 
-## Локальная разработка / быстрый тест
+## Local development / quick test
 
-Без Caddy, без TLS/auth, порт 8080:
+No Caddy, no TLS/auth, port 8080:
 
 ```bash
 cp .env.example .env
-# заполнить ANTHROPIC_API_KEY
+# fill in ANTHROPIC_API_KEY
 docker compose up -d --build
 ```
 
-## Фаза 1 — доступ только команде (Caddy + basic auth)
+## Phase 1 — team-only access (Caddy + basic auth)
 
-Basic auth включён в Caddyfile по умолчанию — ничего в самом файле
-трогать не нужно, только заполнить `.env`:
+Basic auth is enabled in the Caddyfile by default — nothing in the file
+itself needs touching, just fill in `.env`:
 
 ```bash
 cp .env.example .env
-# заполнить ANTHROPIC_API_KEY
-# сгенерировать хэш пароля — ОБЯЗАТЕЛЬНО с `| sed` на конце, см. ниже:
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'ВАШ_ПАРОЛЬ' | sed 's/\$/\$\$/g'
-# вставить результат (уже с удвоенными $$) в CADDY_BASIC_AUTH_HASH в .env
+# fill in ANTHROPIC_API_KEY
+# generate the password hash — MUST end with `| sed`, see below:
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YOUR_PASSWORD' | sed 's/\$/\$\$/g'
+# paste the result (with the doubled $$) into CADDY_BASIC_AUTH_HASH in .env
 
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-**Важно про `$` в хэше:** bcrypt-хэш от `caddy hash-password` содержит
-несколько `$` (`$2a$14$...`). Без экранирования (`| sed 's/\$/\$\$/g'`
-выше) docker compose при подстановке `${CADDY_BASIC_AUTH_HASH}` съедает
-всё после первого `$` в значении из `.env` — в контейнер попадает обрубок
-вида `$2a$14` вместо полного хэша (~60 символов). Basic auth в этом
-случае не примет НИКАКОЙ пароль, и логин будет выпадать снова и снова у
-всех — именно так это и проявляется на практике (реальный инцидент, см.
-CHANGELOG). Проверить, что реально долетело до контейнера:
+**Important about `$` in the hash:** a bcrypt hash from `caddy hash-password`
+contains several `$` (`$2a$14$...`). Without escaping (`| sed
+'s/\$/\$\$/g'` above), docker compose swallows everything after the first
+`$` in the value from `.env` when substituting `${CADDY_BASIC_AUTH_HASH}` —
+the container ends up with a stub like `$2a$14` instead of the full ~60
+character hash. In that case basic auth won't accept ANY password, and the
+login prompt will keep reappearing for everyone — that's exactly how it
+shows up in practice (a real incident, see CHANGELOG). Check what actually
+made it into the container:
 
 ```bash
 docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
 ```
 
-Если там короткий обрубок, а не полная строка ~60 символов —
-пересоздайте хэш через команду выше (с `| sed`), обновите `.env` и:
+If it's a short stub rather than the full ~60-character string, regenerate
+the hash with the command above (with `| sed`), update `.env`, and:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 ```
 
-За basic auth в это время сидит только твоя команда (TLS — забота
-edge-прокси выше по цепочке, не этого Caddy, см. "Требования" выше).
+Only your team sits behind basic auth in the meantime (TLS is the edge
+proxy's job further up the chain, not this Caddy's — see "Requirements"
+above).
 
-## Фаза 2 — открыть всем
+## Phase 2 — open to everyone
 
-1. В `Caddyfile` закомментировать блок `basicauth { ... }` обратно.
-2. В `.env` ужесточить `AI_ASSIST_RATE_LIMIT` (например `3/minute`), если
-   ожидается много трафика.
+1. In `Caddyfile`, comment the `basicauth { ... }` block back out.
+2. In `.env`, tighten `AI_ASSIST_RATE_LIMIT` (e.g. `3/minute`) if you expect
+   a lot of traffic.
 3. `docker compose -f docker-compose.prod.yml up -d --force-recreate caddy`
-   — код приложения не трогается вообще.
+   — the application code isn't touched at all.
 
-## Обычное обновление (день за днём)
+## Routine updates (day to day)
 
 ```bash
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Git-хук `post-merge` сам обновит `GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env`
-при `git pull` — при условии, что хуки включены на этой машине (см.
-ниже). Без них ничего не сломается, просто версия в футере/label
-покажет `unknown`.
+The `post-merge` git hook automatically refreshes
+`GIT_COMMIT`/`GIT_COMMIT_DATE` in `.env` on `git pull` — provided the hooks
+are enabled on this machine (see below). Without them nothing breaks, the
+version in the footer/label will just show `unknown`.
 
-## Версия сборки
+## Build version
 
-Каждый образ помечен коммитом, из которого собран — можно проверить, что
-реально задеплоено, без захода в браузер:
+Every image is tagged with the commit it was built from — you can check
+what's actually deployed without opening a browser:
 
 ```bash
 docker inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' hvac-guide
 ```
 
-Тот же hash — в футере UI и в `GET /api/version`.
+The same hash shows up in the UI footer and in `GET /api/version`.
 
-Чтобы это работало и `.env` не устаревал — **один раз на каждой машине**,
-включая деплой-таргеты (это локальный git config, `git clone`/`git pull`
-его не приносят):
+For this to work and for `.env` to stay current — **once per machine**,
+including deploy targets (this is local git config, `git clone`/`git pull`
+don't bring it along):
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-`post-commit`/`post-checkout`/`post-merge` из `.githooks/` дальше сами
-держат `GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` в актуальном состоянии.
+`post-commit`/`post-checkout`/`post-merge` in `.githooks/` then keep
+`GIT_COMMIT`/`GIT_COMMIT_DATE` in `.env` up to date on their own.
 
-## Откат на предыдущую версию
+## Rolling back to a previous version
 
 ```bash
-git log --oneline -10                 # найти нужный коммит/тег
-git checkout <commit-hash>            # detached HEAD — это ожидаемо
+git log --oneline -10                 # find the commit/tag you want
+git checkout <commit-hash>            # detached HEAD - expected
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Хук `post-checkout` обновит `.env` под откаченный коммит автоматически
-(если хуки включены). Когда закончили — вернуться на актуальный `main`:
+The `post-checkout` hook updates `.env` for the checked-out commit
+automatically (if hooks are enabled). When you're done, go back to the
+current `main`:
 
 ```bash
 git checkout main
 ```
 
-Если проблема не в коде, а в конфигурации/данных — сначала попробуйте
-целевой `--force-recreate` нужного сервиса (см. commands.md) вместо
-полного отката коммита.
+If the problem is in config/data rather than code, try a targeted
+`--force-recreate` of the relevant service first (see commands.md) before a
+full commit rollback.
 
-## Если что-то пошло не так
+## If something's wrong
 
-- Логи: `docker compose -f docker-compose.prod.yml logs -f [сервис]`
-- Basic auth зацикливается на вводе пароля → см. предупреждение про `$`
-  выше в Фазе 1.
-- `ERR_TOO_MANY_REDIRECTS` в браузере → реальный инцидент (см. CHANGELOG):
-  если сайт адресован в Caddyfile доменным именем (не `:80`), Caddy
-  триггерит automatic HTTPS и редиректит уже расшифрованный HTTP (от
-  edge-прокси выше по цепочке) обратно на https — редирект прилетает
-  через edge-прокси снова как HTTP, и так по кругу. Текущий Caddyfile
-  адресован `:80` именно поэтому — не меняйте на доменное имя без
-  `auto_https off`.
-- Задеплоили фикс, но в браузере всё ещё старое поведение → скорее всего
-  кэш браузера, а не проблема деплоя (жёсткий рефреш Ctrl+Shift+R); футер
-  UI/`docker inspect` покажет реальную задеплоенную версию для сверки.
-- Полный перечень команд диагностики — commands.md.
+- Logs: `docker compose -f docker-compose.prod.yml logs -f [service]`
+- Basic auth loops on the password prompt → see the `$`-escaping warning in
+  Phase 1 above.
+- `ERR_TOO_MANY_REDIRECTS` in the browser → a real incident (see CHANGELOG):
+  if the site is addressed in the Caddyfile by a domain name (not `:80`),
+  Caddy triggers automatic HTTPS and redirects the already-decrypted HTTP
+  (from the edge proxy further up the chain) back to https — the redirect
+  comes back through the edge proxy as HTTP again, in a loop. The current
+  Caddyfile is addressed `:80` specifically for this reason — don't switch
+  it to a domain name without `auto_https off`.
+- Deployed a fix, but the browser still shows the old behavior → most likely
+  browser cache, not a deploy problem (hard refresh Ctrl+Shift+R); the UI
+  footer / `docker inspect` will show the actually-deployed version so you
+  can compare.
+- Full diagnostic command list — commands.md.

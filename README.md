@@ -1,39 +1,40 @@
 # HVAC Troubleshooting Guide
 
-Интерактивный чек-лист-траблшутер для HVAC/R оборудования (RTU, сплит, VRF/VRV,
-чиллеры, холодильное оборудование, печи). Вопросы идут по графу решений в
-зависимости от типа оборудования и симптома. На результатных узлах и в сложных
-случаях доступен AI-ассистент (Anthropic API), который анализирует весь
-пройденный путь чек-листа и даёт более точную диагностику.
+*English | [Русский](README.ru.md)*
 
-Интерфейс двуязычный (RU/EN, переключатель в шапке) — весь текст чек-листа
-переведён заранее, без машинного перевода на лету. Английская версия
-использует североамериканскую HVAC/R терминологию и единицы измерения
-(furnace, breaker, disconnect, °F, psig и т.д.), а не буквальный перевод с
-русского.
+Interactive checklist troubleshooter for HVAC/R equipment (RTU, split, VRF/VRV,
+chillers, refrigeration equipment, furnaces). Questions follow a decision graph
+based on equipment type and symptom. At result nodes and in complex cases, an
+AI assistant (Anthropic API) is available — it analyzes the whole checklist
+path taken so far and gives a more precise diagnosis.
 
-См. также: [ROADMAP.md](ROADMAP.md) — направления развития (будущие
-фичи); [DEPLOY.md](DEPLOY.md) — деплой по фазам, обновление,
-откат; [commands.md](commands.md) — шпаргалка со всеми командами для
-прода без сопутствующих объяснений; [CHANGELOG.md](CHANGELOG.md) —
-история изменений по датам.
+The interface is bilingual (RU/EN, switcher in the header) — all checklist
+text is pre-translated, no on-the-fly machine translation. The English version
+uses North American HVAC/R terminology and units (furnace, breaker,
+disconnect, °F, psig, etc.), not a literal translation from Russian.
 
-## Быстрый старт
+See also: [ROADMAP.md](ROADMAP.md) — future feature direction;
+[DEPLOY.md](DEPLOY.md) — deploy by phase, updating, rollback;
+[commands.md](commands.md) — cheat sheet of every prod command without
+explanations; [CHANGELOG.md](CHANGELOG.md) — change history by date
+(kept in Russian, by choice — its only real audience is the author).
+
+## Quick start
 
 ```bash
 cp .env.example .env
-# впишите свой ANTHROPIC_API_KEY в .env
+# fill in your ANTHROPIC_API_KEY in .env
 
 docker compose up --build -d
 ```
 
-Открыть: http://localhost:8080
+Open: http://localhost:8080
 
-Без ключа приложение работает как обычный чек-лист (граф вопросов и
-рекомендации доступны), но кнопки "Спросить AI" будут возвращать ошибку —
-это единственная часть, которая требует API-ключ.
+Without a key the app still works as a plain checklist (the question graph
+and recommendations are available), but the "Ask AI" buttons will return an
+error — that's the only part that requires an API key.
 
-## Архитектура
+## Architecture
 
 ```
 hvac-guide/
@@ -44,79 +45,82 @@ hvac-guide/
 ├── requirements.txt
 ├── .env.example
 └── app/
-    ├── main.py            # FastAPI: /api/ai-assist (proxy к Anthropic API),
-    │                      # /api/log-session (история чек-листов) + отдача статики
+    ├── main.py            # FastAPI: /api/ai-assist (proxy to the Anthropic API),
+    │                      # /api/log-session (checklist history) + serves static files
     └── static/
         ├── index.html
         ├── style.css
-        ├── app.js              # вся логика графа: рендер вопросов/результатов, вызов AI
-        ├── graph.json          # сам граф решений (редактируется без пересборки контейнера)
-        └── manufacturers.json  # список производителей для шага после выбора типа оборудования
+        ├── app.js              # all the graph logic: rendering questions/results, calling the AI
+        ├── graph.json          # the decision graph itself (editable without rebuilding the container)
+        └── manufacturers.json  # manufacturer list for the step after equipment-type selection
 ```
 
-Один контейнер, порт 8000 внутри / 8080 снаружи (меняется в docker-compose.yml).
-API-ключ никогда не попадает во фронтенд — все запросы к Anthropic идут через
-backend `/api/ai-assist`. История пройденных чек-листов хранится в SQLite на
-примонтированном volume `hvac_data:/app/data` — см. "История чек-листов" ниже.
+One container, port 8000 inside / 8080 outside (change in docker-compose.yml).
+The API key never reaches the frontend — every request to Anthropic goes
+through the backend `/api/ai-assist`. Completed checklist history is stored in
+SQLite on a mounted volume `hvac_data:/app/data` — see "Checklist history"
+below.
 
-## Как редактировать граф вопросов
+## Editing the question graph
 
-`app/static/graph.json` — обычный JSON, без пересборки образа (том можно
-примонтировать `./app/static:/app/static` в compose для live-правок, либо
-просто пересобрать контейнер после изменений).
+`app/static/graph.json` is plain JSON, no image rebuild needed (you can mount
+`./app/static:/app/static` in compose for live edits, or just rebuild the
+container after changes).
 
-Формат узла (текст и подписи вариантов — объект `{ru, en}`, а не строка):
+Node format (text and option labels are a `{ru, en}` object, not a plain
+string):
 
 ```json
 "node_id": {
   "type": "question",
   "text": {"ru": "Текст вопроса", "en": "Question text"},
   "options": [
-    {"label": {"ru": "Вариант ответа", "en": "Answer option"}, "next": "id_следующего_узла"}
+    {"label": {"ru": "Вариант ответа", "en": "Answer option"}, "next": "next_node_id"}
   ]
 }
 ```
 
-При добавлении нового узла нужно заполнить оба языка — если для `en`
-не найдётся перевод, фронтенд подставит `ru` как fallback, но лучше не
-полагаться на это и переводить сразу, придерживаясь североамериканской
-HVAC/R терминологии (furnace, breaker, disconnect, imperial units) для `en`.
+When adding a new node, fill in both languages — if `en` is missing, the
+frontend falls back to `ru`, but don't rely on that; translate right away,
+sticking to North American HVAC/R terminology (furnace, breaker, disconnect,
+imperial units) for `en`.
 
-### Единицы измерения (давление / температура / вакуум)
+### Units (pressure / temperature / vacuum)
 
-Если в тексте узла указано конкретное числовое значение давления,
-температуры или вакуума — пишите его **только в одной единице**, вторая
-подставляется автоматически на фронтенде (`app.js`, функция
-`annotateUnits`), независимо от выбранного языка интерфейса:
+If a node's text includes a specific pressure, temperature, or vacuum value,
+write it in **one unit only** — the other one is added automatically on the
+frontend (`app.js`, the `annotateUnits` function), regardless of the selected
+interface language:
 
-| Величина     | Пишете в graph.json | Получаете на экране       |
-|--------------|----------------------|----------------------------|
-| Давление     | `115 psig` или `793 kPa` | `115 psig (793 kPa)`   |
-| Температура  | `40°F` или `4°C`     | `40°F (4°C)`               |
-| Вакуум       | `500 microns`, `0.5 mmHg` или `29.9 inHg` | `500 microns (0.5 mmHg)` |
+| Quantity    | You write in graph.json | You get on screen        |
+|-------------|--------------------------|----------------------------|
+| Pressure    | `115 psig` or `793 kPa` | `115 psig (793 kPa)`   |
+| Temperature | `40°F` or `4°C`     | `40°F (4°C)`               |
+| Vacuum      | `500 microns`, `0.5 mmHg`, or `29.9 inHg` | `500 microns (0.5 mmHg)` |
 
-Не дописывайте вторую единицу вручную — конвертация выполняется через
-переиспользуемые функции `convertPressure` / `convertTemperature` /
-`convertVacuum` в `app.js`, единый источник правды для формул перевода.
+Don't hand-add the second unit — conversion goes through the reusable
+`convertPressure` / `convertTemperature` / `convertVacuum` functions in
+`app.js`, the single source of truth for the conversion formulas.
 
-Пять типов узлов:
-- `question` — вопрос с вариантами ответа (`options[].next` указывает на
-  следующий узел).
-- `result` — финальная рекомендация. Поля `severity` (`info` / `warning` /
-  `critical`) и `ai` (`true` — кнопка AI подсвечивается как рекомендуемая).
-- `ai_prompt` — узел без вариантов ответа: показывает текстовое поле для
-  свободного описания ситуации и сразу отправляет его AI-ассистенту (для
-  случаев "Другое / сложный случай" или неоднозначных кодов ошибок).
-- `numeric_input` — вместо кнопок пользователь вводит число и граф
-  ветвится по диапазону значения (`thresholds`), см. ниже.
-- `measurement` — тоже числовой ввод, но без ветвления: чистый сбор данных
-  (опционально со сравнением с заводским референсом и алертом), см. ниже.
+Five node types:
+- `question` — a question with answer options (`options[].next` points to the
+  next node).
+- `result` — the final recommendation. Fields `severity` (`info` / `warning` /
+  `critical`) and `ai` (`true` highlights the AI button as recommended).
+- `ai_prompt` — a node with no answer options: shows a free-text field for
+  describing the situation and sends it straight to the AI assistant (for
+  "Other / complex case" or ambiguous fault codes).
+- `numeric_input` — instead of buttons, the user enters a number and the
+  graph branches by value range (`thresholds`), see below.
+- `measurement` — also numeric input, but with no branching: pure data
+  collection (optionally compared against a nameplate reference, with an
+  alert), see below.
 
-### Числовой ввод (`numeric_input`)
+### Numeric input (`numeric_input`)
 
-Для случаев, где качественный вопрос ("давление выше нормы? да/нет") можно
-заменить точным измерением, есть тип узла с полем ввода и маршрутизацией по
-диапазонам значений:
+For cases where a qualitative question ("pressure above normal? yes/no") can
+be replaced by an exact measurement, there's a node type with an input field
+and routing by value range:
 
 ```json
 "node_id": {
@@ -126,41 +130,41 @@ HVAC/R терминологии (furnace, breaker, disconnect, imperial units) �
   "min": 0,
   "max": 100,
   "thresholds": [
-    {"max": 20, "next": "id_узла_если_меньше_или_равно_20"},
-    {"next": "id_узла_если_больше_20"}
+    {"max": 20, "next": "node_id_if_20_or_less"},
+    {"next": "node_id_if_over_20"}
   ]
 }
 ```
 
-- `unit` — единица измерения, показывается рядом с полем ввода. Если это
-  `psig`/`kPa`, `°F`/`°C` или `microns`/`inHg`/`mmHg` — под полем ввода
-  сразу показывается конвертация в другую единицу (та же система, что и в
-  обычном тексте узлов, см. выше); для единиц без пары (`A`, `V`, `Hz` и
-  т.п.) конвертация просто не показывается.
-- `min`/`max` — допустимый диапазон значения. Пока введённое число вне
-  диапазона (или это не число), поле подсвечивается красным и кнопка
-  "Далее" неактивна. Буквы и мусор в поле в принципе не набираются —
-  фильтруются на лету.
-- `thresholds` — список условий вида `{"max": N, "next": "..."}`,
-  проверяется по порядку: срабатывает первая запись, где введённое
-  значение `<= max`. Последняя запись без `max` — общий случай "всё, что
-  выше предыдущих порогов". Так двухвариантное правило "если больше X —
-  сюда, если меньше — туда" превращается в `thresholds` с одной границей,
-  а более сложная маршрутизация с диапазонами — просто добавлением записей.
+- `unit` — the unit of measure, shown next to the input field. If it's
+  `psig`/`kPa`, `°F`/`°C`, or `microns`/`inHg`/`mmHg` — the conversion to the
+  other unit shows up right under the field (same system as regular node
+  text, see above); for units with no pair (`A`, `V`, `Hz`, etc.) the
+  conversion simply isn't shown.
+- `min`/`max` — the valid value range. While the entered number is out of
+  range (or isn't a number), the field highlights red and the "Next" button
+  is disabled. Letters and junk can't even be typed into the field — filtered
+  live.
+- `thresholds` — a list of conditions shaped `{"max": N, "next": "..."}`,
+  checked in order: the first entry where the entered value is `<= max` wins.
+  A trailing entry with no `max` is the catch-all for "everything above the
+  previous thresholds." A simple two-way rule ("if greater than X go here, if
+  less go there") becomes a single-boundary `thresholds`, and more complex
+  range-based routing is just adding more entries.
 
-Введённое значение попадает в историю (breadcrumb) и в контекст
-AI-ассистента так же, как ответ на обычный вопрос — с указанием конкретной
-цифры (и её конвертацией, если единица поддерживается), а не просто
-названия пройденного узла.
+The entered value shows up in the breadcrumb history and in the AI
+assistant's context the same way a regular question's answer does — with the
+specific figure (and its unit conversion, if the unit supports it), not just
+the visited node's name.
 
-### Сбор измерений (`measurement`)
+### Measurement collection (`measurement`)
 
-Для случаев, где важно просто зафиксировать показание (без автоматического
-ветвления графа — оценку оставляем человеку/AI), есть `measurement`. В
-отличие от `numeric_input`, у него нет `thresholds`: всегда один
-безусловный `next`.
+For cases where the point is just to record a reading (with no automatic
+graph branching — the judgment call is left to the human/AI), there's
+`measurement`. Unlike `numeric_input`, it has no `thresholds`: always a
+single, unconditional `next`.
 
-Без заводского референса (просто число + единица):
+Without a nameplate reference (just a number + unit):
 
 ```json
 "node_id": {
@@ -169,11 +173,11 @@ AI-ассистента так же, как ответ на обычный во�
   "unit": "psig",
   "min": 0,
   "max": 500,
-  "next": "id_следующего_узла"
+  "next": "next_node_id"
 }
 ```
 
-С заводским референсом — одно значение (например, RLA компрессора):
+With a nameplate reference — a single value (e.g. compressor RLA):
 
 ```json
 "node_id": {
@@ -187,12 +191,12 @@ AI-ассистента так же, как ответ на обычный во�
     "label": {"ru": "RLA (с шильдика компрессора)", "en": "Nameplate RLA (compressor data plate)"}
   },
   "measuredLabel": {"ru": "Измеренный ток", "en": "Measured current"},
-  "next": "id_следующего_узла"
+  "next": "next_node_id"
 }
 ```
 
-Или референс как произведение двух значений с шильдика (FLA × SF —
-типично для вентиляторных двигателей):
+Or a reference as the product of two nameplate values (FLA × SF — typical
+for fan motors):
 
 ```json
 "reference": {
@@ -202,29 +206,30 @@ AI-ассистента так же, как ответ на обычный во�
 }
 ```
 
-Когда `reference` задан, узел показывает оба поля (или три — для
-`fla_sf`) плюс поле `measuredLabel`. Если измеренное значение превышает
-референс — под полями сразу появляется заметный alert-блок (не badge,
-отдельный настойчивый стиль с иконкой ⚠️), не блокирующий кнопку "Далее" и
-не требующий закрытия. Отметка остаётся в breadcrumb (chip с красной
-рамкой) и в тексте, который уходит в `/api/ai-assist` — там ответ на этот
-узел получает суффикс `WARNING: exceeds nameplate rating` /
-`ВНИМАНИЕ: превышает заводской референс`, чтобы модель не прошла мимо
-этого при анализе (см. также инструкцию в системном промпте в
+When `reference` is set, the node shows both fields (or three, for
+`fla_sf`) plus the `measuredLabel` field. If the measured value exceeds the
+reference, a prominent alert box appears right under the fields (not a badge
+— a distinct, insistent style with a ⚠️ icon), non-blocking for the "Next"
+button and requiring no dismissal. The flag stays in the breadcrumb (a
+red-bordered chip) and in the text sent to `/api/ai-assist` — that node's
+answer gets a `WARNING: exceeds nameplate rating` /
+`ВНИМАНИЕ: превышает заводской референс` suffix, so the model doesn't skip
+past it during analysis (see also the instruction in the system prompt in
 `app/main.py`).
 
-Для моторов с электронным регулированием тока (ECM/VFD) сравнение с
-FLA/RLA в принципе не показательно — для них в графе отдельная
-информационная ветка (`fan_ecm_info`), а не `measurement`-узел.
+For motors with electronically-controlled current (ECM/VFD), comparing
+against FLA/RLA isn't meaningful in the first place — they get a separate
+informational branch in the graph (`fan_ecm_info`), not a `measurement` node.
 
-Начиная с добавления P-T-калькулятора (см. ниже), `numeric_input` не
-обязан иметь `thresholds` — без них это просто последовательный шаг ввода
-с одним безусловным `next` (как у `measurement`), что и используется в
-цепочке считывания давлений/температур для расчёта perегрева/переохлаждения.
+Since the P-T calculator was added (see below), `numeric_input` no longer
+requires `thresholds` — without them it's just a plain sequential input step
+with a single unconditional `next` (like `measurement`), which is what the
+chain of pressure/temperature readings for the superheat/subcooling
+calculation uses.
 
-Проверить целостность графа (что все `next` — из `options`, `thresholds`,
-`measurement`, `refrigerant_select` и `pt_calc` — ссылаются на существующие
-узлы) можно так:
+You can check graph integrity (that every `next` — from `options`,
+`thresholds`, `measurement`, `refrigerant_select`, and `pt_calc` — points to
+an existing node) like this:
 
 ```bash
 python3 -c "
@@ -247,15 +252,15 @@ print('missing:', missing)
 "
 ```
 
-### P-T калькулятор перегрева/переохлаждения (`refrigerant_select` + `pt_calc`)
+### Superheat/subcooling P-T calculator (`refrigerant_select` + `pt_calc`)
 
-Отдельный переиспользуемый расчётный модуль (не привязан к одной ветке
-графа): выбор хладагента + фиксированная последовательность считываний с
-манометров/термометров + расчёт по реальным табличным P-T данным.
+A separate, reusable calculation module (not tied to any one branch of the
+graph): pick a refrigerant + a fixed sequence of gauge/thermometer readings +
+a calculation against real tabular P-T data.
 
-**Справочные данные хладагентов** — `app/static/refrigerants/*.json`, по
-одному файлу на хладагент, плюс манифест `app/static/refrigerants.json`
-(формат как у `manufacturers.json`):
+**Refrigerant reference data** — `app/static/refrigerants/*.json`, one file
+per refrigerant, plus a manifest `app/static/refrigerants.json` (same format
+as `manufacturers.json`):
 
 ```json
 [
@@ -264,8 +269,8 @@ print('missing:', missing)
 ]
 ```
 
-Каждый `refrigerants/<id>.json` — массив точек, отсортированный по
-возрастанию температуры:
+Each `refrigerants/<id>.json` is an array of points, sorted ascending by
+temperature:
 
 ```json
 [
@@ -275,40 +280,40 @@ print('missing:', missing)
 ]
 ```
 
-`bubble_psig` (точка кипения жидкости) и `dew_psig` (точка полного
-насыщения пара) — разные кривые для смесей с реальным glide (R407C,
-R448A, R449A, R452A, R513A); для чистых веществ и азеотропов/квазиазеотропов
-(R22, R32, R134a, R404A, R507A, R500, R502, R454B, R1234yf) обе колонки
-совпадают. `app.js` интерполирует линейно между соседними точками таблицы —
-никакой формулы/уравнения состояния, только реальные табличные значения.
-Все таблицы взяты из опубликованных P-T карт производителей/поставщиков
-хладагента (iGas Technologies, Hudson Technologies) — см. `saturationTemp()`
-в `app.js`. Добавить новый хладагент = добавить `.json` с точками +
-запись в манифест, без правок кода.
+`bubble_psig` (liquid boiling point) and `dew_psig` (vapor saturation point)
+are different curves for blends with real glide (R407C, R448A, R449A, R452A,
+R513A); for pure fluids and azeotropes/near-azeotropes (R22, R32, R134a,
+R404A, R507A, R500, R502, R454B, R1234yf) both columns match. `app.js`
+interpolates linearly between neighboring table points — no
+formula/equation-of-state, only real tabulated values. All tables were taken
+from published P-T charts from refrigerant manufacturers/distributors (iGas
+Technologies, Hudson Technologies) — see `saturationTemp()` in `app.js`.
+Adding a new refrigerant = add a `.json` with points + a manifest entry, no
+code changes.
 
-Давление за пределами диапазона таблицы (обычно от -40°F до 150°F,
-конкретный диапазон зависит от хладагента) **не экстраполируется** —
-это осознанное решение. Для стандартного холодильного/AC цикла давление
-всасывания или нагнетания вне рабочего диапазона P-T таблицы — не
-погрешность интерполяции, а признак того, что система не в нормальном
-рабочем состоянии (утечка, неправильный/перепутанный хладагент,
-катастрофический отказ компонента). Экстраполяция создала бы ложное
-чувство точности там, где число само по себе бессмысленно. Вместо
-расчёта SH/SC в этом случае `pt_calc` показывает настойчивый critical-alert
-("ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ")
-и рекомендацию прекратить обычную диагностику — см. ниже.
+Pressure outside the table's range (typically -40°F to 150°F, the exact
+range depends on the refrigerant) is **not extrapolated** — that's a
+deliberate choice. For a standard refrigeration/AC cycle, a suction or head
+pressure outside the P-T table's operating range isn't an
+interpolation-precision issue, it's a sign the system itself isn't in a
+normal operating state (a leak, the wrong/mixed refrigerant, a catastrophic
+component failure). Extrapolating would create false precision where the
+number itself is meaningless. Instead of computing SH/SC in that case,
+`pt_calc` shows an insistent critical alert ("WARNING: pressure outside
+operating range — possible serious fault") and a recommendation to stop
+routine diagnosis — see below.
 
-Некоторые таблицы намеренно обрезаны снизу: у части источников
-низкотемпературная область показана в дюймах ртутного столба вакуума
-вперемешку с psig без явной пометки в извлечённых данных — вместо угадывания
-конвертации таблица просто начинается с первой однозначно положительной
-точки в psig (R407C — с -30°F, R513A/R1234yf — с -20°F). Для типичных
-рабочих диапазонов этих хладагентов (кондиционирование/среднетемпературная
-торговая рефрижерация) это не ограничение.
+Some tables are deliberately truncated at the low end: in some sources, the
+low-temperature region is shown in inches of mercury vacuum mixed with psig
+with no clear label in the extracted data — rather than guess at the
+conversion, the table simply starts at the first unambiguously positive psig
+point (R407C from -30°F, R513A/R1234yf from -20°F). For these refrigerants'
+typical operating ranges (air conditioning / medium-temp commercial
+refrigeration) this isn't a real limitation.
 
-**Узел выбора хладагента** — обычный узел графа (не сентинел, в отличие от
-шага производителя), потому что в разных ветках он должен вести к разным
-местам:
+**Refrigerant-selection node** — a regular graph node (not a sentinel, unlike
+the manufacturer step), because in different branches it needs to lead
+somewhere different:
 
 ```json
 "nc_refrigerant": {
@@ -318,15 +323,15 @@ R448A, R449A, R452A, R513A); для чистых веществ и азеотр�
 }
 ```
 
-Список хладагентов в выпадающем списке строится динамически из
-`refrigerants.json`, плюс всегда есть вариант "Не знаю" — в этом случае
-дальнейшие показания манометров всё равно собираются (это отдельная
-последовательность, не зависящая от того, известен ли хладагент), но
-финальный расчёт просто сообщит, что количественная оценка недоступна.
+The refrigerant dropdown is built dynamically from `refrigerants.json`, plus
+there's always a "Don't know" option — in that case the subsequent gauge
+readings are still collected (a separate sequence, independent of whether the
+refrigerant is known), but the final calculation just reports that a
+quantitative estimate isn't available.
 
-**Последовательность считываний** — обычные `numeric_input` без
-`thresholds`, помеченные полем `role` (по нему `pt_calc` находит нужные
-ответы в истории, независимо от того, где в графе он размещён):
+**Reading sequence** — regular `numeric_input` nodes with no `thresholds`,
+tagged with a `role` field (this is how `pt_calc` finds the right answers in
+history, regardless of where in the graph it's placed):
 
 ```json
 "pt_suction_pressure": {
@@ -339,12 +344,12 @@ R448A, R449A, R452A, R513A); для чистых веществ и азеотр�
 }
 ```
 
-Роли: `suction_pressure`, `suction_temp`, `head_pressure`, `liquid_temp`
-(давления в `psig`, температуры в `°F`).
+Roles: `suction_pressure`, `suction_temp`, `head_pressure`, `liquid_temp`
+(pressures in `psig`, temperatures in `°F`).
 
-**Результат** — `pt_calc`, всегда один безусловный `next` (та же
-философия, что у `measurement`: расчёт не ветвит граф, суждение остаётся
-за AI/человеком):
+**Result** — `pt_calc`, always a single unconditional `next` (same
+philosophy as `measurement`: the calculation doesn't branch the graph, the
+judgment call stays with the AI/human):
 
 ```json
 "pt_calc_result": {
@@ -354,45 +359,44 @@ R448A, R449A, R452A, R513A); для чистых веществ и азеотр�
 }
 ```
 
-Перегрев и переохлаждение показываются явно в UI (не только в контексте
-AI). Типичный целевой диапазон (~8–12°F SH, ~10–15°F SC) показан как
-справочный текст; если расчётное значение выходит далеко за пределы
-рабочего диапазона (SH вне 3–20°F, SC вне 5–20°F — см. `PT_SH_ALERT`/
-`PT_SC_ALERT` в `app.js`), появляется ненавязчивый alert-блок с ⚠️, тот же
-что и у `measurement` с превышением заводского референса — не блокирует
-"Далее", остаётся в breadcrumb (chip с красной рамкой) и уходит в
-`/api/ai-assist` с суффиксом `WARNING: SH/SC outside typical range` /
-`ВНИМАНИЕ: SH/SC вне типичного диапазона` (инструкция в системном промпте
-в `app/main.py` обязывает модель явно на это отреагировать).
+Superheat and subcooling are shown explicitly in the UI (not just in the AI's
+context). The typical target range (~8-12°F SH, ~10-15°F SC) is shown as
+reference text; if the computed value is well outside the operating range
+(SH outside 3-20°F, SC outside 5-20°F — see `PT_SH_ALERT`/`PT_SC_ALERT` in
+`app.js`), a non-blocking alert box with ⚠️ appears — the same one
+`measurement` uses for exceeding a nameplate reference — doesn't block
+"Next," stays in the breadcrumb (a red-bordered chip), and goes out to
+`/api/ai-assist` with a `WARNING: SH/SC outside typical range` /
+`ВНИМАНИЕ: SH/SC вне типичного диапазона` suffix (the system prompt in
+`app/main.py` instructs the model to explicitly address it).
 
-Если же само введённое давление (всасывания или нагнетания) выходит за
-пределы табличного диапазона хладагента — это отдельный, более серьёзный
-случай (см. выше про отказ от экстраполяции): SH/SC вообще не считаются,
-вместо результата показывается critical-badge + настойчивый alert с
-текстом о вероятной серьёзной неисправности и рекомендацией прекратить
-обычную диагностику. В breadcrumb и в `/api/ai-assist` это уходит с
-отдельным, более тревожным суффиксом `WARNING: pressure outside operating
-range — possible serious fault` / `ВНИМАНИЕ: давление вне рабочего
-диапазона — возможен серьёзный отказ` — системный промпт в `app/main.py`
-инструктирует модель ставить этот флаг в начало ответа, выше остального
-анализа.
+If the entered pressure itself (suction or head) falls outside the
+refrigerant's table range — that's a separate, more serious case (see the
+extrapolation note above): SH/SC aren't calculated at all, and instead of a
+result a critical badge + an insistent alert appears with text about a
+likely serious fault and a recommendation to stop routine diagnosis. In the
+breadcrumb and `/api/ai-assist` this goes out with its own, more alarming
+`WARNING: pressure outside operating range — possible serious fault` /
+`ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ`
+suffix — the system prompt in `app/main.py` instructs the model to put this
+flag at the top of its response, ahead of the rest of the analysis.
 
-Модуль подключён один раз — как дополнительная опция на узле
-`nc_fans_ok`, — но поскольку в этот узел сходятся все ветки "нет
-охлаждения"/"недостаточное охлаждение" (RTU, split, VRF, чиллер,
-рефрижерация), он доступен из всех них без дублирования.
+The module is wired in once — as an extra option on the `nc_fans_ok` node —
+but since every "no cooling"/"insufficient cooling" branch (RTU, split, VRF,
+chiller, refrigeration) converges on that node, it's reachable from all of
+them with no duplication.
 
-## Шаг "Производитель оборудования"
+## "Equipment manufacturer" step
 
-Сразу после выбора типа оборудования на стартовом узле графа (и только
-один раз за сессию) показывается отдельный шаг: выпадающий список
-производителя + необязательное текстовое поле модели. Это **не узел
-graph.json** — он вставлен на уровне `app.js` (сентинел
-`MANUFACTURER_STEP_ID`) между стартовым узлом и тем узлом, куда вообще-то
-вела выбранная опция, поэтому граф решений трогать не пришлось.
+Right after equipment-type selection on the graph's start node (and only
+once per session), a separate step appears: a manufacturer dropdown +
+optional model text field. This is **not a graph.json node** — it's inserted
+at the `app.js` level (a `MANUFACTURER_STEP_ID` sentinel) between the start
+node and whatever node the chosen option would otherwise have led to, so the
+decision graph itself didn't need touching.
 
-Список производителей — `app/static/manufacturers.json`, обычный массив,
-подгружается фронтендом отдельно от `graph.json`:
+The manufacturer list — `app/static/manufacturers.json`, a plain array,
+loaded by the frontend separately from `graph.json`:
 
 ```json
 [
@@ -401,102 +405,103 @@ graph.json** — он вставлен на уровне `app.js` (сентин�
 ]
 ```
 
-Правила:
-- Ничего не хардкожено в `app.js` — весь список строится динамически из
-  файла. Добавить производителя = добавить строку в JSON, без правок кода.
-- В выпадающем списке всегда есть "Other / Другой" с текстовым полем
-  для ручного ввода — такая запись не имеет `url` и никогда не покажет
-  ссылку на документацию (см. ниже).
-- **Перед добавлением новой ссылки — проверяйте её вручную** (WebFetch/поиск),
-  не полагайтесь на память модели, и перепроверяйте, что сайт реально
-  полезен как быстрый support-ресурс (не требует логина и т.п.).
-  Canadian-производители сейчас: Engineered Air, ICE Western
-  (`icewestern.com`) и ICE Northern (`icesales.ca`) — это два разных,
-  независимых бренда под похожим неймингом ("ICE"), оба валидны и оба в
-  списке отдельными пунктами, без приоритета одного над другим. Delhi
-  Industries ранее был в списке, но убран: домен `delhi-industries.com`
-  редиректит на Canarm, а сайт Canarm требует логин пользователя, что
-  бесполезно для быстрого support-доступа с этого экрана.
+Rules:
+- Nothing is hardcoded in `app.js` — the whole list is built dynamically from
+  the file. Adding a manufacturer = adding a line to the JSON, no code
+  changes.
+- The dropdown always has an "Other / Другой" entry with a free-text field —
+  that entry has no `url` and never shows a documentation link (see below).
+- **Verify any new link by hand before adding it** (WebFetch/search), don't
+  rely on the model's memory, and double-check the site is actually useful as
+  a quick support resource (doesn't require a login, etc.). Current Canadian
+  manufacturers: Engineered Air, ICE Western (`icewestern.com`), and ICE
+  Northern (`icesales.ca`) — two separate, independent brands with similar
+  naming ("ICE"), both valid and both listed separately, with no priority
+  given to either. Delhi Industries was previously listed but removed: the
+  `delhi-industries.com` domain redirects to Canarm, and Canarm's site
+  requires a user login, which is useless for quick support access from this
+  screen.
 
-Оба поля (производитель, модель) необязательны — если оставить пустыми и
-нажать "Далее", ничего не добавляется в историю. Если что-то указано, оно
-попадает в breadcrumb и в `answers`, отправляемые в
-`/api/ai-assist`/`/api/log-session`, как обычные пары вопрос/ответ
+Both fields (manufacturer, model) are optional — leaving them blank and
+clicking "Next" adds nothing to the history. If something is entered, it
+shows up in the breadcrumb and in the `answers` sent to
+`/api/ai-assist`/`/api/log-session` as regular question/answer pairs
 ("Manufacturer" → "Carrier", "Equipment model" → "48TC-A12").
 
-На каждом терминальном узле (`result` или `ai_prompt`) — если выбран
-производитель из списка (не "Other") — под остальным контентом
-показывается "Смотрите также: официальная техническая документация
-{name}" со ссылкой прямо из `manufacturers.json`. Для "Other"/кастомного
-ввода ссылка не показывается никогда — `url` в таком случае `null`, а
-`app.js` не генерирует и не угадывает ссылки самостоятельно.
+On every terminal node (`result` or `ai_prompt`) — if a manufacturer was
+picked from the list (not "Other") — "See also: official {name} technical
+documentation" is shown below the rest of the content, linking straight from
+`manufacturers.json`. For "Other"/custom input, the link never shows — `url`
+is `null` in that case, and `app.js` never generates or guesses links on its
+own.
 
-## AI-ассистент
+## AI assistant
 
-`POST /api/ai-assist` принимает:
+`POST /api/ai-assist` accepts:
 
 ```json
 {
   "answers": [{"question": "...", "answer": "..."}],
-  "context": "текст текущего узла-результата",
-  "free_text": "свободные заметки техника (для ai_prompt узлов)",
+  "context": "current result node's text",
+  "free_text": "the technician's free-text notes (for ai_prompt nodes)",
   "lang": "ru"
 }
 ```
 
-и возвращает `{"analysis": "...", "truncated": false}`. Системный промпт
-настроен как опытный HVAC/R journeyman-ассистент (использует
-superheat/subcooling/P-T терминологию). `lang` (`"ru"` по умолчанию или
-`"en"`) определяет язык ответа модели — фронтенд подставляет текущий
-выбранный язык интерфейса автоматически. Для `en` промпт дополнительно
-просит модель использовать североамериканские единицы измерения (°F, psig,
-дюймы водяного столба) и терминологию (furnace, breaker, disconnect и
-т.п.). Модель задаётся через `ANTHROPIC_MODEL` (по умолчанию
-`claude-sonnet-5`), ключ — через `ANTHROPIC_API_KEY`.
+and returns `{"analysis": "...", "truncated": false}`. The system prompt is
+set up as an experienced HVAC/R journeyman assistant (uses
+superheat/subcooling/P-T terminology). `lang` (`"ru"` by default, or `"en"`)
+sets the model's response language — the frontend passes the currently
+selected interface language automatically. For `en`, the prompt additionally
+asks the model to use North American units (°F, psig, inches of water
+column) and terminology (furnace, breaker, disconnect, etc.). The model is
+set via `ANTHROPIC_MODEL` (default `claude-sonnet-5`), the key via
+`ANTHROPIC_API_KEY`.
 
-Длина ответа ограничена `AI_ASSIST_MAX_TOKENS` (по умолчанию 2048,
-настраивается через env) — это потолок, не цель: промпт и так просит
-модель отвечать без воды, так что реальные ответы обычно заметно короче.
-Значение подобрано с запасом под текущий формат (ranked root causes +
-диагностические шаги + safety considerations, иногда с явным разбором
-alert-флагов от `measurement`/`pt_calc`) — раньше было 700, и реальные
-ответы обрывались на середине предложения. Это именно потолок
-цены/размера ОДНОГО ответа, а не защита от злоупотреблений — от частых
-запросов защищает `AI_ASSIST_RATE_LIMIT` (см. "Защита AI-эндпоинта" ниже);
-увеличение `AI_ASSIST_MAX_TOKENS` поднимает только потолок стоимости
-одного ответа в худшем случае, а не частоту вызовов.
+Response length is capped by `AI_ASSIST_MAX_TOKENS` (default 2048,
+configurable via env) — this is a ceiling, not a target: the prompt already
+asks the model for a no-filler answer, so real responses tend to come in
+well under it. The value was picked with headroom for the current format
+(ranked root causes + diagnostic steps + safety considerations, sometimes
+with an explicit breakdown of a `measurement`/`pt_calc` alert flag) — it used
+to be 700, and real responses were cutting off mid-sentence. This is
+specifically a ceiling on the cost/size of ONE response, not abuse
+protection — `AI_ASSIST_RATE_LIMIT` protects against frequent requests (see
+"Protecting the AI endpoint from abuse" below); raising
+`AI_ASSIST_MAX_TOKENS` only raises the worst-case cost ceiling of a single
+response, not the call frequency.
 
-Если Anthropic вернул `stop_reason: "max_tokens"` (ответ реально обрезан
-пределом длины, а не закончился сам) — поле `truncated` в ответе будет
-`true`, и фронтенд покажет отдельный настойчивый alert под текстом ответа
-("Ответ был обрезан из-за ограничения длины..."), а не тихо отобразит
-неполный текст как будто это весь ответ.
+If Anthropic returned `stop_reason: "max_tokens"` (the response was really
+cut off by the length limit, not finished on its own) — the `truncated`
+field in the response will be `true`, and the frontend shows a separate,
+insistent alert under the response text ("The response was cut off due to a
+length limit...") rather than silently displaying incomplete text as if it
+were the whole answer.
 
-## История чек-листов (для анализа паттернов)
+## Checklist history (for pattern analysis)
 
-Каждый пройденный чек-лист сохраняется в локальную SQLite-базу
-(`data/sessions.db`, путь настраивается через `SESSIONS_DB_PATH`), чтобы
-потом можно было искать частые паттерны неисправностей — например, какие
-типы оборудования/симптомы встречаются чаще всего, на каких узлах чек-лист
-чаще всего не даёт однозначного ответа (`ai_prompt`/"Другое"), и насколько
-часто требуется AI-ассистент.
+Every completed checklist is saved to a local SQLite database
+(`data/sessions.db`, path configurable via `SESSIONS_DB_PATH`), so common
+failure patterns can be searched for later — for example, which equipment
+types/symptoms come up most often, which nodes most often fail to give a
+clear answer (`ai_prompt`/"Other"), and how often the AI assistant gets used.
 
-Фронтенд шлёт `POST /api/log-session` двумя моментами:
-1. Как только пользователь доходит до `result` или `ai_prompt` узла — сразу
-   пишется путь по графу (ответы на все вопросы) и итоговый узел, даже если
-   AI ни разу не вызывался.
-2. Если после этого пользователь нажимает "Спросить AI" и получает ответ —
-   та же запись (по `session_id`) дополняется вопросом/ответом AI.
+The frontend sends `POST /api/log-session` at two points:
+1. As soon as the user reaches a `result` or `ai_prompt` node — the graph
+   path (answers to every question) and the final node are written right
+   away, even if the AI was never called.
+2. If the user then clicks "Ask AI" and gets a response — the same record
+   (by `session_id`) is updated with the AI's question/answer.
 
-Один `session_id` (генерируется в браузере, `crypto.randomUUID()`, новый —
-при каждом "Начать сначала") = одна строка в таблице `checklist_sessions`,
-которая обновляется по мере прохождения (upsert), а не растёт бесконечно
-дублями. Эндпоинт не требует `ANTHROPIC_API_KEY` и не обращается к
-Anthropic — это чисто локальная запись, только `LOG_SESSION_RATE_LIMIT`
-(по умолчанию 30/мин с IP) защищает от спама.
+One `session_id` (generated in the browser via `crypto.randomUUID()`, a new
+one on every "Start Over") = one row in the `checklist_sessions` table,
+updated as the checklist progresses (upsert), rather than growing forever
+with duplicates. The endpoint doesn't require `ANTHROPIC_API_KEY` and never
+calls Anthropic — it's a purely local record, only `LOG_SESSION_RATE_LIMIT`
+(default 30/min per IP) protects it from spam.
 
-Пример запроса для поиска частых паттернов (топ финальных узлов по типу
-оборудования):
+Example query for finding common patterns (top final nodes by equipment
+type):
 
 ```bash
 sqlite3 data/sessions.db "
@@ -508,105 +513,120 @@ LIMIT 20;
 "
 ```
 
-Учтите: `free_text`/`ai_analysis` могут содержать заметки техника со
-свободным текстом (потенциально с деталями объекта) — это те же данные,
-что и так уходят в Anthropic при вызове AI-ассистента, но теперь они ещё и
-остаются локально в `data/sessions.db`. Файл в `.gitignore`, наружу не
-уходит; при необходимости ротации/очистки — обычная работа с SQLite-файлом
-(бэкап, `DELETE ... WHERE created_at < ...` и т.п., в проекте не
-автоматизировано).
+Keep in mind: `free_text`/`ai_analysis` may contain free-text technician
+notes (potentially with site-specific details) — this is the same data that
+already goes to Anthropic when the AI assistant is called, but now it also
+stays local in `data/sessions.db`. The file is in `.gitignore` and never
+leaves the machine; for rotation/cleanup as needed, it's just regular SQLite
+file work (backup, `DELETE ... WHERE created_at < ...`, etc. — not automated
+in this project).
 
-## Версия сборки
+## Build version
 
-Каждый образ помечен коммитом, из которого он собран, — чтобы можно было
-быстро проверить, что реально задеплоено, без захода в браузер:
+Every image is tagged with the commit it was built from, so you can quickly
+check what's actually deployed without opening a browser:
 
-1. **OCI-лейбл на образе** — `org.opencontainers.image.revision`. Проверить:
+1. **OCI label on the image** — `org.opencontainers.image.revision`. Check
+   with:
 
    ```bash
    docker inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' hvac-guide
    ```
 
-2. **Футер UI** — короткий хэш + дата коммита мелким блёклым текстом внизу
-   страницы (не отвлекает от основного контента), берётся с `GET
-   /api/version`.
+2. **UI footer** — a short commit hash + date in small, muted text at the
+   bottom of the page (doesn't distract from the main content), fetched from
+   `GET /api/version`.
 
-Работает так: `docker-compose.yml`/`docker-compose.prod.yml` передают
-`GIT_COMMIT`/`GIT_COMMIT_DATE` как build args (`${GIT_COMMIT:-unknown}` —
-читаются из `.env`), `Dockerfile` кладёт их в `LABEL
-org.opencontainers.image.revision` и в `ENV`, а `main.py` отдаёт их же
-через `/api/version`, которое и подхватывает футер.
+How it works: `docker-compose.yml`/`docker-compose.prod.yml` pass
+`GIT_COMMIT`/`GIT_COMMIT_DATE` as build args (`${GIT_COMMIT:-unknown}` — read
+from `.env`), the `Dockerfile` puts them into `LABEL
+org.opencontainers.image.revision` and into `ENV`, and `main.py` serves the
+same values via `/api/version`, which the footer picks up.
 
-Чтобы `.env` сам оставался актуальным (и `docker compose up -d --build`
-подхватывал текущий коммит без ручного шага) — включите git-хуки из
+To keep `.env` itself current (so `docker compose up -d --build` picks up
+the current commit with no manual step) — enable the git hooks in
 `.githooks/`:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-**Важно: это локальная настройка git (`core.hooksPath`), она не приходит
-сама через `git clone`/`git pull` — включите её на КАЖДОЙ машине, которая
-собирает образ, включая сервер(а) деплоя, а не только на своей рабочей.**
-Если на деплое обычный процесс — `git pull && docker compose up -d
---build` — то нужен именно хук `post-merge` (он и добавлен): `git pull` не
-вызывает ни `post-commit` (это для локальных коммитов), ни `post-checkout`
-(это для `git checkout`/`git switch`) — только `post-merge`, если
-подтягивание прошло fast-forward'ом или обычным merge.
+**Important: this is local git config (`core.hooksPath`) — it doesn't come
+along with `git clone`/`git pull` on its own. Enable it on EVERY machine
+that builds the image, including deploy target(s), not just your dev
+machine.** If your usual deploy process is `git pull && docker compose up -d
+--build` — you specifically need the `post-merge` hook (already added):
+`git pull` triggers neither `post-commit` (that's for local commits) nor
+`post-checkout` (that's for `git checkout`/`git switch`) — only
+`post-merge`, whether the pull was a fast-forward or a regular merge.
 
-После включения хуков `post-commit`/`post-checkout`/`post-merge` сами
-обновляют `GIT_COMMIT`/`GIT_COMMIT_DATE` в `.env` при коммите,
-переключении веток и `git pull` соответственно — тихо ничего не делают,
-если `.env` ещё не создан (сначала `cp .env.example .env`, как обычно).
-Без включённых хуков (или при ручном `docker build` без `--build-arg`)
-образ просто получит `unknown` вместо хэша — не ломается, но и не
-подскажет версию.
+Once enabled, `post-commit`/`post-checkout`/`post-merge` keep
+`GIT_COMMIT`/`GIT_COMMIT_DATE` in `.env` up to date on commit, branch switch,
+and `git pull` respectively — they quietly no-op if `.env` doesn't exist yet
+(do `cp .env.example .env` first, as usual). Without the hooks enabled (or
+with a manual `docker build` and no `--build-arg`), the image will just get
+`unknown` instead of a hash — it won't break, just won't tell you the
+version.
 
-Если на уже развёрнутой машине лейбл показывает `unknown` (хуки не были
-включены до этого момента) — почините на месте:
+If a machine that's already deployed shows `unknown` in the label (the hooks
+weren't enabled until now) — fix it on the spot:
 
 ```bash
-cd /opt/hvac-guide   # или где лежит репозиторий на этой машине
-git config core.hooksPath .githooks   # один раз на эту машину
-.githooks/update-git-version-env       # прогнать сразу, не дожидаясь следующего pull
+cd /opt/hvac-guide   # or wherever the repo lives on this machine
+git config core.hooksPath .githooks   # once, on this machine
+.githooks/update-git-version-env       # run it right now, don't wait for the next pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-## Деплой
+## Deployment
 
-См. [DEPLOY.md](DEPLOY.md) — пошаговый деплой по фазам (команда →
-публично), обновление, откат, версия сборки, что делать при типичных
-проблемах (например зацикленный запрос пароля в basic auth). Голые
-команды без объяснений — [commands.md](commands.md).
+See [DEPLOY.md](DEPLOY.md) — step-by-step deploy by phase (team → public),
+updating, rollback, build version, what to do about common issues (like a
+looping password prompt in basic auth). Bare commands with no explanations —
+[commands.md](commands.md).
 
-## Защита AI-эндпоинта от злоупотреблений
+## Protecting the AI endpoint from abuse
 
-Встроено на уровне приложения (не зависит от того, фаза 1 или 2):
+Built in at the application level (regardless of whether you're in Phase 1
+or 2):
 
-- **Rate limit по IP** — `/api/ai-assist` ограничен `AI_ASSIST_RATE_LIMIT` (по умолчанию 8/мин), `/api/log-session` — `LOG_SESSION_RATE_LIMIT` (по умолчанию 30/мин), оба через `slowapi`. При превышении — 429.
-- **Жёсткие лимиты размера** — максимум 40 пар вопрос/ответ, до 400 символов на каждое поле, до 2000 символов на `free_text`/`context`. Превышение — 422 без похода к Anthropic API (деньги не тратятся).
-- **Промпт защищён от инъекций** — системный промпт явно помечает содержимое чек-листа/`free_text` как untrusted data, а не инструкции. Модели явно запрещено менять роль, отвечать не по теме HVAC/R или выполнять команды, "спрятанные" в тексте пользователя.
-- **`max_tokens` через `AI_ASSIST_MAX_TOKENS`** (по умолчанию 2048) — потолок стоимости одного ответа, не частоты запросов (см. "AI-ассистент" выше).
+- **Per-IP rate limiting** — `/api/ai-assist` is capped by
+  `AI_ASSIST_RATE_LIMIT` (default 8/min), `/api/log-session` by
+  `LOG_SESSION_RATE_LIMIT` (default 30/min), both via `slowapi`. Exceeding it
+  returns 429.
+- **Hard size limits** — at most 40 question/answer pairs, up to 400
+  characters per field, up to 2000 characters for `free_text`/`context`.
+  Exceeding it returns 422 without ever calling the Anthropic API (no money
+  spent).
+- **The prompt is hardened against injection** — the system prompt
+  explicitly frames the checklist/`free_text` content as untrusted data, not
+  instructions. The model is explicitly forbidden from changing role,
+  answering off-topic (non-HVAC/R) questions, or executing commands
+  "hidden" in the user's text.
+- **`max_tokens` via `AI_ASSIST_MAX_TOKENS`** (default 2048) — a ceiling on
+  the cost of one response, not on request frequency (see "AI assistant"
+  above).
 
-Дополнительно на твоей стороне рекомендуется:
+Additionally recommended on your end:
 
-- Hard spend limit в консоли Anthropic (страховка на случай обхода лимитов).
-- Логи Caddy/приложения на анализ аномального трафика.
+- A hard spend limit in the Anthropic console (a safety net in case limits
+  get bypassed somehow).
+- Caddy/application logs for analyzing anomalous traffic.
 
-## Ограничения / что можно улучшить дальше
+## Limitations / possible future improvements
 
-- История чек-листов сохраняется (см. выше), но никакого готового UI/отчёта
-  по паттернам пока нет — анализ делается прямыми SQL-запросами к
-  `data/sessions.db`. При желании несложно добавить админ-дашборд поверх той
-  же таблицы.
-- Граф сейчас покрывает самые частые сценарии (no cool/no heat, won't start,
-  high/low pressure, ice, condensate leak, noise) — расширяется просто
-  добавлением новых узлов в `graph.json`, без изменения кода.
-- P-T калькулятор покрывает 15 распространённых коммерческих/промышленных
-  хладагентов (см. `app/static/refrigerants.json`); аммиак (R-717) намеренно
-  не включён — доступные во время разработки табличные данные для него не
-  прошли проверку на согласованность и не были добавлены, чтобы не рисковать
-  точностью расчёта. Психрометрика/воздушная сторона (энтальпия влажного
-  воздуха и т.п.) вне модуля — только сторона хладагента (SH/SC).
-- Reverse-proxy/TLS теперь есть (Caddy, см. деплой по фазам выше) —
-  используется только в docker-compose.prod.yml.
+- Checklist history is saved (see above), but there's no ready-made UI/report
+  for patterns yet — analysis is done via direct SQL queries against
+  `data/sessions.db`. An admin dashboard on top of the same table wouldn't be
+  hard to add if wanted.
+- The graph currently covers the most common scenarios (no cool/no heat,
+  won't start, high/low pressure, ice, condensate leak, noise) — it's
+  extended just by adding new nodes to `graph.json`, no code changes needed.
+- The P-T calculator covers 15 common commercial/industrial refrigerants
+  (see `app/static/refrigerants.json`); ammonia (R-717) was deliberately left
+  out — the tabular data available during development didn't pass a
+  consistency check and wasn't added, rather than risk the calculation's
+  accuracy. Psychrometrics/air-side (moist-air enthalpy, etc.) is out of
+  scope for this module — refrigerant-side (SH/SC) only.
+- Reverse-proxy/TLS is now in place (Caddy, see deploy-by-phase above) — used
+  only in `docker-compose.prod.yml`.
