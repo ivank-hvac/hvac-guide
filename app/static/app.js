@@ -561,7 +561,7 @@ async function loadVersionInfo() {
 // (first 8 chars) is enough to disambiguate visually and by DB prefix
 // lookup — the full UUID is still in localStorage/the sessions table.
 function renderFooterInfo() {
-  const parts = [];
+  const parts = ["IvanK"];
   if (versionData) parts.push(`${versionData.commit} · ${versionData.commit_date}`);
   if (state.sessionId) parts.push(`session: ${state.sessionId.slice(0, 8)}`);
   versionInfoEl.textContent = parts.join(" · ");
