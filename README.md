@@ -125,7 +125,9 @@ Five node types:
 - `question` — a question with answer options (`options[].next` points to the
   next node).
 - `result` — the final recommendation. Fields `severity` (`info` / `warning` /
-  `critical`) and `ai` (`true` highlights the AI button as recommended).
+  `critical`) and `ai` (`true` highlights the AI button as recommended). An
+  optional `checklist` array adds an interactive follow-through list under
+  the recommendation — see "Checklist persistence" below.
 - `ai_prompt` — a node with no answer options: shows a free-text field for
   describing the situation and sends it straight to the AI assistant (for
   "Other / complex case" or ambiguous fault codes).
@@ -539,6 +541,69 @@ stays local in `data/sessions.db`. The file is in `.gitignore` and never
 leaves the machine; for rotation/cleanup as needed, it's just regular SQLite
 file work (backup, `DELETE ... WHERE created_at < ...`, etc. — not automated
 in this project).
+
+## Checklist persistence (resume across page reloads)
+
+Separate from "Checklist history" above — that's a one-way analytics log of
+completed/reached checklists. This is live, resumable in-progress state,
+stored in the same `data/sessions.db` but its own `sessions` table, so a
+technician can pick up exactly where they left off after closing the tab,
+losing signal, or having the browser reload.
+
+**graph.json:** a `result` node's optional `checklist` field is a plain list
+of follow-through items shown right under the recommendation:
+
+```json
+"nc_sh_high": {
+  "type": "result",
+  "severity": "warning",
+  "checklist": [
+    {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "...", "en": "Checked evaporator airflow"}},
+    {"id": "subcooling", "type": "field", "unit": "Δ°F", "label": {"ru": "...", "en": "Measured subcooling"}}
+  ]
+}
+```
+
+- `type: "checkbox"` — a plain confirmation toggle.
+- `type: "field"` (with an optional `unit`, shown as the input's placeholder)
+  — a short free-text/numeric entry, e.g. a measurement taken while acting on
+  the recommendation.
+- A live "Completed: X of Y" progress line sits above the items — a checkbox
+  counts once checked, a field once non-blank.
+
+**Frontend state → backend:** the browser's full in-progress state
+(`currentId`, `history`, `answers`, manufacturer/refrigerant picks) and the
+checklist's checkbox/field values are two separate JSON blobs the frontend
+owns the shape of — the backend just stores and returns them
+(`SessionUpsertRequest.node_path` / `.checklist_state` in `main.py`, capped
+by serialized size, not shape-validated). Saved via a debounced
+`POST /api/session` (800ms after the last change — every answer, every
+checklist edit) to the `sessions` table, keyed by the same `session_id`
+already used for checklist history above.
+
+**Resuming:** the browser remembers its own `session_id` in
+`localStorage`. On load, if that id's session is still `status: "active"`
+server-side, the user sees a "Continue? / Start Over?" prompt before the
+graph renders. "Continue" restores the exact saved state (including
+checklist progress); "Start Over" marks the old session `abandoned` — not
+deleted, just no longer offered for resume — and starts a genuinely new one.
+
+**Finishing:** a "Finish checklist" button (shown only when the current
+result node has a `checklist`) leads to a summary screen — every question
+answered so far plus the same checklist, still editable — ending in a
+"Complete" action that sets `status: "completed"` and stamps `completed_at`.
+`completed` sessions are never touched by the TTL cleanup below; they're
+kept indefinitely as future outcome-tracking data (see ROADMAP.md).
+
+**Abandoned-session cleanup:** an `active` session that hasn't been touched
+in `SESSION_ABANDON_TTL_HOURS` (3, not currently an env var) is reclassified
+as `abandoned` by a background `asyncio` task in `main.py` (checks every 30
+minutes, no cron) — rows are never deleted, just no longer resumable.
+
+**Abuse protection:** `SESSION_RATE_LIMIT` (default 20/min per IP, via
+`slowapi`) covers both `POST /api/session` and `GET /api/session/{id}` —
+separate from `LOG_SESSION_RATE_LIMIT` since a debounced save fires far more
+often than the once-per-checklist history write.
 
 ## Build version
 

@@ -1,5 +1,51 @@
 {
   "start": "start",
+  "intake_checklist": [
+    {
+      "id": "visual",
+      "label": {"ru": "Визуальный осмотр / инвентаризация", "en": "Visual inspection / inventory"},
+      "items": [
+        {"id": "metering_txv", "type": "checkbox", "label": {"ru": "ТРВ (TXV) присутствует", "en": "TXV (thermostatic expansion valve) present"}},
+        {"id": "metering_captube", "type": "checkbox", "label": {"ru": "Капиллярная трубка присутствует", "en": "Capillary tube present"}},
+        {"id": "metering_other", "type": "field", "label": {"ru": "Другой metering device (опишите)", "en": "Other metering device (describe)"}},
+        {"id": "filter_drier", "type": "checkbox", "label": {"ru": "Фильтр-осушитель присутствует", "en": "Filter-drier present"}},
+        {"id": "moisture_indicator", "type": "checkbox", "label": {"ru": "Moisture/liquid indicator присутствует", "en": "Moisture/liquid indicator present"}},
+        {"id": "liquid_solenoid", "type": "checkbox", "label": {"ru": "Соленоидный клапан на жидкостной линии присутствует", "en": "Liquid-line solenoid valve present"}},
+        {"id": "hot_gas_bypass", "type": "checkbox", "label": {"ru": "Hot gas bypass присутствует", "en": "Hot gas bypass present"}},
+        {"id": "economizer_present", "type": "checkbox", "label": {"ru": "Экономайзер присутствует (типично для RTU)", "en": "Economizer present (typical on RTUs)"}},
+        {"id": "economizer_damper_ok", "type": "checkbox", "label": {"ru": "Заслонка экономайзера не заклинена/не открыта полностью без вызова — особенно проверять зимой", "en": "Economizer damper not stuck/wide open without a call for it — check carefully in winter"}, "showIf": {"phase": "visual", "item": "economizer_present", "equals": true}},
+        {"id": "unusual", "type": "field", "label": {"ru": "Что-то необычное (опишите)", "en": "Anything unusual (describe)"}}
+      ]
+    },
+    {
+      "id": "electrical",
+      "label": {"ru": "Электрика / питание", "en": "Electrical / power"},
+      "items": [
+        {"id": "breaker_ok", "type": "checkbox", "label": {"ru": "Circuit breaker/fuses в норме, следов срабатывания нет", "en": "Circuit breaker/fuses OK, no signs of tripping"}},
+        {"id": "contactor_ok", "type": "checkbox", "label": {"ru": "Контакты contactor в норме (нет питтинга/сварки)", "en": "Contactor contacts OK (no pitting/welding)"}},
+        {"id": "relays_ok", "type": "checkbox", "label": {"ru": "Relays в норме (не чатерят)", "en": "Relays OK (not chattering)"}}
+      ]
+    },
+    {
+      "id": "controls",
+      "label": {"ru": "Controls / safety", "en": "Controls / safety"},
+      "items": [
+        {"id": "safeties_ok", "type": "checkbox", "label": {"ru": "Safety switches в норме (high/low pressure, freeze stat)", "en": "Safety switches OK (high/low pressure, freeze stat)"}},
+        {"id": "thermostat_call_ok", "type": "checkbox", "label": {"ru": "Термостат/контроллер корректно подаёт команду", "en": "Thermostat/controller is calling correctly"}},
+        {"id": "fault_code_present", "type": "checkbox", "label": {"ru": "На контроллере есть код ошибки", "en": "Fault code present on controller"}},
+        {"id": "fault_code_detail", "type": "field", "label": {"ru": "Код ошибки / описание", "en": "Fault code / description"}, "showIf": {"phase": "controls", "item": "fault_code_present", "equals": true}}
+      ]
+    },
+    {
+      "id": "refrigeration",
+      "label": {"ru": "Холодильный контур (уточнения)", "en": "Refrigeration circuit (follow-up)"},
+      "items": [
+        {"id": "txv_bulb_checked", "type": "checkbox", "label": {"ru": "Колба/уравнительная линия TXV проверены", "en": "TXV bulb/equalizer line checked"}, "showIf": {"phase": "visual", "item": "metering_txv", "equals": true}},
+        {"id": "moisture_reading", "type": "field", "label": {"ru": "Показание moisture indicator (wet/dry)", "en": "Moisture indicator reading (wet/dry)"}, "showIf": {"phase": "visual", "item": "moisture_indicator", "equals": true}},
+        {"id": "solenoid_energizes", "type": "checkbox", "label": {"ru": "Соленоид корректно запитывается по команде", "en": "Solenoid energizes properly when called"}, "showIf": {"phase": "visual", "item": "liquid_solenoid", "equals": true}}
+      ]
+    }
+  ],
   "nodes": {
 
     "start": {
@@ -13,6 +59,34 @@
         {"label": {"ru": "Холодильное оборудование (walk-in / reach-in)", "en": "Refrigeration equipment (walk-in / reach-in)"}, "next": "refrig_symptom"},
         {"label": {"ru": "Печь / Forced-air furnace", "en": "Furnace / Forced-air furnace"}, "next": "furnace_symptom"}
       ]
+    },
+
+    "power_check": {
+      "type": "question",
+      "text": {"ru": "Питание на оборудование подано?", "en": "Is the unit powered up?"},
+      "options": [
+        {"label": {"ru": "Да, питание есть", "en": "Yes, powered up"}, "next": "thermostat_check"},
+        {"label": {"ru": "Нет, питания нет", "en": "No power"}, "next": "ws_no_power"}
+      ]
+    },
+
+    "thermostat_check": {
+      "type": "question",
+      "text": {"ru": "Термостат/контроллер настроен и подаёт команду на охлаждение/обогрев?", "en": "Is the thermostat/controller calling for heat/cooling (asking the equipment to run)?"},
+      "options": [
+        {"label": {"ru": "Да, команда подаётся", "en": "Yes, it's calling"}, "next": "__pending__"},
+        {"label": {"ru": "Нет / не уверен", "en": "No / not sure"}, "next": "no_tstat_call_result"}
+      ]
+    },
+
+    "no_tstat_call_result": {
+      "type": "result",
+      "severity": "info",
+      "ai": true,
+      "text": {
+        "ru": "Убедитесь, что термостат/контроллер реально запрашивает нужный режим: выбран правильный режим (heat/cool/auto), уставка явно выше/ниже текущей температуры в помещении, нет активного расписания/hold, которое перебивает команду, и (если на батарейках) батарейки не сели. Для проводного коммерческого контроллера проверьте проводку сигнала вызова между контроллером и оборудованием/платой, а также собственную уставку/дифференциал контроллера.",
+        "en": "Confirm the thermostat/controller is actually asking for the mode you expect: correct mode selected (heat/cool/auto), setpoint clearly above/below the current space temperature, no active schedule or hold overriding it, and (if battery-powered) batteries aren't dead. For a hardwired commercial controller, verify the call-signal wiring between the controller and the equipment/board, and the controller's own setpoint/differential."
+      }
     },
 
     "rtu_symptom": {
@@ -260,7 +334,13 @@
       "text": {
         "ru": "Классика — загрязнённый/выгоревший датчик ионизации пламени (flame sensor), или плохое заземление горелки. Также проверьте полярность питания (hot/neutral) — может мешать сигналу ionization, и давление газа на входе.",
         "en": "Classic case — a dirty/worn flame sensor (ionization rod), or poor burner grounding. Also check line-voltage polarity (hot/neutral) — reversed polarity can interfere with the ionization signal — and inlet gas pressure."
-      }
+      },
+      "checklist": [
+        {"id": "sensor_cleaned", "type": "checkbox", "label": {"ru": "Датчик ионизации очищен/осмотрен", "en": "Flame sensor cleaned/inspected"}},
+        {"id": "grounding_checked", "type": "checkbox", "label": {"ru": "Проверено заземление горелки", "en": "Burner grounding checked"}},
+        {"id": "polarity_checked", "type": "checkbox", "label": {"ru": "Проверена полярность питания (hot/neutral)", "en": "Line-voltage polarity checked (hot/neutral)"}},
+        {"id": "gas_pressure", "type": "field", "unit": "in. w.c.", "label": {"ru": "Давление газа на входе", "en": "Inlet gas pressure"}}
+      ]
     },
 
     "gas_fault_code": {
@@ -514,7 +594,13 @@
       "text": {
         "ru": "Высокое всасывание + высокий superheat — недостаточный расход через ТРВ/капиллярную трубку при избыточной тепловой нагрузке, неисправность TXV (не открывается достаточно), либо ощутимая утечка (undercharge) в сочетании с высокой нагрузкой. Проверьте нагрузку по воздуху на испарителе, работу TXV и subcooling на жидкостной линии.",
         "en": "High suction + high superheat — insufficient flow through the TXV/cap tube under a heavy load, a TXV that isn't opening enough, or a noticeable undercharge combined with high load. Check the evaporator's air-side load, TXV operation, and liquid-line subcooling."
-      }
+      },
+      "checklist": [
+        {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "Проверен airflow на испарителе (фильтр, вентилятор, койл)", "en": "Checked evaporator airflow (filter, blower, coil)"}},
+        {"id": "txv_checked", "type": "checkbox", "label": {"ru": "Проверена работа TXV (колба, уравнительная линия)", "en": "Verified TXV operation (bulb, equalizer line)"}},
+        {"id": "subcooling", "type": "field", "unit": "Δ°F", "label": {"ru": "Замеренный subcooling", "en": "Measured subcooling"}},
+        {"id": "undercharge_ruled_out", "type": "checkbox", "label": {"ru": "Исключён undercharge по показанию subcooling", "en": "Ruled out undercharge via subcooling reading"}}
+      ]
     },
 
     "nc_sh_low_highsuction": {
@@ -524,7 +610,13 @@
       "text": {
         "ru": "Высокое всасывание при низком superheat — риск переполнения испарителя (overfeeding) и floodback в компрессор. Проверьте, не залипает ли TXV открытым, не перезаряжена ли система, исправность колбы/чувствительного элемента TXV и изоляцию колбы.",
         "en": "High suction with low superheat — risk of evaporator overfeeding and compressor floodback. Check whether the TXV is stuck open, whether the system is overcharged, the condition of the TXV sensing bulb/element, and the bulb's insulation."
-      }
+      },
+      "checklist": [
+        {"id": "txv_stuck_checked", "type": "checkbox", "label": {"ru": "Проверен TXV на залипание в открытом положении", "en": "Checked TXV for stuck-open condition"}},
+        {"id": "bulb_checked", "type": "checkbox", "label": {"ru": "Проверен контакт и изоляция колбы TXV", "en": "Verified sensing bulb contact & insulation"}},
+        {"id": "overcharge_ruled_out", "type": "checkbox", "label": {"ru": "Подтверждено отсутствие overcharge (проверен subcooling)", "en": "Confirmed system isn't overcharged (subcooling checked)"}},
+        {"id": "floodback_checked", "type": "checkbox", "label": {"ru": "Компрессор проверен на признаки floodback/разжижения масла", "en": "Compressor checked for floodback/oil dilution signs"}}
+      ]
     },
 
     "nc_suction_low": {
@@ -553,7 +645,13 @@
       "text": {
         "ru": "Низкое всасывание + низкий subcooling = недостаток заряда (undercharge) или утечка. Найдите утечку (электронный детектор / пузырьковый тест на фитингах), устраните, затем дозаправьте по массе — не 'на глаз' по манометру.",
         "en": "Low suction + low subcooling = undercharge or a leak. Find the leak (electronic leak detector / bubble test on fittings), repair it, then recharge by weight — not 'by feel' on the gauges."
-      }
+      },
+      "checklist": [
+        {"id": "leak_search", "type": "checkbox", "label": {"ru": "Выполнен поиск утечки (электронный детектор / пузырьковый тест)", "en": "Leak search performed (electronic detector / bubble test)"}},
+        {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки найдено", "en": "Leak location found"}},
+        {"id": "leak_repaired", "type": "checkbox", "label": {"ru": "Утечка устранена", "en": "Leak repaired"}},
+        {"id": "recharge_weight", "type": "field", "unit": "oz", "label": {"ru": "Добавлено при перезаправке (по массе)", "en": "Recharge weight added"}}
+      ]
     },
 
     "nc_sc_high": {
@@ -563,7 +661,12 @@
       "text": {
         "ru": "Низкое всасывание при высоком subcooling указывает на restriction (засор) на жидкостной линии — забитый фильтр-осушитель, перегиб трубки, частично закрытый клапан. Признак: холодная точка/перепад температуры на фильтре-осушителе. Замените drier, проверьте линию на зажимы/перегибы.",
         "en": "Low suction with high subcooling points to a restriction on the liquid line — a clogged filter-drier, a kinked line, or a partially closed valve. Tell-tale sign: a cold spot/temperature drop across the filter-drier. Replace the drier and check the line for kinks or pinches."
-      }
+      },
+      "checklist": [
+        {"id": "drier_inspected", "type": "checkbox", "label": {"ru": "Осмотрен фильтр-осушитель (холодная точка/перепад)", "en": "Filter-drier inspected for cold spot/pressure drop"}},
+        {"id": "line_checked", "type": "checkbox", "label": {"ru": "Проверена жидкостная линия на перегибы/зажимы", "en": "Liquid line checked for kinks/pinches"}},
+        {"id": "drier_replaced", "type": "checkbox", "label": {"ru": "Фильтр-осушитель заменён", "en": "Filter-drier replaced"}}
+      ]
     },
 
     "nc_lowsuction_okSC": {
@@ -686,7 +789,13 @@
       "text": {
         "ru": "Признаки locked rotor: проверьте пусковой/рабочий конденсатор, сопротивление обмоток компрессора (замыкание на корпус/обрыв фазы), просадку напряжения в момент пуска. Если конденсатор и обмотки в норме — вероятен механический заклин компрессора, требуется замена.",
         "en": "Signs of a locked rotor: check the start/run capacitor, compressor winding resistance (short to ground/open winding), and voltage sag at start-up. If the capacitor and windings check out, a mechanically seized compressor is likely — replacement is needed."
-      }
+      },
+      "checklist": [
+        {"id": "capacitor_tested", "type": "checkbox", "label": {"ru": "Проверен пусковой/рабочий конденсатор", "en": "Start/run capacitor tested"}},
+        {"id": "winding_resistance", "type": "field", "unit": "MΩ", "label": {"ru": "Сопротивление обмоток (мегомметр на корпус)", "en": "Winding resistance (megger to ground)"}},
+        {"id": "voltage_sag_checked", "type": "checkbox", "label": {"ru": "Проверена просадка напряжения при пуске", "en": "Start-up voltage sag checked"}},
+        {"id": "replacement_scheduled", "type": "checkbox", "label": {"ru": "Замена компрессора запланирована при заклине", "en": "Compressor replacement scheduled if seized"}}
+      ]
     },
 
     "ws_no_load": {
@@ -763,7 +872,13 @@
       "text": {
         "ru": "Высокий subcooling при высоком давлении конденсации = избыточный заряд (overcharge). Проверьте историю заправок и расчёт по массе (линия могла быть заряжена по номинальному, а не фактическому диаметру). Откачайте излишек через сервис-порт с учётом ambient и целевого SC/SH производителя.",
         "en": "High subcooling with high head pressure = overcharge. Check the charging history and the weight calculation (the line set may have been charged for a nominal rather than actual length/diameter). Recover the excess through the service port, accounting for ambient conditions and the manufacturer's target subcooling/superheat."
-      }
+      },
+      "checklist": [
+        {"id": "history_reviewed", "type": "checkbox", "label": {"ru": "Проверена история заправок", "en": "Charging history/records reviewed"}},
+        {"id": "weight_recalculated", "type": "checkbox", "label": {"ru": "Пересчитан вес по фактической длине/диаметру линии", "en": "Line set length/diameter recalculated"}},
+        {"id": "recovered_weight", "type": "field", "unit": "oz", "label": {"ru": "Откачано хладагента (масса)", "en": "Refrigerant recovered (weight)"}},
+        {"id": "subcooling_after", "type": "field", "unit": "Δ°F", "label": {"ru": "Subcooling после корректировки", "en": "Subcooling after adjustment"}}
+      ]
     },
 
     "hp_noncondensables": {
@@ -773,7 +888,13 @@
       "text": {
         "ru": "Высокое давление при нормальном/низком subcooling может указывать на неконденсируемые газы в системе. Сделайте standing pressure test: остановите систему, дайте давлению стабилизироваться, сравните с P-T таблицей при температуре окружения на жидкостной/газовой стороне. Отклонение выше табличного значения → recovery, вакуумирование и перезаправка.",
         "en": "High pressure with normal/low subcooling can indicate non-condensables in the system. Run a standing pressure test: shut the system down, let pressure stabilize, and compare it to the P-T chart at ambient temperature on the liquid/vapor side. A reading above the chart value calls for recovery, evacuation, and recharge."
-      }
+      },
+      "checklist": [
+        {"id": "standing_test_done", "type": "checkbox", "label": {"ru": "Выполнен standing pressure test", "en": "Standing pressure test performed"}},
+        {"id": "stabilized_pressure", "type": "field", "unit": "psig", "label": {"ru": "Стабилизировавшееся давление", "en": "Stabilized pressure reading"}},
+        {"id": "pt_chart_compared", "type": "checkbox", "label": {"ru": "Сверено с P-T таблицей при ambient", "en": "Compared against P-T chart at ambient"}},
+        {"id": "recovery_done", "type": "checkbox", "label": {"ru": "Выполнены recovery/вакуумирование/перезаправка при необходимости", "en": "Recovery/evacuation/recharge done if needed"}}
+      ]
     },
 
     "lp_start": {
@@ -840,7 +961,14 @@
       "text": {
         "ru": "Наледь при недостаточном охлаждении — почти всегда недостаточный airflow (фильтр/вентилятор) либо низкий заряд (undercharge). Для холодильного оборудования дополнительно проверьте цикл дефроста: таймер, датчик окончания дефроста, ТЭНы дефроста, соленоид на жидкостной линии.",
         "en": "Ice with insufficient cooling is almost always low airflow (filter/blower) or an undercharge. For refrigeration equipment, also check the defrost cycle: the timer, defrost-termination sensor, defrost heaters, and the liquid-line solenoid."
-      }
+      },
+      "checklist": [
+        {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "Проверен airflow (фильтр/вентилятор)", "en": "Airflow checked (filter/blower)"}},
+        {"id": "charge_checked", "type": "checkbox", "label": {"ru": "Проверен заряд на недозаправку", "en": "Charge checked for undercharge"}},
+        {"id": "defrost_checked", "type": "checkbox", "label": {"ru": "Цикл дефроста проверен (таймер/датчик/ТЭНы) — холодильное оборудование/тепловые насосы", "en": "Defrost cycle checked (timer/sensor/heaters) — refrigeration equipment/heat pumps"}},
+        {"id": "condensate_heater_checked", "type": "checkbox", "label": {"ru": "ТЭН поддона/дренажа проверен, если есть — RTU/AC без цикла дефроста", "en": "Condensate pan/drain heater checked, if fitted — RTU/AC units with no defrost cycle"}},
+        {"id": "solenoid_checked", "type": "checkbox", "label": {"ru": "Проверен соленоид на жидкостной линии", "en": "Liquid-line solenoid checked"}}
+      ]
     },
 
     "leak_start": {
@@ -889,7 +1017,13 @@
       "text": {
         "ru": "Признаки утечки холодильного агента (масляные следы) — используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику.",
         "en": "Signs of a refrigerant leak (oil residue) — use an electronic leak detector or UV dye to pinpoint it exactly. Don't top off 'by feel' before repairing — find and fix the leak first, then do a full recharge by weight per the nameplate."
-      }
+      },
+      "checklist": [
+        {"id": "leak_located", "type": "checkbox", "label": {"ru": "Утечка локализована (детектор/УФ-краситель)", "en": "Leak located (electronic detector/UV dye)"}},
+        {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки", "en": "Leak location"}},
+        {"id": "leak_repaired", "type": "checkbox", "label": {"ru": "Утечка устранена до перезаправки", "en": "Leak repaired before recharging"}},
+        {"id": "full_recharge_done", "type": "checkbox", "label": {"ru": "Полная перезаправка по массе согласно шильдику", "en": "Full recharge by weight per nameplate"}}
+      ]
     },
 
     "noise_start": {
