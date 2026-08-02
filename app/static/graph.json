@@ -12,6 +12,8 @@
         {"id": "moisture_indicator", "type": "checkbox", "label": {"ru": "Moisture/liquid indicator присутствует", "en": "Moisture/liquid indicator present"}},
         {"id": "liquid_solenoid", "type": "checkbox", "label": {"ru": "Соленоидный клапан на жидкостной линии присутствует", "en": "Liquid-line solenoid valve present"}},
         {"id": "hot_gas_bypass", "type": "checkbox", "label": {"ru": "Hot gas bypass присутствует", "en": "Hot gas bypass present"}},
+        {"id": "economizer_present", "type": "checkbox", "label": {"ru": "Экономайзер присутствует (типично для RTU)", "en": "Economizer present (typical on RTUs)"}},
+        {"id": "economizer_damper_ok", "type": "checkbox", "label": {"ru": "Заслонка экономайзера не заклинена/не открыта полностью без вызова — особенно проверять зимой", "en": "Economizer damper not stuck/wide open without a call for it — check carefully in winter"}, "showIf": {"phase": "visual", "item": "economizer_present", "equals": true}},
         {"id": "unusual", "type": "field", "label": {"ru": "Что-то необычное (опишите)", "en": "Anything unusual (describe)"}}
       ]
     },
@@ -963,7 +965,8 @@
       "checklist": [
         {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "Проверен airflow (фильтр/вентилятор)", "en": "Airflow checked (filter/blower)"}},
         {"id": "charge_checked", "type": "checkbox", "label": {"ru": "Проверен заряд на недозаправку", "en": "Charge checked for undercharge"}},
-        {"id": "defrost_checked", "type": "checkbox", "label": {"ru": "Проверен цикл дефроста (таймер/датчик/ТЭНы)", "en": "Defrost cycle checked (timer/sensor/heaters)"}},
+        {"id": "defrost_checked", "type": "checkbox", "label": {"ru": "Цикл дефроста проверен (таймер/датчик/ТЭНы) — холодильное оборудование/тепловые насосы", "en": "Defrost cycle checked (timer/sensor/heaters) — refrigeration equipment/heat pumps"}},
+        {"id": "condensate_heater_checked", "type": "checkbox", "label": {"ru": "ТЭН поддона/дренажа проверен, если есть — RTU/AC без цикла дефроста", "en": "Condensate pan/drain heater checked, if fitted — RTU/AC units with no defrost cycle"}},
         {"id": "solenoid_checked", "type": "checkbox", "label": {"ru": "Проверен соленоид на жидкостной линии", "en": "Liquid-line solenoid checked"}}
       ]
     },
