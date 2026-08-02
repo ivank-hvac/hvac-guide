@@ -338,6 +338,15 @@ footer {
   gap: 8px;
 }
 
+.footer-disclaimer {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.6;
+  text-align: center;
+  padding: 0 16px;
+}
+
 .version-info {
   font-family: var(--mono);
   font-size: 0.68rem;
