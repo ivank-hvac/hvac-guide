@@ -66,7 +66,9 @@ const I18N = {
     intakeSkipLabel: "N/A",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
-    intakeFinishBtn: "Завершить и перейти к диагностике",
+    intakeFinishBtn: "Готово — вернуться к результату",
+    intakeStartBtn: "🔍 Углублённая диагностика (полный чек-лист)",
+    intakeReviewBtn: "✓ Чек-лист пройден (посмотреть)",
   },
   en: {
     back: "← Back",
@@ -126,7 +128,9 @@ const I18N = {
     intakeSkipLabel: "N/A",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
-    intakeFinishBtn: "Finish and start diagnosis",
+    intakeFinishBtn: "Done — back to results",
+    intakeStartBtn: "🔍 Deeper diagnosis (full checklist)",
+    intakeReviewBtn: "✓ Checklist completed (review)",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -437,13 +441,15 @@ const MANUFACTURER_STEP_ID = "__manufacturer__";
 // Also not a real graph.json node — same reasoning as MANUFACTURER_STEP_ID.
 const FINISH_STEP_ID = "__finish__";
 
-// Sentinel currentId for the one-time phased intake checklist (visual ->
-// electrical -> controls/safety -> refrigeration circuit), shown once right
-// after the manufacturer step and before symptom-specific branching —
-// "check the simple stuff first," independent of which symptom the tech
-// picks next. Content lives in graph.json's intake_checklist (not this
-// file), same editable-without-a-rebuild philosophy as everything else.
-// Not a real graph.json node — same reasoning as MANUFACTURER_STEP_ID.
+// Sentinel currentId for the phased intake checklist (visual -> electrical
+// -> controls/safety -> refrigeration circuit) — "check the simple stuff
+// first." Deliberately NOT a mandatory detour before symptom selection:
+// the simple qualitative graph + a single AI ask handles most cases fine,
+// so this is opt-in, offered as a button on result/ai_prompt screens (see
+// startIntakeChecklist) for when a deeper pass is actually warranted.
+// Content lives in graph.json's intake_checklist (not this file), same
+// editable-without-a-rebuild philosophy as everything else. Not a real
+// graph.json node — same reasoning as MANUFACTURER_STEP_ID.
 const INTAKE_STEP_ID = "__intake__";
 
 let GRAPH = null;
@@ -866,6 +872,19 @@ function intakeItemResolved(entry, type) {
   return isChecklistItemDone(entry.value, type);
 }
 
+// Entry point for the "Deeper diagnosis" button on a result/ai_prompt
+// screen (see buildAiBox usage in renderResult/renderAiPrompt) — always
+// restarts at phase 0 so re-reviewing an already-completed checklist walks
+// through every phase again rather than landing on just the last one
+// (earlier phases' answers are still there, already resolved, so a review
+// pass is just clicking "Next phase" through them unless something needs
+// changing).
+function startIntakeChecklist(returnNodeId) {
+  state.pendingNodeId = returnNodeId;
+  state.intakePhaseIndex = 0;
+  goTo(INTAKE_STEP_ID, { prevId: returnNodeId });
+}
+
 function finishIntakeChecklist() {
   state.intakeAsked = true;
   const target = state.pendingNodeId;
@@ -1042,13 +1061,11 @@ function goBack() {
   if (prev === MANUFACTURER_STEP_ID || prev === GRAPH.start) {
     state.manufacturerAsked = false;
   }
-  if (prev === MANUFACTURER_STEP_ID || prev === INTAKE_STEP_ID || prev === GRAPH.start) {
-    // Redoing (or not yet having reached) the intake step — reset its
-    // progress so it starts clean from phase 0 next time it's entered.
-    state.intakeAsked = false;
-    state.intake = {};
-    state.intakePhaseIndex = 0;
-  }
+  // Deliberately no reset of state.intake/intakeAsked/intakePhaseIndex here:
+  // unlike the manufacturer step, the intake checklist is opt-in and
+  // repeatable (see startIntakeChecklist), not a one-time gate tied to this
+  // navigation — going back into it should just show what's already there,
+  // never silently discard a completed checklist.
   state.currentId = prev;
   render();
 }
@@ -1257,16 +1274,9 @@ function renderManufacturerStep() {
     state.manufacturer = manufacturer;
     state.manufacturerAsked = true;
 
-    // Detour through the one-time phased intake checklist next, same
-    // pendingNodeId hand-off pattern as this step itself used — it's the
-    // intake step's job to clear pendingNodeId once it's done.
-    if (!state.intakeAsked && (GRAPH.intake_checklist || []).length) {
-      goTo(INTAKE_STEP_ID, { prevId: MANUFACTURER_STEP_ID });
-    } else {
-      const target = state.pendingNodeId;
-      state.pendingNodeId = null;
-      goTo(target, { prevId: MANUFACTURER_STEP_ID });
-    }
+    const target = state.pendingNodeId;
+    state.pendingNodeId = null;
+    goTo(target, { prevId: MANUFACTURER_STEP_ID });
   };
 }
 
@@ -1284,6 +1294,21 @@ function buildMfgDocLink() {
   a.textContent = ui().mfgDocLink.replace("{name}", state.manufacturer.name);
   box.appendChild(a);
   return box;
+}
+
+// Opt-in entry point into the phased intake checklist (see
+// startIntakeChecklist) — shown on result/ai_prompt screens, after the
+// simple qualitative graph and a single AI ask, for the cases where that
+// wasn't enough and a deeper "check the simple stuff" pass is actually
+// warranted. Returns null if this graph.json defines no intake content.
+function buildIntakeTriggerButton(returnNodeId) {
+  if (!(GRAPH.intake_checklist || []).length) return null;
+  const strings = ui();
+  const btn = document.createElement("button");
+  btn.className = "btn ghost";
+  btn.textContent = state.intakeAsked ? strings.intakeReviewBtn : strings.intakeStartBtn;
+  btn.onclick = () => startIntakeChecklist(returnNodeId);
+  return btn;
 }
 
 function renderNumericInput(node) {
@@ -1760,6 +1785,9 @@ function renderResult(node) {
   const mfgLink = buildMfgDocLink();
   if (mfgLink) cardEl.appendChild(mfgLink);
 
+  const intakeBtn = buildIntakeTriggerButton(state.currentId);
+  if (intakeBtn) cardEl.appendChild(intakeBtn);
+
   if (node.checklist && node.checklist.length) {
     const resultNodeId = state.currentId;
     renderChecklist(resultNodeId, node.checklist, cardEl);
@@ -1811,6 +1839,9 @@ function renderAiPrompt(node) {
 
   const mfgLink = buildMfgDocLink();
   if (mfgLink) cardEl.appendChild(mfgLink);
+
+  const intakeBtn = buildIntakeTriggerButton(nodeId);
+  if (intakeBtn) cardEl.appendChild(intakeBtn);
 
   logSession({ finalNodeId: nodeId, severity: null });
 }
