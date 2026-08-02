@@ -41,6 +41,15 @@ AI_ASSIST_RATE_LIMIT = os.getenv("AI_ASSIST_RATE_LIMIT", "8/minute")
 # rate limit above (not this) that bounds worst-case $/minute from one IP.
 AI_ASSIST_MAX_TOKENS = int(os.getenv("AI_ASSIST_MAX_TOKENS", "2048"))
 
+# Higher ceiling used only when the request carries the richer context from
+# a completed intake checklist (see AssistRequest.deep_dive, set by the
+# frontend from state.intakeAsked) — that pass has objectively more
+# grounding to reason over (visual/electrical/controls/refrigeration intake
+# answers, possibly a component-check finding), so it's worth paying for a
+# longer response. A plain one-shot /api/ai-assist without that context
+# stays on the regular AI_ASSIST_MAX_TOKENS above.
+AI_DEEP_DIVE_MAX_TOKENS = int(os.getenv("AI_DEEP_DIVE_MAX_TOKENS", "3000"))
+
 # How many checklist-path log writes a single IP may make per minute. This
 # endpoint doesn't call Anthropic (no $ cost) but is still rate-limited to
 # keep the local DB from being spammed.
@@ -240,6 +249,10 @@ class AssistRequest(BaseModel):
     context: Optional[str] = Field(default="", max_length=MAX_CONTEXT_LEN)
     free_text: Optional[str] = Field(default="", max_length=MAX_FREE_TEXT_LEN)
     lang: Literal["ru", "en"] = "ru"
+    # Set by the frontend from state.intakeAsked — true once the technician
+    # has gone through the intake checklist this session, so this request's
+    # answers carry that richer context. See AI_DEEP_DIVE_MAX_TOKENS.
+    deep_dive: bool = False
 
     @field_validator("answers")
     @classmethod
@@ -465,7 +478,7 @@ async def ai_assist(request: Request, req: AssistRequest):
 
     payload = {
         "model": ANTHROPIC_MODEL,
-        "max_tokens": AI_ASSIST_MAX_TOKENS,
+        "max_tokens": AI_DEEP_DIVE_MAX_TOKENS if req.deep_dive else AI_ASSIST_MAX_TOKENS,
         "system": build_system_prompt(req.lang),
         "messages": [{"role": "user", "content": user_message}],
     }
