@@ -1,8 +1,9 @@
+import asyncio
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
-from typing import List, Literal, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Literal, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -49,6 +50,20 @@ LOG_SESSION_RATE_LIMIT = os.getenv("LOG_SESSION_RATE_LIMIT", "30/minute")
 # stored for later pattern analysis — see README "История чек-листов".
 SESSIONS_DB_PATH = os.getenv("SESSIONS_DB_PATH", "data/sessions.db")
 
+# How many resumable-session save/restore calls a single IP may make per
+# minute. Separate from LOG_SESSION_RATE_LIMIT above: that one fires once per
+# completed checklist, this one fires on every debounced save while a
+# checklist is in progress, so it needs more headroom.
+SESSION_RATE_LIMIT = os.getenv("SESSION_RATE_LIMIT", "20/minute")
+
+# An "active" session (in-progress checklist, resumable via the "Continue?"
+# prompt) that hasn't been touched in this long is reclassified as
+# "abandoned" by the background cleanup task below — not deleted, just no
+# longer offered for resume. "completed" sessions are never touched by this;
+# they're kept indefinitely as future outcome-tracking data.
+SESSION_ABANDON_TTL_HOURS = 3
+SESSION_CLEANUP_INTERVAL_SECONDS = 30 * 60
+
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="HVAC Troubleshooting Guide")
@@ -92,6 +107,30 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_sessions_equipment "
             "ON checklist_sessions(equipment_type)"
         )
+        # Separate from checklist_sessions above: that table is a one-way
+        # log of completed/reached checklists for pattern analysis. This one
+        # is live, resumable in-progress state (currentId/history/answers/
+        # etc., opaque to the backend — see README "Checklist persistence")
+        # so a technician can pick up where they left off after closing the
+        # tab or losing signal.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT PRIMARY KEY,
+                equipment TEXT,
+                node_path TEXT NOT NULL,
+                checklist_state TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_status_updated "
+            "ON sessions(status, updated_at)"
+        )
 
 
 init_db()
@@ -107,6 +146,13 @@ MAX_SESSION_ID_LEN = 100
 MAX_NODE_ID_LEN = 100
 MAX_SEVERITY_LEN = 20
 MAX_AI_ANALYSIS_LEN = 4000
+MAX_EQUIPMENT_LEN = 400
+# node_path/checklist_state are opaque JSON blobs from the frontend's own
+# session state (answers, currentId, history, checklist checkbox/field
+# values, etc.) — capped by serialized size rather than a fixed shape, same
+# spirit as the answer-count/length caps above.
+MAX_NODE_PATH_JSON_LEN = 30000
+MAX_CHECKLIST_STATE_JSON_LEN = 10000
 
 LANGUAGE_INSTRUCTIONS = {
     "ru": "Respond in Russian.",
@@ -262,6 +308,108 @@ def _save_session(req: LogSessionRequest) -> None:
         )
 
 
+class SessionUpsertRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=MAX_SESSION_ID_LEN)
+    equipment: Optional[str] = Field(default=None, max_length=MAX_EQUIPMENT_LEN)
+    # Opaque to the backend on purpose: the frontend owns the shape of its
+    # own resumable state (currentId, history, answers, manufacturer,
+    # refrigerant, etc.) and of the checklist checkbox/field values — this
+    # endpoint just persists and returns them verbatim. Only size-capped
+    # below, not shape-validated, so the frontend can evolve its state shape
+    # without a backend change.
+    node_path: Dict[str, Any]
+    checklist_state: Dict[str, Any] = {}
+    status: Literal["active", "completed", "abandoned"] = "active"
+
+    @field_validator("node_path")
+    @classmethod
+    def limit_node_path_size(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        if len(json.dumps(v, ensure_ascii=False)) > MAX_NODE_PATH_JSON_LEN:
+            raise ValueError(f"node_path too large (max {MAX_NODE_PATH_JSON_LEN} chars serialized)")
+        return v
+
+    @field_validator("checklist_state")
+    @classmethod
+    def limit_checklist_state_size(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        if len(json.dumps(v, ensure_ascii=False)) > MAX_CHECKLIST_STATE_JSON_LEN:
+            raise ValueError(
+                f"checklist_state too large (max {MAX_CHECKLIST_STATE_JSON_LEN} chars serialized)"
+            )
+        return v
+
+
+def _upsert_session(req: SessionUpsertRequest) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    node_path_json = json.dumps(req.node_path, ensure_ascii=False)
+    checklist_state_json = json.dumps(req.checklist_state, ensure_ascii=False)
+    # Set on the first transition into "completed", then never overwritten
+    # by a later save of the same session (there shouldn't be one — the
+    # frontend treats "completed" as terminal — but COALESCE guards against
+    # accidentally clobbering the timestamp if it ever is).
+    completed_at_if_new = now if req.status == "completed" else None
+
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO sessions
+                (session_id, equipment, node_path, checklist_state, status,
+                 created_at, updated_at, completed_at)
+            VALUES (:session_id, :equipment, :node_path, :checklist_state, :status,
+                    :now, :now, :completed_at_if_new)
+            ON CONFLICT(session_id) DO UPDATE SET
+                equipment = :equipment,
+                node_path = :node_path,
+                checklist_state = :checklist_state,
+                status = :status,
+                updated_at = :now,
+                completed_at = COALESCE(completed_at, :completed_at_if_new)
+            """,
+            {
+                "session_id": req.session_id,
+                "equipment": req.equipment,
+                "node_path": node_path_json,
+                "checklist_state": checklist_state_json,
+                "status": req.status,
+                "now": now,
+                "completed_at_if_new": completed_at_if_new,
+            },
+        )
+
+
+def _get_session(session_id: str) -> Optional[Dict[str, Any]]:
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    result["node_path"] = json.loads(result["node_path"])
+    result["checklist_state"] = json.loads(result["checklist_state"])
+    return result
+
+
+def _mark_abandoned_sessions() -> None:
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=SESSION_ABANDON_TTL_HOURS)).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "UPDATE sessions SET status = 'abandoned' WHERE status = 'active' AND updated_at < ?",
+            (cutoff,),
+        )
+
+
+async def _cleanup_abandoned_sessions_loop() -> None:
+    while True:
+        await asyncio.sleep(SESSION_CLEANUP_INTERVAL_SECONDS)
+        try:
+            await run_in_threadpool(_mark_abandoned_sessions)
+        except Exception:
+            # A transient DB error here shouldn't kill the background task —
+            # it'll just retry on the next interval.
+            pass
+
+
 USER_MESSAGE_LABELS = {
     "ru": {
         "checklist": "Чек-лист (вопрос -> ответ):",
@@ -354,6 +502,29 @@ async def ai_assist(request: Request, req: AssistRequest):
 async def log_session(request: Request, req: LogSessionRequest):
     await run_in_threadpool(_save_session, req)
     return {"status": "ok"}
+
+
+@app.post("/api/session")
+@limiter.limit(SESSION_RATE_LIMIT)
+async def save_session(request: Request, req: SessionUpsertRequest):
+    await run_in_threadpool(_upsert_session, req)
+    return {"status": "ok"}
+
+
+@app.get("/api/session/{session_id}")
+@limiter.limit(SESSION_RATE_LIMIT)
+async def restore_session(request: Request, session_id: str):
+    if len(session_id) > MAX_SESSION_ID_LEN:
+        raise HTTPException(status_code=404, detail="not found")
+    result = await run_in_threadpool(_get_session, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return result
+
+
+@app.on_event("startup")
+async def _start_background_tasks() -> None:
+    asyncio.create_task(_cleanup_abandoned_sessions_loop())
 
 
 @app.get("/api/health")
