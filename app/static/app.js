@@ -794,7 +794,7 @@ function renderChecklist(nodeId, items, container) {
       row.appendChild(labelEl);
       const input = document.createElement("input");
       input.type = "text";
-      input.className = "checklist-field-input";
+      input.className = "checklist-field-input" + (item.unit ? " numeric" : "");
       input.value = values[item.id] || "";
       input.addEventListener("input", () => {
         values[item.id] = input.value;
@@ -1083,7 +1083,7 @@ function renderIntakeChecklist() {
       fieldRow.className = "intake-item-field-row";
       const input = document.createElement("input");
       input.type = "text";
-      input.className = "checklist-field-input";
+      input.className = "checklist-field-input" + (item.unit ? " numeric" : "");
       input.id = `intake-field-${item.id}`;
       input.value = entry.value || "";
       input.disabled = entry.skipped || !!lockedBy;
