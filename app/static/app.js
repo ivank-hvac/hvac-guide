@@ -1728,7 +1728,7 @@ function renderNumericInput(node) {
   input.type = "text";
   input.inputMode = "decimal";
   input.autocomplete = "off";
-  input.className = "numeric-input";
+  input.className = "numeric-input narrow";
   input.placeholder = "0";
   row.appendChild(input);
 
@@ -1835,7 +1835,7 @@ function renderMeasurement(node) {
     input.type = "text";
     input.inputMode = "decimal";
     input.autocomplete = "off";
-    input.className = "numeric-input";
+    input.className = "numeric-input narrow";
     input.placeholder = "0";
     row.appendChild(input);
     if (unit) {
