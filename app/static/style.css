@@ -223,6 +223,10 @@ textarea {
 }
 
 .numeric-input {
+  /* Shared visual style, also reused (deliberately) for non-numeric
+     fields that just want the same look — manufacturer/model/refrigerant
+     selects — so this class itself must NOT assume a short numeric value.
+     See .numeric-input.narrow below for the fields that actually are one. */
   flex: 1;
   min-width: 0;
   background: #0f1115;
@@ -239,6 +243,16 @@ textarea {
   outline: none;
   border-color: var(--input-accent);
   box-shadow: 0 0 0 3px rgba(224, 145, 63, 0.25);
+}
+
+/* Readings here are a handful of digits (temps, pressures, amps) — 6ch is
+   comfortable room without the field stretching across the card. Applied
+   only to fields that actually take a typed number (numeric_input,
+   measurement) — never to .numeric-input alone, which is also reused for
+   non-numeric selects/inputs that need the same look at full width. */
+.numeric-input.narrow {
+  flex: 0 0 auto;
+  width: 6ch;
 }
 
 .numeric-input.invalid {
@@ -445,6 +459,14 @@ textarea {
   padding: 8px 10px;
   font-family: inherit;
   font-size: 0.9rem;
+}
+
+/* A field with a unit is always a numeric reading, never free text (see
+   the field items in graph.json) — same 6ch reasoning as .numeric-input,
+   instead of stretching across the row like a description field does. */
+.checklist-field-input.numeric {
+  flex: 0 0 auto;
+  width: 6ch;
 }
 
 .finish-summary {

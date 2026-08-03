@@ -5,9 +5,9 @@
       "id": "visual",
       "label": {"ru": "Визуальный осмотр / инвентаризация", "en": "Visual inspection / inventory"},
       "items": [
-        {"id": "metering_txv", "type": "checkbox", "label": {"ru": "ТРВ (TXV) присутствует", "en": "TXV (thermostatic expansion valve) present"}},
-        {"id": "metering_captube", "type": "checkbox", "label": {"ru": "Капиллярная трубка присутствует", "en": "Capillary tube present"}},
-        {"id": "metering_other", "type": "field", "label": {"ru": "Другой metering device (опишите)", "en": "Other metering device (describe)"}},
+        {"id": "metering_txv", "type": "checkbox", "label": {"ru": "ТРВ (TXV) присутствует", "en": "TXV (thermostatic expansion valve) present"}, "exclusiveGroup": "metering_type"},
+        {"id": "metering_captube", "type": "checkbox", "label": {"ru": "Капиллярная трубка присутствует", "en": "Capillary tube present"}, "exclusiveGroup": "metering_type"},
+        {"id": "metering_other", "type": "field", "label": {"ru": "Другой metering device (опишите)", "en": "Other metering device (describe)"}, "exclusiveGroup": "metering_type"},
         {"id": "filter_drier", "type": "checkbox", "label": {"ru": "Фильтр-осушитель присутствует", "en": "Filter-drier present"}},
         {"id": "moisture_indicator", "type": "checkbox", "label": {"ru": "Moisture/liquid indicator присутствует", "en": "Moisture/liquid indicator present"}},
         {"id": "liquid_solenoid", "type": "checkbox", "label": {"ru": "Соленоидный клапан на жидкостной линии присутствует", "en": "Liquid-line solenoid valve present"}},
@@ -50,6 +50,10 @@
   "component_checks": {
     "metering_device": {
       "root": "start",
+      "entryFrom": [
+        {"phase": "visual", "item": "metering_txv", "equals": true, "node": "txv_status"},
+        {"phase": "visual", "item": "metering_captube", "equals": true, "node": "captube_status"}
+      ],
       "nodes": {
 
         "start": {
