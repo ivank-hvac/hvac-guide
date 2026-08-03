@@ -50,6 +50,10 @@
   "component_checks": {
     "metering_device": {
       "root": "start",
+      "entryFrom": [
+        {"phase": "visual", "item": "metering_txv", "equals": true, "node": "txv_status"},
+        {"phase": "visual", "item": "metering_captube", "equals": true, "node": "captube_status"}
+      ],
       "nodes": {
 
         "start": {

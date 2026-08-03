@@ -1274,7 +1274,22 @@ function componentCheckNode() {
 function startComponentCheck(phaseId, itemId, checkId) {
   const def = GRAPH.component_checks && GRAPH.component_checks[checkId];
   if (!def) return;
-  state.componentCheck = { phaseId, itemId, checkId, currentId: def.root, history: [], description: "" };
+  // entryFrom skips questions the intake checklist already answered (e.g.
+  // "Installed?"/"What type?" are redundant once Phase 1 already confirmed
+  // "TXV present: Yes") — same {phase, item, equals} shape as showIf, so
+  // intakeShowIfMet is reused as-is, not a new rule language. Falls back to
+  // def.root when nothing matches (e.g. Phase 1 only has free-text "Other
+  // metering device" filled in, which doesn't tell us which of the
+  // remaining types it is).
+  const matchedEntry = (def.entryFrom || []).find((rule) => intakeShowIfMet(rule));
+  state.componentCheck = {
+    phaseId,
+    itemId,
+    checkId,
+    currentId: matchedEntry ? matchedEntry.node : def.root,
+    history: [],
+    description: "",
+  };
   state.currentId = COMPONENT_CHECK_STEP_ID;
   render();
 }
