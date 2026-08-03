@@ -81,6 +81,8 @@ const I18N = {
     intakeReviewBtn: "✓ Чек-лист пройден (посмотреть)",
     componentCheckStartBtn: "▶ Начать проверку",
     componentCheckReviewBtn: "↺ Посмотреть/изменить",
+    graphLaunchStartBtn: "▶ Выполнить расчёт",
+    graphLaunchReviewBtn: "↺ Посмотреть результат",
     componentCheckSaveBtn: "✓ Сохранить и вернуться к чек-листу",
     componentCheckDescPlaceholder: "Дополнительное описание (опционально)",
   },
@@ -157,6 +159,8 @@ const I18N = {
     intakeReviewBtn: "✓ Checklist completed (review)",
     componentCheckStartBtn: "▶ Start check",
     componentCheckReviewBtn: "↺ View/change",
+    graphLaunchStartBtn: "▶ Run calculation",
+    graphLaunchReviewBtn: "↺ View result",
     componentCheckSaveBtn: "✓ Save & return to checklist",
     componentCheckDescPlaceholder: "Additional description (optional)",
   },
@@ -508,6 +512,12 @@ function answerLabel(entry) {
     // exceedance, not a non-condensables finding).
     return entry.value;
   }
+  if (entry.field === "dual_block") {
+    // entry.value is already the chosen option's translated label (e.g.
+    // "Above normal") — same convention as a plain question's breadcrumb
+    // chip, which never repeats the question text either.
+    return entry.value;
+  }
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
   if (entry.optionIndex != null) {
@@ -595,6 +605,13 @@ let state = {
   intakePhaseIndex: 0,      // which intake_checklist phase is currently shown
   componentCheck: null,     // {phaseId, itemId, checkId, currentId, history, description} while a
                             // component-check subtree is active (see COMPONENT_CHECK_STEP_ID), else null
+  graphLaunchReturn: null,  // {phaseId, itemId} while a `graph_launch` intake item's target flow
+                            // (e.g. the precise SH/SC calc chain) is running in the MAIN graph —
+                            // unlike componentCheck, this reuses normal goTo/state.answers
+                            // navigation as-is (the launched nodes are ordinary graph.json nodes,
+                            // not an isolated island), it just needs to know where to deposit the
+                            // finding and return to once the chain's terminal node says
+                            // `"next": "__intake_return__"` (see renderPtCalc).
 };
 
 function t(dict) {
@@ -702,6 +719,7 @@ function serializeNodePath() {
     intakeAsked: state.intakeAsked,
     intakePhaseIndex: state.intakePhaseIndex,
     componentCheck: state.componentCheck,
+    graphLaunchReturn: state.graphLaunchReturn,
   };
 }
 
@@ -806,6 +824,7 @@ function resumeSession(data) {
     intakeAsked: !!np.intakeAsked,
     intakePhaseIndex: np.intakePhaseIndex || 0,
     componentCheck: np.componentCheck || null,
+    graphLaunchReturn: np.graphLaunchReturn || null,
   };
   render();
 }
@@ -837,7 +856,7 @@ function abandonAndRestart(data) {
 // state.checklist[nodeId][itemId], persisted via the same debounced
 // session save as everything else.
 function isChecklistItemDone(value, type) {
-  return type === "field" || type === "select" || type === "component_check"
+  return type === "field" || type === "select" || type === "component_check" || type === "graph_launch"
     ? !!(value && String(value).trim())
     : !!value;
 }
@@ -1251,6 +1270,48 @@ function renderIntakeChecklist() {
       } else if (entry.value && item.normal != null) {
         row.classList.add(entry.value === item.normal ? "intake-select-normal" : "intake-select-abnormal");
       }
+    } else if (item.type === "graph_launch") {
+      // Unlike component_check (an isolated island — see
+      // COMPONENT_CHECK_STEP_ID), this launches an ordinary main-graph flow
+      // (e.g. the precise SH/SC calc chain starting at pt_suction_pressure)
+      // with normal goTo/state.answers navigation — the target nodes
+      // already exist and work standalone, no need to duplicate them into
+      // a separate namespace. state.graphLaunchReturn just remembers where
+      // to deposit the finding and jump back to (see the "__intake_return__"
+      // handling in renderPtCalc).
+      if (entry.value) {
+        const summary = document.createElement("div");
+        summary.className = "numeric-hint";
+        summary.textContent = entry.value;
+        row.appendChild(summary);
+      }
+      const group = document.createElement("div");
+      group.className = "intake-toggle-group";
+      const startBtn = document.createElement("button");
+      startBtn.type = "button";
+      startBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value ? " active" : "");
+      startBtn.textContent = entry.value ? strings.graphLaunchReviewBtn : strings.graphLaunchStartBtn;
+      startBtn.onclick = () => {
+        state.graphLaunchReturn = { phaseId: phase.id, itemId: item.id };
+        // "Deeper diagnosis" is reachable from any result/ai_prompt node,
+        // not just branches that already asked for the refrigerant — skip
+        // straight to item.root if it's already known (e.g. this session
+        // already went through nc_refrigerant earlier), otherwise ask via
+        // item.refrigerantRoot first so the chain doesn't waste 4 readings
+        // only to discover at the end that it can't compute anything.
+        const knowsRefrigerant = state.refrigerant && state.refrigerant.id !== "unknown";
+        const root = !knowsRefrigerant && item.refrigerantRoot ? item.refrigerantRoot : item.root;
+        goTo(root, { prevId: state.currentId });
+      };
+      naBtn.onclick = () => {
+        entry.value = "";
+        entry.skipped = true;
+        scheduleSessionSave();
+        render();
+      };
+      group.appendChild(startBtn);
+      group.appendChild(naBtn);
+      row.appendChild(group);
     } else if (item.type === "component_check") {
       // entry.value holds the finding text once the subtree's been walked
       // (see finishComponentCheck) — shown as a summary so the tech can see
@@ -1540,6 +1601,7 @@ function restart() {
     intakeAsked: false,
     intakePhaseIndex: 0,
     componentCheck: null,
+    graphLaunchReturn: null,
   };
   render();
 }
@@ -1606,6 +1668,8 @@ function render() {
 
   if (node.type === "question") {
     renderQuestion(node);
+  } else if (node.type === "dual_pressure_check") {
+    renderDualPressureCheck(node);
   } else if (node.type === "result") {
     renderResult(node);
   } else if (node.type === "ai_prompt") {
@@ -1623,13 +1687,14 @@ function render() {
   }
 }
 
-function renderQuestion(node) {
+// Opt-in flag (see nc_fans_ok) for qualitative questions that are
+// implicitly "vs. this refrigerant's P-T chart" — shows which refrigerant
+// that comparison is against right next to the question, not just up in
+// the breadcrumb where it's easy to lose track of. Shared by both
+// renderQuestion and renderDualPressureCheck.
+function buildQuestionHeader(node) {
   const q = document.createElement("div");
   q.className = "q-text";
-  // Opt-in flag (see nc_fans_ok) for qualitative questions that are
-  // implicitly "vs. this refrigerant's P-T chart" — shows which
-  // refrigerant that comparison is against right next to the question,
-  // not just up in the breadcrumb where it's easy to lose track of.
   if (node.showRefrigerant && state.refrigerant && state.refrigerant.id !== "unknown") {
     q.classList.add("q-text-with-refrigerant");
     const label = document.createElement("span");
@@ -1642,7 +1707,11 @@ function renderQuestion(node) {
   } else {
     q.textContent = t(node.text);
   }
-  cardEl.appendChild(q);
+  return q;
+}
+
+function renderQuestion(node) {
+  cardEl.appendChild(buildQuestionHeader(node));
 
   const opts = document.createElement("div");
   opts.className = "options";
@@ -1673,6 +1742,67 @@ function renderQuestion(node) {
     opts.appendChild(b);
   });
   cardEl.appendChild(opts);
+}
+
+// Two independent qualitative readings captured on one screen (e.g.
+// suction AND head pressure vs. the P-T chart — see nc_fans_ok) instead of
+// asking about one and leaving the other uncaptured. Only one block
+// (`drivesNavigation: true`) actually determines where "Next" goes; the
+// rest are recorded as answers (visible in the breadcrumb/AI context) but
+// don't branch the graph — deliberately not a full N-dimensional routing
+// matrix, just closing the "the other reading never got asked" gap.
+function renderDualPressureCheck(node) {
+  const nodeId = state.currentId;
+  const strings = ui();
+  cardEl.appendChild(buildQuestionHeader(node));
+
+  const selections = {};
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+
+  function updateNextState() {
+    nextBtn.disabled = node.blocks.some((b) => selections[b.id] == null);
+  }
+
+  node.blocks.forEach((block) => {
+    const wrap = document.createElement("div");
+    wrap.className = "measurement-field";
+    const label = document.createElement("div");
+    label.className = "measurement-field-label";
+    label.textContent = t(block.label);
+    wrap.appendChild(label);
+
+    const group = document.createElement("div");
+    group.className = "intake-toggle-group";
+    const buttons = [];
+    block.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "intake-toggle-btn";
+      btn.textContent = t(opt.label);
+      btn.onclick = () => {
+        selections[block.id] = opt;
+        buttons.forEach((b, i) => b.classList.toggle("active", i === idx));
+        updateNextState();
+      };
+      buttons.push(btn);
+      group.appendChild(btn);
+    });
+    wrap.appendChild(group);
+    cardEl.appendChild(wrap);
+  });
+
+  cardEl.appendChild(nextBtn);
+
+  nextBtn.onclick = () => {
+    node.blocks.forEach((block) => {
+      state.answers.push({ nodeId, field: "dual_block", block: block.id, value: t(selections[block.id].label) });
+    });
+    const primary = node.blocks.find((b) => b.drivesNavigation) || node.blocks[0];
+    goTo(selections[primary.id].next, { prevId: nodeId });
+  };
 }
 
 // One-time step (not a graph.json node — see MANUFACTURER_STEP_ID) shown
@@ -2257,6 +2387,15 @@ function renderPtCalc(node) {
 
   nextBtn.onclick = () => {
     if (resultEntry) state.answers.push(resultEntry);
+    if (node.next === "__intake_return__" && state.graphLaunchReturn) {
+      const { phaseId, itemId } = state.graphLaunchReturn;
+      if (!state.intake[phaseId]) state.intake[phaseId] = {};
+      state.intake[phaseId][itemId] = { value: resultEntry ? resultEntry.value : "", skipped: false };
+      state.graphLaunchReturn = null;
+      scheduleSessionSave();
+      goTo(INTAKE_STEP_ID, { prevId: nodeId });
+      return;
+    }
     goTo(node.next, { prevId: nodeId });
   };
 }
@@ -2513,6 +2652,11 @@ function currentAnswers() {
     }
     if (entry.field === "pt_result") {
       return { question: ui().ptCalcResultQuestion, answer: answerLabel(entry) };
+    }
+    if (entry.field === "dual_block") {
+      const node = GRAPH.nodes[entry.nodeId];
+      const block = node.blocks.find((b) => b.id === entry.block);
+      return { question: t(block.label), answer: answerLabel(entry) };
     }
     const node = GRAPH.nodes[entry.nodeId];
     return { question: t(node.text), answer: answerLabel(entry) };
