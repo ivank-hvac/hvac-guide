@@ -795,7 +795,6 @@ function renderChecklist(nodeId, items, container) {
       const input = document.createElement("input");
       input.type = "text";
       input.className = "checklist-field-input";
-      if (item.unit) input.placeholder = item.unit;
       input.value = values[item.id] || "";
       input.addEventListener("input", () => {
         values[item.id] = input.value;
@@ -803,6 +802,16 @@ function renderChecklist(nodeId, items, container) {
         scheduleSessionSave();
       });
       row.appendChild(input);
+      // A placeholder alone disappears the moment a value is typed, so a
+      // reading like "256" with no unit in sight is ambiguous — a
+      // persistent label next to the field (same as numeric_input's
+      // .numeric-unit) keeps the unit visible regardless of input state.
+      if (item.unit) {
+        const unitEl = document.createElement("span");
+        unitEl.className = "numeric-unit";
+        unitEl.textContent = item.unit;
+        row.appendChild(unitEl);
+      }
     } else {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -1076,7 +1085,6 @@ function renderIntakeChecklist() {
       input.type = "text";
       input.className = "checklist-field-input";
       input.id = `intake-field-${item.id}`;
-      if (item.unit) input.placeholder = item.unit;
       input.value = entry.value || "";
       input.disabled = entry.skipped || !!lockedBy;
       // Only updates the gate (button/hint), never a full re-render — a
@@ -1109,6 +1117,14 @@ function renderIntakeChecklist() {
         render();
       };
       fieldRow.appendChild(input);
+      // Persistent unit label (see renderChecklist's field branch for the
+      // same fix) — a placeholder alone disappears once a value is typed.
+      if (item.unit) {
+        const unitEl = document.createElement("span");
+        unitEl.className = "numeric-unit";
+        unitEl.textContent = item.unit;
+        fieldRow.appendChild(unitEl);
+      }
       fieldRow.appendChild(naBtn);
       row.appendChild(fieldRow);
     } else if (item.type === "select") {
