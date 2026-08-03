@@ -41,18 +41,24 @@ const I18N = {
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
     refrigerantLabel: "Хладагент",
-    refrigerantStepHint: "Если не знаете хладагент — расчёт перегрева/переохлаждения по P-T таблице будет недоступен, но вы сможете продолжить по качественным показаниям манометров.",
+    refrigerantStepHint: "Если не знаете хладагент — расчёт по P-T таблице (перегрев/переохлаждение или сравнение с давлением насыщения) будет недоступен, но вы сможете продолжить по качественным показаниям манометров.",
     superheatLabel: "Перегрев (superheat)",
     subcoolingLabel: "Переохлаждение (subcooling)",
     ptCalcLoading: "Расчёт...",
-    ptCalcUnavailable: "Хладагент не указан или данных недостаточно — количественный расчёт перегрева/переохлаждения недоступен. Ориентируйтесь на качественные показания манометров и P-T таблицу производителя.",
+    ptCalcUnavailable: "Хладагент не указан или данных недостаточно — количественный расчёт по P-T таблице недоступен. Ориентируйтесь на качественные показания манометров и P-T таблицу производителя.",
     ptCalcTypicalRange: "Типичный целевой диапазон: перегрев ~8–12°F, переохлаждение ~10–15°F — уточняйте по паспорту конкретного оборудования.",
     ptCalcAlertText: "Расчётное значение существенно выходит за типичный рабочий диапазон. Это не диагноз, а сигнал присмотреться внимательнее: проверьте показания манометров, места установки датчиков температуры и рассмотрите альтернативные причины.",
     ptCalcAlertFlag: "ВНИМАНИЕ: SH/SC вне типичного диапазона",
-    ptCalcOutOfRangeText: "Введённое давление находится за пределами нормального рабочего диапазона P-T таблицы для этого хладагента. Это НЕ погрешность интерполяции — вероятная причина: серьёзная неисправность (утечка, неправильный/перепутанный хладагент, катастрофический отказ компонента). Прекратите обычную диагностику по SH/SC: проверьте системы безопасности, соблюдайте LOTO и рассмотрите немедленную остановку оборудования до выяснения причины.",
+    ptCalcOutOfRangeText: "Введённое давление или температура находятся за пределами нормального рабочего диапазона P-T таблицы для этого хладагента. Это НЕ погрешность интерполяции — вероятная причина: серьёзная неисправность (утечка, неправильный/перепутанный хладагент, катастрофический отказ компонента). Прекратите обычную количественную диагностику: проверьте системы безопасности, соблюдайте LOTO и рассмотрите немедленную остановку оборудования до выяснения причины.",
     ptCalcOutOfRangeFlag: "ВНИМАНИЕ: давление вне рабочего диапазона — возможен серьёзный отказ",
-    ptCalcOutOfRangeValue: "Давление вне табличного диапазона хладагента — SH/SC не рассчитаны",
+    ptCalcOutOfRangeValue: "Давление/температура вне табличного диапазона хладагента — расчёт не выполнен",
     ptCalcResultQuestion: "Перегрев/переохлаждение (расчёт по P-T таблице)",
+    noncondExpectedLabel: "Ожидаемое давление насыщения при этой температуре",
+    noncondMeasuredLabel: "Измеренное (стабилизировавшееся) давление",
+    noncondLikelyText: "Измеренное давление заметно выше ожидаемого для чистого хладагента при этой температуре — похоже на неконденсируемые газы (воздух/азот) в контуре. Recovery, вакуумирование и полная перезаправка по массе — обычное решение.",
+    noncondLikelyShort: "выше ожидаемого — похоже на non-condensables",
+    noncondNormalText: "Давление соответствует ожидаемому для чистого хладагента при этой температуре — non-condensables маловероятны, ищите другую причину высокого давления.",
+    noncondNormalShort: "в норме",
     resumeTitle: "У вас есть незавершённая сессия",
     resumeEquipmentLabel: "Оборудование",
     resumeContinue: "Продолжить",
@@ -111,18 +117,24 @@ const I18N = {
     refrigerantNotSpecified: "— select refrigerant —",
     refrigerantUnknown: "Don't know / can't tell",
     refrigerantLabel: "Refrigerant",
-    refrigerantStepHint: "If you don't know the refrigerant, the P-T-based superheat/subcooling calculation won't be available, but you can still continue using qualitative gauge readings.",
+    refrigerantStepHint: "If you don't know the refrigerant, the P-T-based calculation (superheat/subcooling, or comparing against saturation pressure) won't be available, but you can still continue using qualitative gauge readings.",
     superheatLabel: "Superheat",
     subcoolingLabel: "Subcooling",
     ptCalcLoading: "Calculating...",
-    ptCalcUnavailable: "No refrigerant specified, or not enough data — quantitative superheat/subcooling calculation isn't available. Rely on qualitative gauge readings and the equipment's P-T chart.",
+    ptCalcUnavailable: "No refrigerant specified, or not enough data — quantitative P-T-based calculation isn't available. Rely on qualitative gauge readings and the equipment's P-T chart.",
     ptCalcTypicalRange: "Typical target range: superheat ~8-12°F, subcooling ~10-15°F — verify against the specific equipment's nameplate/spec.",
     ptCalcAlertText: "The calculated value is well outside the typical operating range. This isn't a diagnosis by itself — it's a flag to look closer: double-check gauge readings, sensor placement, and consider other possible causes.",
     ptCalcAlertFlag: "WARNING: SH/SC outside typical range",
-    ptCalcOutOfRangeText: "The entered pressure is outside the normal operating range of this refrigerant's P-T table. This is NOT an interpolation-precision issue — the likely cause is a serious fault (a leak, the wrong/mixed refrigerant, or a catastrophic component failure). Stop routine SH/SC diagnosis: check the system's safety devices, follow LOTO, and consider shutting the equipment down immediately until the cause is identified.",
+    ptCalcOutOfRangeText: "The entered pressure or temperature is outside the normal operating range of this refrigerant's P-T table. This is NOT an interpolation-precision issue — the likely cause is a serious fault (a leak, the wrong/mixed refrigerant, or a catastrophic component failure). Stop routine quantitative diagnosis: check the system's safety devices, follow LOTO, and consider shutting the equipment down immediately until the cause is identified.",
     ptCalcOutOfRangeFlag: "WARNING: pressure outside operating range — possible serious fault",
-    ptCalcOutOfRangeValue: "Pressure outside the refrigerant's table range — SH/SC not calculated",
+    ptCalcOutOfRangeValue: "Pressure/temperature outside the refrigerant's table range — calculation not performed",
     ptCalcResultQuestion: "Superheat/Subcooling (calculated from P-T chart)",
+    noncondExpectedLabel: "Expected saturation pressure at this temperature",
+    noncondMeasuredLabel: "Measured (stabilized) pressure",
+    noncondLikelyText: "The measured pressure is well above what pure refrigerant would show at this temperature — consistent with non-condensable gases (air/nitrogen) in the circuit. Recovery, evacuation, and a full recharge by weight is the usual fix.",
+    noncondLikelyShort: "above expected — consistent with non-condensables",
+    noncondNormalText: "Pressure is consistent with pure refrigerant at this temperature — non-condensables are unlikely, look elsewhere for the high-pressure cause.",
+    noncondNormalShort: "normal",
     resumeTitle: "You have an unfinished session",
     resumeEquipmentLabel: "Equipment",
     resumeContinue: "Continue",
@@ -361,6 +373,29 @@ function saturationTemp(points, pressurePsig, curve) {
   return null;
 }
 
+// Inverse of saturationTemp: given a temperature, interpolates the
+// saturation pressure along one curve. Same no-extrapolation policy — a
+// temperature outside the table's range returns null rather than a
+// guessed number, for the same reason saturationTemp does.
+function saturationPressure(points, tempF, curve) {
+  const key = curve === "bubble" ? "bubble_psig" : "dew_psig";
+  const n = points.length;
+  if (n === 0) return null;
+  if (tempF < points[0].temp_f || tempF > points[n - 1].temp_f) return null;
+  if (n === 1) return points[0][key];
+  for (let i = 0; i < n - 1; i++) {
+    if (tempF >= points[i].temp_f && tempF <= points[i + 1].temp_f) {
+      const t0 = points[i].temp_f;
+      const t1 = points[i + 1].temp_f;
+      const p0 = points[i][key];
+      const p1 = points[i + 1][key];
+      if (t1 === t0) return p0;
+      return p0 + ((tempF - t0) / (t1 - t0)) * (p1 - p0);
+    }
+  }
+  return null;
+}
+
 // Scans backward from the current point in the checklist for the most
 // recent numeric_input answer tagged with the given role — this is what
 // lets pt_calc sit anywhere downstream of the reading nodes rather than
@@ -411,6 +446,46 @@ async function computePtResult() {
   };
 }
 
+// Standing pressure test: unlike SH/SC (read while the system is running),
+// this reads one stabilized pressure + the ambient/equipment temperature
+// with the system at rest — pure refrigerant alone would sit at its
+// saturation pressure for that temperature, so a stabilized reading
+// meaningfully ABOVE that (beyond gauge-reading tolerance) indicates
+// non-condensables (air/nitrogen) trapped in the system, which add their
+// own partial pressure on top. Reuses the same P-T tables/no-extrapolation
+// policy as computePtResult, just the inverse lookup direction
+// (saturationPressure, not saturationTemp) and a single reading instead of
+// four.
+const NONCONDENSABLES_TOLERANCE_PSIG = 3;
+
+async function computeNoncondensablesResult() {
+  const temp = findAnswerByRole("standing_temp");
+  const pressure = findAnswerByRole("standing_pressure");
+  const refrigerant = state.refrigerant;
+
+  if (!refrigerant || refrigerant.id === "unknown" || temp == null || pressure == null) {
+    return { status: "unavailable" };
+  }
+  const points = await loadRefrigerantTable(refrigerant.id);
+  if (!points) return { status: "unavailable" };
+
+  const expectedBubble = saturationPressure(points, temp, "bubble");
+  const expectedDew = saturationPressure(points, temp, "dew");
+  if (expectedBubble == null || expectedDew == null) {
+    return { status: "out_of_range" };
+  }
+  const expectedMin = Math.min(expectedBubble, expectedDew);
+  const expectedMax = Math.max(expectedBubble, expectedDew);
+  return {
+    status: "ok",
+    temp,
+    pressure,
+    expectedMin,
+    expectedMax,
+    nonCondensablesLikely: pressure - expectedMax > NONCONDENSABLES_TOLERANCE_PSIG,
+  };
+}
+
 // Answers can come from a question node (an option was picked), a
 // numeric_input node (a value was typed), a measurement node (a value was
 // typed, optionally against a nameplate reference), or a one-time field
@@ -425,6 +500,13 @@ function answerLabel(entry) {
     if (!entry.exceeds) return entry.value;
     const flag = entry.critical ? ui().ptCalcOutOfRangeFlag : ui().ptCalcAlertFlag;
     return `${entry.value} — ${flag}`;
+  }
+  if (entry.field === "noncond_result") {
+    // Unlike pt_result, the verdict (elevated/normal) is already baked
+    // into entry.value itself — appending measurementAlertFlag here would
+    // be the wrong flag (that one's worded for a nameplate-rating
+    // exceedance, not a non-condensables finding).
+    return entry.value;
   }
   const node = GRAPH.nodes[entry.nodeId];
   if (!node) return "";
@@ -1536,6 +1618,8 @@ function render() {
     renderRefrigerantSelect(node);
   } else if (node.type === "pt_calc") {
     renderPtCalc(node);
+  } else if (node.type === "pt_noncondensable_calc") {
+    renderNoncondensableCalc(node);
   }
 }
 
@@ -2152,6 +2236,133 @@ function renderPtCalc(node) {
 
       const value = `${strings.superheatLabel} ${formatNumericValue(superheat, "Δ°F")} / ${strings.subcoolingLabel} ${formatNumericValue(subcooling, "Δ°F")}`;
       resultEntry = { nodeId, field: "pt_result", value, exceeds };
+    }
+    nextBtn.disabled = false;
+  });
+
+  nextBtn.onclick = () => {
+    if (resultEntry) state.answers.push(resultEntry);
+    goTo(node.next, { prevId: nodeId });
+  };
+}
+
+// Same "pull the last role-tagged readings out of state.answers, compute,
+// show a verdict, advance on Next" shape as renderPtCalc — a standing
+// pressure test needs a different calculation (see
+// computeNoncondensablesResult) and a different result shape (a single
+// elevated/normal verdict, not two Δ°F numbers), so it's its own render
+// function rather than a mode branch bolted onto renderPtCalc.
+function renderNoncondensableCalc(node) {
+  const strings = ui();
+  const nodeId = state.currentId;
+
+  const q = document.createElement("div");
+  q.className = "q-text";
+  q.textContent = t(node.text);
+  cardEl.appendChild(q);
+
+  const body = document.createElement("div");
+  body.className = "numeric-hint";
+  body.textContent = strings.ptCalcLoading;
+  cardEl.appendChild(body);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "btn input-action";
+  nextBtn.textContent = strings.nextBtn;
+  nextBtn.disabled = true;
+  cardEl.appendChild(nextBtn);
+
+  let resultEntry = null;
+
+  computeNoncondensablesResult().then((result) => {
+    body.innerHTML = "";
+    body.className = "";
+
+    if (result.status === "unavailable") {
+      const msg = document.createElement("div");
+      msg.className = "numeric-hint";
+      msg.textContent = strings.ptCalcUnavailable;
+      body.appendChild(msg);
+      resultEntry = { nodeId, field: "noncond_result", value: strings.ptCalcUnavailable, exceeds: false };
+    } else if (result.status === "out_of_range") {
+      const badge = document.createElement("span");
+      badge.className = "badge critical";
+      badge.textContent = strings.badge.critical;
+      body.appendChild(badge);
+
+      const alertBox = document.createElement("div");
+      alertBox.className = "measurement-alert";
+      const alertIcon = document.createElement("span");
+      alertIcon.className = "measurement-alert-icon";
+      alertIcon.textContent = "⚠️";
+      const alertText = document.createElement("span");
+      alertText.textContent = strings.ptCalcOutOfRangeText;
+      alertBox.appendChild(alertIcon);
+      alertBox.appendChild(alertText);
+      body.appendChild(alertBox);
+
+      resultEntry = {
+        nodeId,
+        field: "noncond_result",
+        value: strings.ptCalcOutOfRangeValue,
+        exceeds: true,
+        critical: true,
+      };
+    } else {
+      const badge = document.createElement("span");
+      badge.className = `badge ${result.nonCondensablesLikely ? "critical" : "info"}`;
+      badge.textContent = result.nonCondensablesLikely ? strings.badge.critical : strings.badge.info;
+      body.appendChild(badge);
+
+      const expectedRow = document.createElement("div");
+      expectedRow.className = "measurement-field";
+      const expectedLabel = document.createElement("div");
+      expectedLabel.className = "measurement-field-label";
+      expectedLabel.textContent = strings.noncondExpectedLabel;
+      const expectedVal = document.createElement("div");
+      expectedVal.className = "q-text";
+      expectedVal.textContent =
+        roundTo(result.expectedMin, 1) === roundTo(result.expectedMax, 1)
+          ? formatNumericValue(roundTo(result.expectedMax, 1), "psig")
+          : `${formatNumericValue(roundTo(result.expectedMin, 1), "psig")} – ${formatNumericValue(roundTo(result.expectedMax, 1), "psig")}`;
+      expectedRow.appendChild(expectedLabel);
+      expectedRow.appendChild(expectedVal);
+      body.appendChild(expectedRow);
+
+      const measuredRow = document.createElement("div");
+      measuredRow.className = "measurement-field";
+      const measuredLabel = document.createElement("div");
+      measuredLabel.className = "measurement-field-label";
+      measuredLabel.textContent = strings.noncondMeasuredLabel;
+      const measuredVal = document.createElement("div");
+      measuredVal.className = "q-text";
+      measuredVal.textContent = formatNumericValue(result.pressure, "psig");
+      measuredRow.appendChild(measuredLabel);
+      measuredRow.appendChild(measuredVal);
+      body.appendChild(measuredRow);
+
+      if (result.nonCondensablesLikely) {
+        const alertBox = document.createElement("div");
+        alertBox.className = "measurement-alert";
+        const alertIcon = document.createElement("span");
+        alertIcon.className = "measurement-alert-icon";
+        alertIcon.textContent = "⚠️";
+        const alertText = document.createElement("span");
+        alertText.textContent = strings.noncondLikelyText;
+        alertBox.appendChild(alertIcon);
+        alertBox.appendChild(alertText);
+        body.appendChild(alertBox);
+      } else {
+        const verdict = document.createElement("div");
+        verdict.className = "numeric-hint";
+        verdict.textContent = strings.noncondNormalText;
+        body.appendChild(verdict);
+      }
+
+      const value = `${strings.noncondMeasuredLabel} ${formatNumericValue(result.pressure, "psig")} / ${strings.noncondExpectedLabel} ${formatNumericValue(roundTo(result.expectedMax, 1), "psig")} — ${
+        result.nonCondensablesLikely ? strings.noncondLikelyShort : strings.noncondNormalShort
+      }`;
+      resultEntry = { nodeId, field: "noncond_result", value, exceeds: result.nonCondensablesLikely };
     }
     nextBtn.disabled = false;
   });
