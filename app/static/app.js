@@ -67,6 +67,7 @@ const I18N = {
     intakeYesLabel: "Да",
     intakeNoLabel: "Нет",
     intakeNotSureLabel: "Не уверен",
+    intakeLockedHint: "Заблокировано — уже выбрано: {item}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
@@ -136,6 +137,7 @@ const I18N = {
     intakeYesLabel: "Yes",
     intakeNoLabel: "No",
     intakeNotSureLabel: "Not sure",
+    intakeLockedHint: "Locked — already selected: {item}",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
@@ -927,6 +929,27 @@ function intakeItemResolved(entry, type) {
   return isChecklistItemDone(entry.value, type);
 }
 
+// Items sharing an `exclusiveGroup` (e.g. metering_txv/metering_captube/
+// metering_other — a system has exactly one metering device type, not
+// several) are mutually exclusive: once one is answered "Yes" (or, for a
+// field, filled in), the others lock — a tech shouldn't have to separately
+// answer "No" on every alternative once they've already said which one it
+// actually is. Returns the OTHER item currently "chosen" in the group, or
+// null if none is.
+function exclusiveGroupWinner(phase, item, values) {
+  if (!item.exclusiveGroup) return null;
+  return (
+    phase.items.find((other) => {
+      if (other.id === item.id || other.exclusiveGroup !== item.exclusiveGroup) return false;
+      const otherEntry = values[other.id];
+      if (!otherEntry) return false;
+      return other.type === "field"
+        ? !!(otherEntry.value && String(otherEntry.value).trim())
+        : otherEntry.value === "Yes";
+    }) || null
+  );
+}
+
 // Entry point for the "Deeper diagnosis" button on a result/ai_prompt
 // screen (see buildAiBox usage in renderResult/renderAiPrompt) — always
 // restarts at phase 0 so re-reviewing an already-completed checklist walks
@@ -994,6 +1017,31 @@ function renderIntakeChecklist() {
       values[item.id] = { value: "", skipped: false };
     }
     const entry = values[item.id];
+
+    // exclusiveGroup lock: a sibling item already claimed this group (e.g.
+    // "TXV present: Yes" locks out "Capillary tube present"/"Other metering
+    // device") — force this item back to its "not chosen" state so a stale
+    // answer from before the winner was picked doesn't linger while it's
+    // disabled.
+    const lockedBy = exclusiveGroupWinner(phase, item, values);
+    if (lockedBy) {
+      if (item.type === "field") {
+        entry.value = "";
+        entry.skipped = true;
+      } else {
+        entry.value = "No";
+        entry.skipped = false;
+      }
+      entry.lockedByGroup = true;
+    } else if (entry.lockedByGroup) {
+      // Was forced by a sibling before, no longer locked (the sibling's
+      // answer changed) — clear the forced state instead of leaving a
+      // phantom "No"/N-A the tech never actually chose.
+      entry.value = "";
+      entry.skipped = false;
+      entry.lockedByGroup = false;
+    }
+
     const resolved = intakeItemResolved(entry, item.type);
     const isCurrent = !resolved && !firstUnresolvedFound;
     if (isCurrent) firstUnresolvedFound = true;
@@ -1005,6 +1053,13 @@ function renderIntakeChecklist() {
     labelEl.className = "intake-item-label";
     labelEl.textContent = t(item.label);
     row.appendChild(labelEl);
+
+    if (lockedBy) {
+      const lockHint = document.createElement("div");
+      lockHint.className = "numeric-hint";
+      lockHint.textContent = strings.intakeLockedHint.replace("{item}", t(lockedBy.label));
+      row.appendChild(lockHint);
+    }
 
     // Every item gets its N/A as a large tappable button, not a small
     // checkbox — glove-friendly (~52-56px min tap height, see CSS) and
@@ -1020,18 +1075,34 @@ function renderIntakeChecklist() {
       const input = document.createElement("input");
       input.type = "text";
       input.className = "checklist-field-input";
+      input.id = `intake-field-${item.id}`;
       if (item.unit) input.placeholder = item.unit;
       input.value = entry.value || "";
-      input.disabled = entry.skipped;
+      input.disabled = entry.skipped || !!lockedBy;
       // Only updates the gate (button/hint), never a full re-render — a
       // full render() on every keystroke would reset focus/cursor position
       // mid-typing. Safe here because showIf conditions in this graph only
-      // ever depend on checkbox items, never on a field's value.
+      // ever depend on checkbox items, never on a field's value — EXCEPT
+      // exclusiveGroup, which does need siblings to grey out live as you
+      // type (not just on the next unrelated render), so that one case
+      // re-renders and restores focus/cursor position manually.
       input.addEventListener("input", () => {
         entry.value = input.value;
         scheduleSessionSave();
-        updateGateState();
+        if (item.exclusiveGroup) {
+          const selStart = input.selectionStart;
+          const selEnd = input.selectionEnd;
+          render();
+          const restored = document.getElementById(`intake-field-${item.id}`);
+          if (restored) {
+            restored.focus();
+            restored.setSelectionRange(selStart, selEnd);
+          }
+        } else {
+          updateGateState();
+        }
       });
+      naBtn.disabled = !!lockedBy;
       naBtn.onclick = () => {
         entry.skipped = !entry.skipped;
         scheduleSessionSave();
@@ -1124,6 +1195,7 @@ function renderIntakeChecklist() {
       yesBtn.type = "button";
       yesBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "Yes" ? " active" : "");
       yesBtn.textContent = strings.intakeYesLabel;
+      yesBtn.disabled = !!lockedBy;
       // A full render() here (not just updateGateState()) is deliberate: a
       // checkbox can be a showIf trigger for a later phase's item, so
       // toggling one may need to reveal/hide other items, not just flip
@@ -1138,6 +1210,7 @@ function renderIntakeChecklist() {
       noBtn.type = "button";
       noBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "No" ? " active" : "");
       noBtn.textContent = strings.intakeNoLabel;
+      noBtn.disabled = !!lockedBy;
       noBtn.onclick = () => {
         entry.value = "No";
         entry.skipped = false;
@@ -1145,6 +1218,7 @@ function renderIntakeChecklist() {
         render();
       };
       naBtn.textContent = strings.intakeNotSureLabel;
+      naBtn.disabled = !!lockedBy;
       naBtn.onclick = () => {
         entry.value = "";
         entry.skipped = true;
