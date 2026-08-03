@@ -1096,7 +1096,7 @@
       "text": {"ru": "Subcooling на жидкостной линии:", "en": "Liquid-line subcooling:"},
       "options": [
         {"label": {"ru": "Высокий SC", "en": "High subcooling"}, "next": "hp_overcharge"},
-        {"label": {"ru": "Нормальный/низкий SC при высоком давлении", "en": "Normal/low subcooling with high pressure"}, "next": "hp_noncondensables"}
+        {"label": {"ru": "Нормальный/низкий SC при высоком давлении", "en": "Normal/low subcooling with high pressure"}, "next": "hp_noncond_refrigerant"}
       ]
     },
 
@@ -1116,18 +1116,47 @@
       ]
     },
 
+    "hp_noncond_refrigerant": {
+      "type": "refrigerant_select",
+      "text": {"ru": "Какой хладагент в системе?", "en": "What refrigerant is in the system?"},
+      "next": "hp_standing_temp"
+    },
+
+    "hp_standing_temp": {
+      "type": "numeric_input",
+      "role": "standing_temp",
+      "text": {"ru": "Температура оборудования/окружающей среды в точке проведения standing pressure test", "en": "Equipment/ambient temperature at the point of the standing pressure test"},
+      "unit": "°F",
+      "min": -40,
+      "max": 150,
+      "next": "hp_standing_pressure"
+    },
+
+    "hp_standing_pressure": {
+      "type": "numeric_input",
+      "role": "standing_pressure",
+      "text": {"ru": "Стабилизировавшееся давление (standing pressure test)", "en": "Stabilized pressure (standing pressure test)"},
+      "unit": "psig",
+      "min": 0,
+      "max": 700,
+      "next": "hp_standing_calc"
+    },
+
+    "hp_standing_calc": {
+      "type": "pt_noncondensable_calc",
+      "text": {"ru": "Расчёт: сравнение с ожидаемым давлением насыщения", "en": "Calculation: comparison against expected saturation pressure"},
+      "next": "hp_noncondensables"
+    },
+
     "hp_noncondensables": {
       "type": "result",
       "severity": "warning",
       "ai": true,
       "text": {
-        "ru": "Высокое давление при нормальном/низком subcooling может указывать на неконденсируемые газы в системе. Сделайте standing pressure test: остановите систему, дайте давлению стабилизироваться, сравните с P-T таблицей при температуре окружения на жидкостной/газовой стороне. Отклонение выше табличного значения → recovery, вакуумирование и перезаправка.",
-        "en": "High pressure with normal/low subcooling can indicate non-condensables in the system. Run a standing pressure test: shut the system down, let pressure stabilize, and compare it to the P-T chart at ambient temperature on the liquid/vapor side. A reading above the chart value calls for recovery, evacuation, and recharge."
+        "ru": "Неконденсируемые газы (воздух/азот) в контуре повышают давление сверх ожидаемого для температуры хладагента в состоянии покоя. Если standing pressure test выше ожидаемого — recovery, вакуумирование и полная перезаправка по массе устраняют проблему; если давление в норме — ищите другую причину высокого давления (грязный конденсатор, забитый фильтр, перезаправка и т.п.).",
+        "en": "Non-condensable gases (air/nitrogen) in the circuit raise pressure above what the refrigerant alone would show at rest at that temperature. If the standing pressure test came back elevated — recovery, evacuation, and a full recharge by weight resolve it; if the pressure was normal, look elsewhere for the high-pressure cause (dirty condenser, restricted filter, overcharge, etc.)."
       },
       "checklist": [
-        {"id": "standing_test_done", "type": "checkbox", "label": {"ru": "Выполнен standing pressure test", "en": "Standing pressure test performed"}},
-        {"id": "stabilized_pressure", "type": "field", "unit": "psig", "label": {"ru": "Стабилизировавшееся давление", "en": "Stabilized pressure reading"}},
-        {"id": "pt_chart_compared", "type": "checkbox", "label": {"ru": "Сверено с P-T таблицей при ambient", "en": "Compared against P-T chart at ambient"}},
         {"id": "recovery_done", "type": "checkbox", "label": {"ru": "Выполнены recovery/вакуумирование/перезаправка при необходимости", "en": "Recovery/evacuation/recharge done if needed"}}
       ]
     },
