@@ -1405,7 +1405,22 @@ function render() {
 function renderQuestion(node) {
   const q = document.createElement("div");
   q.className = "q-text";
-  q.textContent = t(node.text);
+  // Opt-in flag (see nc_fans_ok) for qualitative questions that are
+  // implicitly "vs. this refrigerant's P-T chart" — shows which
+  // refrigerant that comparison is against right next to the question,
+  // not just up in the breadcrumb where it's easy to lose track of.
+  if (node.showRefrigerant && state.refrigerant && state.refrigerant.id !== "unknown") {
+    q.classList.add("q-text-with-refrigerant");
+    const label = document.createElement("span");
+    label.textContent = t(node.text);
+    const refChip = document.createElement("span");
+    refChip.className = "chip q-refrigerant-chip";
+    refChip.textContent = state.refrigerant.name;
+    q.appendChild(label);
+    q.appendChild(refChip);
+  } else {
+    q.textContent = t(node.text);
+  }
   cardEl.appendChild(q);
 
   const opts = document.createElement("div");

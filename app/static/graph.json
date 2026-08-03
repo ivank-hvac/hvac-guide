@@ -732,7 +732,8 @@
 
     "nc_fans_ok": {
       "type": "question",
-      "text": {"ru": "Давление всасывания по сравнению с P-T таблицей для текущей температуры испарения:", "en": "Suction pressure compared to the P-T chart for the current evaporating temperature:"},
+      "text": {"ru": "Давление по сравнению с P-T таблицей для текущей температуры:", "en": "Pressure compared to the P-T chart for the current temperature:"},
+      "showRefrigerant": true,
       "options": [
         {"label": {"ru": "Давление всасывания: выше нормы", "en": "Suction pressure: above normal"}, "next": "nc_suction_high"},
         {"label": {"ru": "Давление всасывания: ниже нормы", "en": "Suction pressure: below normal"}, "next": "nc_suction_low"},
