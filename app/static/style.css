@@ -223,10 +223,11 @@ textarea {
 }
 
 .numeric-input {
-  /* Readings here are a handful of digits (temps, pressures, amps) — 6ch
-     is comfortable room without the field stretching across the card. */
-  flex: 0 0 auto;
-  width: 6ch;
+  /* Shared visual style, also reused (deliberately) for non-numeric
+     fields that just want the same look — manufacturer/model/refrigerant
+     selects — so this class itself must NOT assume a short numeric value.
+     See .numeric-input.narrow below for the fields that actually are one. */
+  flex: 1;
   min-width: 0;
   background: #0f1115;
   color: var(--text);
@@ -242,6 +243,16 @@ textarea {
   outline: none;
   border-color: var(--input-accent);
   box-shadow: 0 0 0 3px rgba(224, 145, 63, 0.25);
+}
+
+/* Readings here are a handful of digits (temps, pressures, amps) — 6ch is
+   comfortable room without the field stretching across the card. Applied
+   only to fields that actually take a typed number (numeric_input,
+   measurement) — never to .numeric-input alone, which is also reused for
+   non-numeric selects/inputs that need the same look at full width. */
+.numeric-input.narrow {
+  flex: 0 0 auto;
+  width: 6ch;
 }
 
 .numeric-input.invalid {
