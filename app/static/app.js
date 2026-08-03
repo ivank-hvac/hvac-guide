@@ -64,7 +64,10 @@ const I18N = {
     finishCompletedMsg: "Сессия завершена. Спасибо!",
     intakePhaseProgress: "Этап {n} из {total}",
     intakeSkipLabel: "N/A",
-    intakeDoneLabel: "✓ Сделано",
+    intakeYesLabel: "Да",
+    intakeNoLabel: "Нет",
+    intakeNotSureLabel: "Не уверен",
+    intakeLockedHint: "Заблокировано — уже выбрано: {item}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
@@ -131,7 +134,10 @@ const I18N = {
     finishCompletedMsg: "Session completed. Thank you!",
     intakePhaseProgress: "Phase {n} of {total}",
     intakeSkipLabel: "N/A",
-    intakeDoneLabel: "✓ Done",
+    intakeYesLabel: "Yes",
+    intakeNoLabel: "No",
+    intakeNotSureLabel: "Not sure",
+    intakeLockedHint: "Locked — already selected: {item}",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
@@ -788,8 +794,7 @@ function renderChecklist(nodeId, items, container) {
       row.appendChild(labelEl);
       const input = document.createElement("input");
       input.type = "text";
-      input.className = "checklist-field-input";
-      if (item.unit) input.placeholder = item.unit;
+      input.className = "checklist-field-input" + (item.unit ? " numeric" : "");
       input.value = values[item.id] || "";
       input.addEventListener("input", () => {
         values[item.id] = input.value;
@@ -797,6 +802,16 @@ function renderChecklist(nodeId, items, container) {
         scheduleSessionSave();
       });
       row.appendChild(input);
+      // A placeholder alone disappears the moment a value is typed, so a
+      // reading like "256" with no unit in sight is ambiguous — a
+      // persistent label next to the field (same as numeric_input's
+      // .numeric-unit) keeps the unit visible regardless of input state.
+      if (item.unit) {
+        const unitEl = document.createElement("span");
+        unitEl.className = "numeric-unit";
+        unitEl.textContent = item.unit;
+        row.appendChild(unitEl);
+      }
     } else {
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -907,7 +922,10 @@ function renderFinishScreen() {
 function intakeShowIfMet(showIf) {
   if (!showIf) return true;
   const entry = (state.intake[showIf.phase] || {})[showIf.item];
-  return !!(entry && entry.value) === !!showIf.equals;
+  // "Not sure" (entry.skipped) can't satisfy either branch of a showIf —
+  // only a definite Yes/No does, since we don't actually know the answer.
+  if (!entry || entry.skipped) return false;
+  return entry.value === (showIf.equals ? "Yes" : "No");
 }
 
 // An item satisfies the phase gate once it's either done (see
@@ -918,6 +936,27 @@ function intakeItemResolved(entry, type) {
   if (!entry) return false;
   if (entry.skipped) return true;
   return isChecklistItemDone(entry.value, type);
+}
+
+// Items sharing an `exclusiveGroup` (e.g. metering_txv/metering_captube/
+// metering_other — a system has exactly one metering device type, not
+// several) are mutually exclusive: once one is answered "Yes" (or, for a
+// field, filled in), the others lock — a tech shouldn't have to separately
+// answer "No" on every alternative once they've already said which one it
+// actually is. Returns the OTHER item currently "chosen" in the group, or
+// null if none is.
+function exclusiveGroupWinner(phase, item, values) {
+  if (!item.exclusiveGroup) return null;
+  return (
+    phase.items.find((other) => {
+      if (other.id === item.id || other.exclusiveGroup !== item.exclusiveGroup) return false;
+      const otherEntry = values[other.id];
+      if (!otherEntry) return false;
+      return other.type === "field"
+        ? !!(otherEntry.value && String(otherEntry.value).trim())
+        : otherEntry.value === "Yes";
+    }) || null
+  );
 }
 
 // Entry point for the "Deeper diagnosis" button on a result/ai_prompt
@@ -981,9 +1020,37 @@ function renderIntakeChecklist() {
 
   visibleItems.forEach((item) => {
     if (!values[item.id]) {
-      values[item.id] = { value: item.type === "checkbox" ? false : "", skipped: false };
+      // "" means unanswered for every type now, including checkbox — see
+      // the checkbox branch below for why it's a "Yes"/"No" string tri-
+      // state (plus skipped for "Not sure"), not a boolean.
+      values[item.id] = { value: "", skipped: false };
     }
     const entry = values[item.id];
+
+    // exclusiveGroup lock: a sibling item already claimed this group (e.g.
+    // "TXV present: Yes" locks out "Capillary tube present"/"Other metering
+    // device") — force this item back to its "not chosen" state so a stale
+    // answer from before the winner was picked doesn't linger while it's
+    // disabled.
+    const lockedBy = exclusiveGroupWinner(phase, item, values);
+    if (lockedBy) {
+      if (item.type === "field") {
+        entry.value = "";
+        entry.skipped = true;
+      } else {
+        entry.value = "No";
+        entry.skipped = false;
+      }
+      entry.lockedByGroup = true;
+    } else if (entry.lockedByGroup) {
+      // Was forced by a sibling before, no longer locked (the sibling's
+      // answer changed) — clear the forced state instead of leaving a
+      // phantom "No"/N-A the tech never actually chose.
+      entry.value = "";
+      entry.skipped = false;
+      entry.lockedByGroup = false;
+    }
+
     const resolved = intakeItemResolved(entry, item.type);
     const isCurrent = !resolved && !firstUnresolvedFound;
     if (isCurrent) firstUnresolvedFound = true;
@@ -995,6 +1062,13 @@ function renderIntakeChecklist() {
     labelEl.className = "intake-item-label";
     labelEl.textContent = t(item.label);
     row.appendChild(labelEl);
+
+    if (lockedBy) {
+      const lockHint = document.createElement("div");
+      lockHint.className = "numeric-hint";
+      lockHint.textContent = strings.intakeLockedHint.replace("{item}", t(lockedBy.label));
+      row.appendChild(lockHint);
+    }
 
     // Every item gets its N/A as a large tappable button, not a small
     // checkbox — glove-friendly (~52-56px min tap height, see CSS) and
@@ -1009,25 +1083,48 @@ function renderIntakeChecklist() {
       fieldRow.className = "intake-item-field-row";
       const input = document.createElement("input");
       input.type = "text";
-      input.className = "checklist-field-input";
-      if (item.unit) input.placeholder = item.unit;
+      input.className = "checklist-field-input" + (item.unit ? " numeric" : "");
+      input.id = `intake-field-${item.id}`;
       input.value = entry.value || "";
-      input.disabled = entry.skipped;
+      input.disabled = entry.skipped || !!lockedBy;
       // Only updates the gate (button/hint), never a full re-render — a
       // full render() on every keystroke would reset focus/cursor position
       // mid-typing. Safe here because showIf conditions in this graph only
-      // ever depend on checkbox items, never on a field's value.
+      // ever depend on checkbox items, never on a field's value — EXCEPT
+      // exclusiveGroup, which does need siblings to grey out live as you
+      // type (not just on the next unrelated render), so that one case
+      // re-renders and restores focus/cursor position manually.
       input.addEventListener("input", () => {
         entry.value = input.value;
         scheduleSessionSave();
-        updateGateState();
+        if (item.exclusiveGroup) {
+          const selStart = input.selectionStart;
+          const selEnd = input.selectionEnd;
+          render();
+          const restored = document.getElementById(`intake-field-${item.id}`);
+          if (restored) {
+            restored.focus();
+            restored.setSelectionRange(selStart, selEnd);
+          }
+        } else {
+          updateGateState();
+        }
       });
+      naBtn.disabled = !!lockedBy;
       naBtn.onclick = () => {
         entry.skipped = !entry.skipped;
         scheduleSessionSave();
         render();
       };
       fieldRow.appendChild(input);
+      // Persistent unit label (see renderChecklist's field branch for the
+      // same fix) — a placeholder alone disappears once a value is typed.
+      if (item.unit) {
+        const unitEl = document.createElement("span");
+        unitEl.className = "numeric-unit";
+        unitEl.textContent = item.unit;
+        fieldRow.appendChild(unitEl);
+      }
       fieldRow.appendChild(naBtn);
       row.appendChild(fieldRow);
     } else if (item.type === "select") {
@@ -1064,8 +1161,9 @@ function renderIntakeChecklist() {
       // Row border communicates at a glance whether the reading is what
       // you'd expect (green), a flag worth a closer look (red/amber), or
       // ruled out (neutral) — see CLAUDE.md UI task for the color rule.
-      // Deliberately NOT applied to checkbox items: those have no "bad"
-      // outcome, only done/not-applicable.
+      // Not applied to checkbox (Yes/No) items yet — pending the separate
+      // alertValues design (which value(s) count as an alert vs. just
+      // off-normal), not because a "No" answer can't matter.
       if (entry.skipped) {
         // neutral — no extra class needed, same look as an untouched row
       } else if (entry.value && item.normal != null) {
@@ -1098,29 +1196,53 @@ function renderIntakeChecklist() {
       group.appendChild(naBtn);
       row.appendChild(group);
     } else {
+      // checkbox items are actually yes/no assertions ("TXV present?",
+      // "breaker in norm?"), not "did I do this task" — so this is a real
+      // tri-state (Yes/No/Not sure), not a 2-state done/skip toggle.
+      // entry.value is a "Yes"/"No" string (or "" if unanswered), same
+      // shape as select — "No" is a genuine, resolved answer, distinct
+      // from "Not sure" (entry.skipped), which is what N/A used to
+      // conflate it with. No color-coding yet (deliberately neutral,
+      // same generic "active" fill as everything else) — that's pending
+      // the separate alertValues design (see CLAUDE.md).
       const group = document.createElement("div");
       group.className = "intake-toggle-group";
-      const doneBtn = document.createElement("button");
-      doneBtn.type = "button";
-      doneBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value ? " active" : "");
-      doneBtn.textContent = strings.intakeDoneLabel;
+      const yesBtn = document.createElement("button");
+      yesBtn.type = "button";
+      yesBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "Yes" ? " active" : "");
+      yesBtn.textContent = strings.intakeYesLabel;
+      yesBtn.disabled = !!lockedBy;
       // A full render() here (not just updateGateState()) is deliberate: a
       // checkbox can be a showIf trigger for a later phase's item, so
       // toggling one may need to reveal/hide other items, not just flip
       // the gate.
-      doneBtn.onclick = () => {
-        entry.value = true;
+      yesBtn.onclick = () => {
+        entry.value = "Yes";
         entry.skipped = false;
         scheduleSessionSave();
         render();
       };
+      const noBtn = document.createElement("button");
+      noBtn.type = "button";
+      noBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "No" ? " active" : "");
+      noBtn.textContent = strings.intakeNoLabel;
+      noBtn.disabled = !!lockedBy;
+      noBtn.onclick = () => {
+        entry.value = "No";
+        entry.skipped = false;
+        scheduleSessionSave();
+        render();
+      };
+      naBtn.textContent = strings.intakeNotSureLabel;
+      naBtn.disabled = !!lockedBy;
       naBtn.onclick = () => {
-        entry.value = false;
+        entry.value = "";
         entry.skipped = true;
         scheduleSessionSave();
         render();
       };
-      group.appendChild(doneBtn);
+      group.appendChild(yesBtn);
+      group.appendChild(noBtn);
       group.appendChild(naBtn);
       row.appendChild(group);
     }
@@ -1168,7 +1290,22 @@ function componentCheckNode() {
 function startComponentCheck(phaseId, itemId, checkId) {
   const def = GRAPH.component_checks && GRAPH.component_checks[checkId];
   if (!def) return;
-  state.componentCheck = { phaseId, itemId, checkId, currentId: def.root, history: [], description: "" };
+  // entryFrom skips questions the intake checklist already answered (e.g.
+  // "Installed?"/"What type?" are redundant once Phase 1 already confirmed
+  // "TXV present: Yes") — same {phase, item, equals} shape as showIf, so
+  // intakeShowIfMet is reused as-is, not a new rule language. Falls back to
+  // def.root when nothing matches (e.g. Phase 1 only has free-text "Other
+  // metering device" filled in, which doesn't tell us which of the
+  // remaining types it is).
+  const matchedEntry = (def.entryFrom || []).find((rule) => intakeShowIfMet(rule));
+  state.componentCheck = {
+    phaseId,
+    itemId,
+    checkId,
+    currentId: matchedEntry ? matchedEntry.node : def.root,
+    history: [],
+    description: "",
+  };
   state.currentId = COMPONENT_CHECK_STEP_ID;
   render();
 }
@@ -1591,7 +1728,7 @@ function renderNumericInput(node) {
   input.type = "text";
   input.inputMode = "decimal";
   input.autocomplete = "off";
-  input.className = "numeric-input";
+  input.className = "numeric-input narrow";
   input.placeholder = "0";
   row.appendChild(input);
 
@@ -1698,7 +1835,7 @@ function renderMeasurement(node) {
     input.type = "text";
     input.inputMode = "decimal";
     input.autocomplete = "off";
-    input.className = "numeric-input";
+    input.className = "numeric-input narrow";
     input.placeholder = "0";
     row.appendChild(input);
     if (unit) {
@@ -2186,13 +2323,14 @@ function intakeAnswers() {
     phase.items.forEach((item) => {
       const entry = values[item.id];
       if (!intakeItemResolved(entry, item.type)) return;
+      // checkbox/select/component_check all store a plain string value
+      // now (checkbox is "Yes"/"No" — see the intake render loop) — only
+      // "field" needs the unit-suffix special case.
       const answer = entry.skipped
         ? "N/A"
         : item.type === "field"
         ? (item.unit ? `${entry.value} ${item.unit}` : String(entry.value))
-        : item.type === "select" || item.type === "component_check"
-        ? String(entry.value)
-        : "✓";
+        : String(entry.value);
       rows.push({ question: t(item.label), answer });
     });
   });
