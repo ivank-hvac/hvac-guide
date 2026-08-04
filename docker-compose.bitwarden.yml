@@ -1,0 +1,17 @@
+# Optional override — personal ops choice for pinas01/prod, NOT part of the
+# documented self-host path (see README "Quick start", which stays plain
+# .env). Requires bws set up on the host (~/.bws_token) and the Dockerfile's
+# bws install (already baked in unconditionally — harmless/unused otherwise).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.bitwarden.yml \
+#     --env-file <env with only BWS_ACCESS_TOKEN + non-secret vars> up -d --build
+#
+# See CLAUDE.md "Секреты: переход на Bitwarden Secrets Manager" for the
+# Bitwarden project/machine-account setup this depends on.
+services:
+  hvac-guide:
+    command: ["bws", "run", "--project-id", "43db249e-39a9-47eb-aec0-b49b017e7c57", "--",
+               "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      - BWS_ACCESS_TOKEN=${BWS_ACCESS_TOKEN}
