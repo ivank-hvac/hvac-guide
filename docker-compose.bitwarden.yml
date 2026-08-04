@@ -11,7 +11,7 @@
 # Bitwarden project/machine-account setup this depends on.
 services:
   hvac-guide:
-    command: ["bws", "run", "--project-id", "43db249e-39a9-47eb-aec0-b49b017e7c57", "--",
+    command: ["bws", "run", "--project-id", "${BWS_PROJECT_ID}", "--",
                "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       - BWS_ACCESS_TOKEN=${BWS_ACCESS_TOKEN}
