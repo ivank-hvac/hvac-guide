@@ -12,6 +12,8 @@ const I18N = {
     back: "← Назад",
     restart: "⟲ Начать сначала",
     badge: { info: "Инфо", warning: "Внимание", critical: "Критично" },
+    relatedChecksTitle: "Также стоит проверить",
+    safetyBannerText: "⚠️ Перед вскрытием панелей или работой с контуром под давлением — LOTO/дисконнектор выполнен?",
     aiLabel: "AI-анализ",
     aiLoading: "Анализирую checklist...",
     aiErrorPrefix: "Ошибка: ",
@@ -90,6 +92,8 @@ const I18N = {
     back: "← Back",
     restart: "⟲ Start Over",
     badge: { info: "Info", warning: "Warning", critical: "Critical" },
+    relatedChecksTitle: "Also worth checking",
+    safetyBannerText: "⚠️ Before opening panels or working on a pressurized circuit — is LOTO/disconnect done?",
     aiLabel: "AI Analysis",
     aiLoading: "Analyzing checklist...",
     aiErrorPrefix: "Error: ",
@@ -2534,10 +2538,34 @@ function renderResult(node) {
   badge.textContent = strings.badge[node.severity || "info"];
   cardEl.appendChild(badge);
 
+  if (node.severity === "critical") {
+    const banner = document.createElement("div");
+    banner.className = "safety-banner";
+    banner.textContent = strings.safetyBannerText;
+    cardEl.appendChild(banner);
+  }
+
   const tEl = document.createElement("div");
   tEl.className = "result-text";
   tEl.textContent = t(node.text);
   cardEl.appendChild(tEl);
+
+  if (node.related_checks && node.related_checks.length) {
+    const relatedBox = document.createElement("div");
+    relatedBox.className = "related-checks";
+    const title = document.createElement("div");
+    title.className = "related-checks-title";
+    title.textContent = strings.relatedChecksTitle;
+    relatedBox.appendChild(title);
+    const list = document.createElement("ul");
+    node.related_checks.forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = t(item);
+      list.appendChild(li);
+    });
+    relatedBox.appendChild(list);
+    cardEl.appendChild(relatedBox);
+  }
 
   const aiBox = buildAiBox({
     context: t(node.text),
