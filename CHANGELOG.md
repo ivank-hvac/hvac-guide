@@ -7,6 +7,17 @@
 тот же, что появляется в футере UI / `docker inspect ... image.revision`
 после деплоя этого коммита.
 
+## 2026-08-04
+
+- Bitwarden Secrets Manager project ID вынесен из `docker-compose.bitwarden.yml`
+  в `.env` (`BWS_PROJECT_ID`) — файл больше не содержит зашитого значения.
+  (#51, `8557ebe`)
+
+- Добавлен опциональный override `docker-compose.bitwarden.yml` — секреты
+  через Bitwarden Secrets Manager (`bws run`) вместо обычного `.env`, только
+  по явному выбору (`-f docker-compose.yml -f docker-compose.bitwarden.yml`),
+  базовый self-host путь из README не тронут. (#50, `5b19144`)
+
 ## 2026-08-03
 
 - Иконка favicon добавлена и в шапку приложения вместо эмодзи 🔧. (#48, `a434ca9`)
