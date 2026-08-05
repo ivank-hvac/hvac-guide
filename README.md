@@ -713,13 +713,16 @@ these cases:
 - the `?token=` query string doesn't match it
 
 Once enabled, it shows: the session funnel (active/completed/abandoned,
-14-day trend), branch popularity (equipment type, top 10 entry symptoms, top
-10 final result nodes — from `checklist_sessions`), how far technicians get
-through the "🔍 Deeper diagnosis" intake checklist before dropping off (from
+14-day trend, traffic by hour of day in UTC, top 10 source IPs), branch
+popularity (equipment type, top 10 entry symptoms, top 10 final result
+nodes — from `checklist_sessions`), how far technicians get through the "🔍
+Deeper diagnosis" intake checklist before dropping off (from
 `sessions.node_path`), and AI usage (% of sessions that used it, truncation
 rate, average tokens in/out, 429 count — from the `ai_calls` table, written
 once per `/api/ai-assist` call, success or rate-limited, independent of
-`checklist_sessions`).
+`checklist_sessions`). IPs only show up for sessions saved after the
+`sessions.ip` column was added — older rows are excluded, not shown as a
+misleading blank/zero.
 
 **Download statistics** on the page exports the same report as a single
 self-contained HTML file (inline CSS, no external requests — opens fully
