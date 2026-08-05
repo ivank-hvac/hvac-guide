@@ -9,6 +9,7 @@ import sqlite3
 import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Literal, Optional
 
 import httpx
@@ -88,6 +89,11 @@ SESSION_CLEANUP_INTERVAL_SECONDS = 30 * 60
 # entirely (404, not 403 — a random visitor shouldn't even learn it exists).
 MONITOR_PANEL_TOKEN = os.getenv("MONITOR_PANEL_TOKEN", "")
 MONITOR_PANEL_TOKEN_PLACEHOLDER = "<token>"
+# The panel author's own timezone, for display only (all storage stays UTC).
+# America/Winnipeg tracks the same CST/CDT rules as America/Chicago, so this
+# reads correctly as CDT in summer and CST in winter without hardcoding a
+# fixed offset that would silently go wrong across the DST switch.
+LOCAL_TZ = ZoneInfo("America/Winnipeg")
 
 
 def _classify_monitor_panel_token(token: str) -> str:
@@ -708,17 +714,9 @@ def _gather_panel_stats() -> Dict[str, Any]:
             row["status"]: row["n"]
             for row in conn.execute("SELECT status, COUNT(*) AS n FROM sessions GROUP BY status")
         }
-        trend = [
-            (row["day"], row["n"])
-            for row in reversed(
-                conn.execute(
-                    """
-                    SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n
-                    FROM sessions GROUP BY day ORDER BY day DESC LIMIT 14
-                    """
-                ).fetchall()
-            )
-        ]
+        session_created_ats = [row["created_at"] for row in conn.execute(
+            "SELECT created_at FROM sessions"
+        )]
 
         equipment_counts = [
             (row["equipment_type"], row["n"])
@@ -766,18 +764,6 @@ def _gather_panel_stats() -> Dict[str, Any]:
             "SELECT node_path FROM sessions"
         )]
 
-        # created_at is always datetime.now(timezone.utc).isoformat(), i.e.
-        # "YYYY-MM-DDTHH:MM:SS...+00:00" — chars 12-13 are the UTC hour,
-        # substr is enough, no need for strftime()'s stricter format parsing.
-        hour_rows = dict(
-            (row["hour"], row["n"])
-            for row in conn.execute(
-                """
-                SELECT substr(created_at, 12, 2) AS hour, COUNT(*) AS n
-                FROM sessions GROUP BY hour
-                """
-            )
-        )
         # sessions.ip is only populated from the point this column was added
         # (see init_db migration) — rows saved before that show up as NULL
         # and are excluded here rather than shown as a misleading "0.0.0.0"-
@@ -792,12 +778,27 @@ def _gather_panel_stats() -> Dict[str, Any]:
             )
         ]
 
+    # created_at is always stored as UTC (datetime.now(timezone.utc).isoformat())
+    # — converted to LOCAL_TZ here so the panel reads in the author's own time
+    # rather than UTC, both for calendar-day grouping (a late-evening local
+    # session shouldn't get grouped into "tomorrow") and hour-of-day buckets.
+    day_counter: Counter = Counter()
+    hour_counter: Counter = Counter()
+    for raw in session_created_ats:
+        try:
+            local_dt = datetime.fromisoformat(raw).astimezone(LOCAL_TZ)
+        except (TypeError, ValueError):
+            continue
+        day_counter[local_dt.strftime("%Y-%m-%d")] += 1
+        hour_counter[local_dt.strftime("%H")] += 1
+    trend = sorted(day_counter.items())[-14:]
+
     # 2-hour buckets (00-02, 02-04, ..., 22-24) rather than all 24 hours —
     # coarser, easier to read at a glance in a vertical chart.
     hour_counts = [
         (
             f"{h:02d}-{h + 2:02d}",
-            hour_rows.get(f"{h:02d}", 0) + hour_rows.get(f"{h + 1:02d}", 0),
+            hour_counter.get(f"{h:02d}", 0) + hour_counter.get(f"{h + 1:02d}", 0),
         )
         for h in range(0, 24, 2)
     ]
@@ -938,7 +939,8 @@ def _render_panel_html() -> str:
         if stats["intake_drop_by_phase"].get(phase_id, 0)
     ]
 
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now_local = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
+    generated_at = now_local.strftime("%Y-%m-%d %H:%M %Z")
 
     return f"""<!doctype html>
 <html lang="en">
@@ -948,9 +950,11 @@ def _render_panel_html() -> str:
 <style>
   :root {{ color-scheme: dark; }}
   body {{
-    background: #14171c; color: #e6e8eb; margin: 0; padding: 2rem;
+    background: #14171c; color: #e6e8eb; margin: 0;
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
   }}
+  .wrap {{ width: 100%; max-width: 720px; padding: 2rem 1rem; box-sizing: border-box; }}
   h1 {{ font-size: 1.3rem; margin: 0 0 .25rem; }}
   .meta {{ color: #8b93a1; font-size: .85rem; margin-bottom: 2rem; }}
   section {{
@@ -982,6 +986,7 @@ def _render_panel_html() -> str:
 </style>
 </head>
 <body>
+<div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
 
@@ -993,7 +998,7 @@ def _render_panel_html() -> str:
   {_bar_chart(funnel_rows, "no sessions yet")}
   <h2 style="margin-top:1.5rem">Trend (sessions/day, last 14 days)</h2>
   {_bar_chart(trend_rows, "no data")}
-  <h2 style="font-size:.85rem;color:#8b93a1">By hour of day (UTC, 2h buckets)</h2>
+  <h2 style="font-size:.85rem;color:#8b93a1">By hour of day ({_esc(now_local.strftime('%Z'))}, 2h buckets)</h2>
   {_vertical_bar_chart(stats['hour_counts'], "no data")}
   <h2 style="font-size:.85rem;color:#8b93a1">Top IPs</h2>
   {_bar_chart(stats['top_ips'], "no IPs recorded yet (only sessions saved after this column was added)")}
@@ -1031,6 +1036,7 @@ def _render_panel_html() -> str:
 </section>
 
 <a class="download" href="?token={_esc(MONITOR_PANEL_TOKEN)}&download=1">Download statistics</a>
+</div>
 </body>
 </html>"""
 
