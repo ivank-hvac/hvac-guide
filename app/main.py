@@ -766,6 +766,34 @@ def _gather_panel_stats() -> Dict[str, Any]:
             "SELECT node_path FROM sessions"
         )]
 
+        # created_at is always datetime.now(timezone.utc).isoformat(), i.e.
+        # "YYYY-MM-DDTHH:MM:SS...+00:00" — chars 12-13 are the UTC hour,
+        # substr is enough, no need for strftime()'s stricter format parsing.
+        hour_rows = dict(
+            (row["hour"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT substr(created_at, 12, 2) AS hour, COUNT(*) AS n
+                FROM sessions GROUP BY hour
+                """
+            )
+        )
+        # sessions.ip is only populated from the point this column was added
+        # (see init_db migration) — rows saved before that show up as NULL
+        # and are excluded here rather than shown as a misleading "0.0.0.0"-
+        # style placeholder.
+        top_ips = [
+            (row["ip"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT ip, COUNT(*) AS n FROM sessions
+                WHERE ip IS NOT NULL GROUP BY ip ORDER BY n DESC LIMIT 10
+                """
+            )
+        ]
+
+    hour_counts = [(f"{h:02d}:00", hour_rows.get(f"{h:02d}", 0)) for h in range(24)]
+
     # Top-10 "entry symptoms": the answer right after the equipment-type
     # choice (always answers[0] — see _save_session) is, for most branches,
     # the main symptom question. Not exact for every branch shape, but close
@@ -834,6 +862,8 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "intake_completed": intake_completed,
         "intake_drop_by_phase": drop_by_phase,
         "phase_ids": [p["id"] for p in phases],
+        "hour_counts": hour_counts,
+        "top_ips": top_ips,
     }
 
 
@@ -932,6 +962,10 @@ def _render_panel_html() -> str:
   {_bar_chart(funnel_rows, "no sessions yet")}
   <h2 style="margin-top:1.5rem">Trend (sessions/day, last 14 days)</h2>
   {_bar_chart(trend_rows, "no data")}
+  <h2 style="font-size:.85rem;color:#8b93a1">By hour of day (UTC)</h2>
+  {_bar_chart(stats['hour_counts'], "no data")}
+  <h2 style="font-size:.85rem;color:#8b93a1">Top IPs</h2>
+  {_bar_chart(stats['top_ips'], "no IPs recorded yet (only sessions saved after this column was added)")}
 </section>
 
 <section>
