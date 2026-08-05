@@ -697,12 +697,37 @@ Additionally recommended on your end:
   get bypassed somehow).
 - Caddy/application logs for analyzing anomalous traffic.
 
+## Dev monitoring panel
+
+A hidden, unannounced stats dashboard at `GET /panel?token=...` — not linked
+from anywhere in the UI, not part of the product. Read-only visualization,
+no admin actions.
+
+**Enabling it:** set `MONITOR_PANEL_TOKEN` in `.env` (blank by default —
+generate a real one with `openssl rand -hex 16`). The route stays a plain
+404 — indistinguishable from a route that doesn't exist — in every one of
+these cases:
+- `MONITOR_PANEL_TOKEN` is unset/blank (the default)
+- it's still the literal placeholder text shown in `.env.example`
+- it contains anything other than letters/digits
+- the `?token=` query string doesn't match it
+
+Once enabled, it shows: the session funnel (active/completed/abandoned,
+14-day trend), branch popularity (equipment type, top 10 entry symptoms, top
+10 final result nodes — from `checklist_sessions`), how far technicians get
+through the "🔍 Deeper diagnosis" intake checklist before dropping off (from
+`sessions.node_path`), and AI usage (% of sessions that used it, truncation
+rate, average tokens in/out, 429 count — from the `ai_calls` table, written
+once per `/api/ai-assist` call, success or rate-limited, independent of
+`checklist_sessions`).
+
+**Download statistics** on the page exports the same report as a single
+self-contained HTML file (inline CSS, no external requests — opens fully
+offline), named `hvac-guide-<short commit hash>-DD-MM-YYYY.html` (same hash
+as the footer/OCI label).
+
 ## Limitations / possible future improvements
 
-- Checklist history is saved (see above), but there's no ready-made UI/report
-  for patterns yet — analysis is done via direct SQL queries against
-  `data/sessions.db`. An admin dashboard on top of the same table wouldn't be
-  hard to add if wanted.
 - The graph currently covers the most common scenarios (no cool/no heat,
   won't start, high/low pressure, ice, condensate leak, noise) — it's
   extended just by adding new nodes to `graph.json`, no code changes needed.
