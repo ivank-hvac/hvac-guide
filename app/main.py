@@ -1,18 +1,27 @@
 import asyncio
+import html
 import json
+import logging
 import os
+import re
+import secrets
 import sqlite3
+import time
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
@@ -73,11 +82,44 @@ SESSION_RATE_LIMIT = os.getenv("SESSION_RATE_LIMIT", "20/minute")
 SESSION_ABANDON_TTL_HOURS = 3
 SESSION_CLEANUP_INTERVAL_SECONDS = 30 * 60
 
+# Hidden dev-only stats dashboard at GET /panel?token=... — see README "Dev
+# monitoring panel". Empty by default, same as every other secret in
+# .env.example: an unset/placeholder/unsafe token disables the route
+# entirely (404, not 403 — a random visitor shouldn't even learn it exists).
+MONITOR_PANEL_TOKEN = os.getenv("MONITOR_PANEL_TOKEN", "")
+MONITOR_PANEL_TOKEN_PLACEHOLDER = "<token>"
+
+
+def _classify_monitor_panel_token(token: str) -> str:
+    if not token:
+        return "disabled"
+    if token == MONITOR_PANEL_TOKEN_PLACEHOLDER:
+        return "placeholder"
+    if not re.fullmatch(r"[A-Za-z0-9]+", token):
+        return "unsafe"
+    return "ok"
+
+
+# Computed once at import time — the env var can't change without a restart
+# anyway, so there's no need to re-validate it on every request, only to
+# re-check the actual ?token= value against it (done per-request below).
+MONITOR_PANEL_TOKEN_STATUS = _classify_monitor_panel_token(MONITOR_PANEL_TOKEN)
+if MONITOR_PANEL_TOKEN_STATUS == "placeholder":
+    logger.warning(
+        "MONITOR_PANEL_TOKEN is still set to the .env.example placeholder value "
+        "— /panel stays disabled (404) until a real token is set."
+    )
+elif MONITOR_PANEL_TOKEN_STATUS == "unsafe":
+    logger.warning(
+        "MONITOR_PANEL_TOKEN contains non-alphanumeric characters — /panel stays "
+        "disabled (404) until it's replaced with a safe token, e.g. "
+        "`openssl rand -hex 16`."
+    )
+
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="HVAC Troubleshooting Guide")
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 def _db_connect() -> sqlite3.Connection:
@@ -139,6 +181,34 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_status_updated "
             "ON sessions(status, updated_at)"
+        )
+        # Added after the table already existed in deployed databases — SQLite
+        # has no "ADD COLUMN IF NOT EXISTS", so guard with a PRAGMA check
+        # instead of letting this crash startup on every machine that already
+        # has a sessions.db from before this column existed.
+        existing_session_cols = {row[1] for row in conn.execute("PRAGMA table_info(sessions)")}
+        if "ip" not in existing_session_cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN ip TEXT")
+        # One row per /api/ai-assist invocation (success or 429), for the
+        # dev-only /panel dashboard — see README "Dev monitoring panel".
+        # Deliberately no session_id: this is aggregate usage/cost tracking,
+        # not tied back to a particular technician's checklist.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai_calls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                node_context TEXT,
+                tokens_in INTEGER,
+                tokens_out INTEGER,
+                stop_reason TEXT,
+                latency_ms INTEGER,
+                ip TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ai_calls_created ON ai_calls(created_at)"
         )
 
 
@@ -351,7 +421,7 @@ class SessionUpsertRequest(BaseModel):
         return v
 
 
-def _upsert_session(req: SessionUpsertRequest) -> None:
+def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
     now = datetime.now(timezone.utc).isoformat()
     node_path_json = json.dumps(req.node_path, ensure_ascii=False)
     checklist_state_json = json.dumps(req.checklist_state, ensure_ascii=False)
@@ -366,16 +436,17 @@ def _upsert_session(req: SessionUpsertRequest) -> None:
             """
             INSERT INTO sessions
                 (session_id, equipment, node_path, checklist_state, status,
-                 created_at, updated_at, completed_at)
+                 created_at, updated_at, completed_at, ip)
             VALUES (:session_id, :equipment, :node_path, :checklist_state, :status,
-                    :now, :now, :completed_at_if_new)
+                    :now, :now, :completed_at_if_new, :ip)
             ON CONFLICT(session_id) DO UPDATE SET
                 equipment = :equipment,
                 node_path = :node_path,
                 checklist_state = :checklist_state,
                 status = :status,
                 updated_at = :now,
-                completed_at = COALESCE(completed_at, :completed_at_if_new)
+                completed_at = COALESCE(completed_at, :completed_at_if_new),
+                ip = :ip
             """,
             {
                 "session_id": req.session_id,
@@ -385,6 +456,7 @@ def _upsert_session(req: SessionUpsertRequest) -> None:
                 "status": req.status,
                 "now": now,
                 "completed_at_if_new": completed_at_if_new,
+                "ip": ip,
             },
         )
 
@@ -459,6 +531,53 @@ EMPTY_MODEL_RESPONSE = {
 }
 
 
+def _log_ai_call(
+    node_context: Optional[str],
+    tokens_in: Optional[int],
+    tokens_out: Optional[int],
+    stop_reason: Optional[str],
+    latency_ms: int,
+    ip: Optional[str],
+) -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO ai_calls
+                (created_at, node_context, tokens_in, tokens_out, stop_reason, latency_ms, ip)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.now(timezone.utc).isoformat(),
+                node_context or None,
+                tokens_in,
+                tokens_out,
+                stop_reason,
+                latency_ms,
+                ip,
+            ),
+        )
+
+
+async def _rate_limit_exceeded_handler_with_logging(request: Request, exc: RateLimitExceeded):
+    # Only /api/ai-assist matters for the panel's "AI usage" stats — the
+    # other rate-limited endpoints (/api/log-session, /api/session) don't
+    # call Anthropic, so a 429 there isn't part of "AI usage/cost" tracking.
+    if request.url.path == "/api/ai-assist":
+        await run_in_threadpool(
+            _log_ai_call,
+            node_context=None,
+            tokens_in=None,
+            tokens_out=None,
+            stop_reason="rate_limited",
+            latency_ms=0,
+            ip=get_remote_address(request),
+        )
+    return _rate_limit_exceeded_handler(request, exc)
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler_with_logging)
+
+
 @app.post("/api/ai-assist")
 @limiter.limit(AI_ASSIST_RATE_LIMIT)
 async def ai_assist(request: Request, req: AssistRequest):
@@ -483,6 +602,7 @@ async def ai_assist(request: Request, req: AssistRequest):
         "messages": [{"role": "user", "content": user_message}],
     }
 
+    start = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=40) as client:
             r = await client.post(
@@ -500,13 +620,25 @@ async def ai_assist(request: Request, req: AssistRequest):
     if r.status_code != 200:
         raise HTTPException(status_code=502, detail=UPSTREAM_ERROR[req.lang].format(body=r.text))
 
+    latency_ms = int((time.monotonic() - start) * 1000)
     data = r.json()
     text = "\n".join(block["text"] for block in data.get("content", []) if block.get("type") == "text")
     # Anthropic sets stop_reason to "max_tokens" when the response was cut
     # off by the cap above rather than finishing naturally — that's a
     # genuinely incomplete answer (mid-sentence, missing sections), not
     # something to show the technician as if it were the full analysis.
-    truncated = data.get("stop_reason") == "max_tokens"
+    stop_reason = data.get("stop_reason")
+    truncated = stop_reason == "max_tokens"
+    usage = data.get("usage", {})
+    await run_in_threadpool(
+        _log_ai_call,
+        node_context=req.context or None,
+        tokens_in=usage.get("input_tokens"),
+        tokens_out=usage.get("output_tokens"),
+        stop_reason=stop_reason,
+        latency_ms=latency_ms,
+        ip=get_remote_address(request),
+    )
     return {"analysis": text or EMPTY_MODEL_RESPONSE[req.lang], "truncated": truncated}
 
 
@@ -520,7 +652,7 @@ async def log_session(request: Request, req: LogSessionRequest):
 @app.post("/api/session")
 @limiter.limit(SESSION_RATE_LIMIT)
 async def save_session(request: Request, req: SessionUpsertRequest):
-    await run_in_threadpool(_upsert_session, req)
+    await run_in_threadpool(_upsert_session, req, get_remote_address(request))
     return {"status": "ok"}
 
 
@@ -548,6 +680,309 @@ async def health():
 @app.get("/api/version")
 async def version():
     return {"commit": GIT_COMMIT, "commit_date": GIT_COMMIT_DATE}
+
+
+def _load_intake_phases() -> List[Dict[str, Any]]:
+    # graph.json lives in the static dir served to the frontend — read
+    # directly rather than duplicating its content, so a phase added/removed
+    # there is picked up here without a backend change. Missing/unreadable
+    # file just means the intake-checklist funnel section renders empty
+    # rather than breaking the whole panel.
+    try:
+        with open(os.path.join("static", "graph.json"), "r", encoding="utf-8") as f:
+            graph = json.load(f)
+    except (OSError, ValueError):
+        return []
+    return [
+        {"id": phase["id"], "item_ids": [item["id"] for item in phase.get("items", [])]}
+        for phase in graph.get("intake_checklist", [])
+    ]
+
+
+def _gather_panel_stats() -> Dict[str, Any]:
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+
+        total_sessions = conn.execute("SELECT COUNT(*) AS n FROM sessions").fetchone()["n"]
+        status_counts = {
+            row["status"]: row["n"]
+            for row in conn.execute("SELECT status, COUNT(*) AS n FROM sessions GROUP BY status")
+        }
+        trend = [
+            (row["day"], row["n"])
+            for row in reversed(
+                conn.execute(
+                    """
+                    SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n
+                    FROM sessions GROUP BY day ORDER BY day DESC LIMIT 14
+                    """
+                ).fetchall()
+            )
+        ]
+
+        equipment_counts = [
+            (row["equipment_type"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT COALESCE(equipment_type, '—') AS equipment_type, COUNT(*) AS n
+                FROM checklist_sessions GROUP BY equipment_type ORDER BY n DESC
+                """
+            )
+        ]
+        top_final_nodes = [
+            (row["final_node_id"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT final_node_id, COUNT(*) AS n FROM checklist_sessions
+                GROUP BY final_node_id ORDER BY n DESC LIMIT 10
+                """
+            )
+        ]
+        answers_blobs = [row["answers_json"] for row in conn.execute(
+            "SELECT answers_json FROM checklist_sessions"
+        )]
+
+        ai_used_row = conn.execute(
+            "SELECT COUNT(*) AS total, SUM(ai_used) AS used FROM checklist_sessions"
+        ).fetchone()
+
+        ai_calls_total = conn.execute(
+            "SELECT COUNT(*) AS n FROM ai_calls WHERE stop_reason != 'rate_limited'"
+        ).fetchone()["n"]
+        ai_calls_truncated = conn.execute(
+            "SELECT COUNT(*) AS n FROM ai_calls WHERE stop_reason = 'max_tokens'"
+        ).fetchone()["n"]
+        ai_calls_avg = conn.execute(
+            """
+            SELECT AVG(tokens_in) AS tin, AVG(tokens_out) AS tout
+            FROM ai_calls WHERE stop_reason != 'rate_limited'
+            """
+        ).fetchone()
+        ai_calls_429 = conn.execute(
+            "SELECT COUNT(*) AS n FROM ai_calls WHERE stop_reason = 'rate_limited'"
+        ).fetchone()["n"]
+
+        node_path_blobs = [row["node_path"] for row in conn.execute(
+            "SELECT node_path FROM sessions"
+        )]
+
+    # Top-10 "entry symptoms": the answer right after the equipment-type
+    # choice (always answers[0] — see _save_session) is, for most branches,
+    # the main symptom question. Not exact for every branch shape, but close
+    # enough for a "what people ask about most" trend without hardcoding
+    # per-equipment-type node ids here.
+    symptom_counter: Counter = Counter()
+    for blob in answers_blobs:
+        try:
+            answers = json.loads(blob)
+        except (TypeError, ValueError):
+            continue
+        if len(answers) > 1:
+            symptom_counter[answers[1]["answer"]] += 1
+    top_symptoms = symptom_counter.most_common(10)
+
+    # Intake-checklist funnel. There's no explicit "finished all phases"
+    # flag in the saved state (see app.js serializeNodePath/
+    # renderIntakeChecklist — intakePhaseIndex caps at the last phase index
+    # whether that phase is done or still in progress), so "reached the end"
+    # is approximated as: currently sitting on the last phase, with at least
+    # as many recorded items (done or explicitly skipped) as that phase
+    # defines. showIf-conditional items aren't accounted for, so this can
+    # under-count completions slightly — good enough for a trend, not exact.
+    phases = _load_intake_phases()
+    intake_opened = 0
+    intake_completed = 0
+    drop_by_phase: Counter = Counter()
+    for blob in node_path_blobs:
+        try:
+            np = json.loads(blob)
+        except (TypeError, ValueError):
+            continue
+        if not np.get("intakeAsked"):
+            continue
+        intake_opened += 1
+        phase_index = np.get("intakePhaseIndex") or 0
+        intake_state = np.get("intake") or {}
+        reached_end = False
+        phase_label = "?"
+        if phases and 0 <= phase_index < len(phases):
+            phase = phases[phase_index]
+            phase_label = phase["id"]
+            recorded = len(intake_state.get(phase["id"]) or {})
+            if phase_index == len(phases) - 1 and recorded >= len(phase["item_ids"]):
+                reached_end = True
+        if reached_end:
+            intake_completed += 1
+        else:
+            drop_by_phase[phase_label] += 1
+
+    return {
+        "total_sessions": total_sessions,
+        "status_counts": status_counts,
+        "trend": trend,
+        "equipment_counts": equipment_counts,
+        "top_final_nodes": top_final_nodes,
+        "top_symptoms": top_symptoms,
+        "ai_used_sessions": ai_used_row["used"] or 0,
+        "ai_used_total": ai_used_row["total"] or 0,
+        "ai_calls_total": ai_calls_total,
+        "ai_calls_truncated": ai_calls_truncated,
+        "ai_calls_avg_tokens_in": ai_calls_avg["tin"],
+        "ai_calls_avg_tokens_out": ai_calls_avg["tout"],
+        "ai_calls_429": ai_calls_429,
+        "intake_opened": intake_opened,
+        "intake_completed": intake_completed,
+        "intake_drop_by_phase": drop_by_phase,
+        "phase_ids": [p["id"] for p in phases],
+    }
+
+
+def _esc(value: Any) -> str:
+    return html.escape(str(value))
+
+
+def _bar_chart(rows: List[tuple], empty_label: str) -> str:
+    if not rows:
+        return f'<p class="empty">{_esc(empty_label)}</p>'
+    max_value = max((n for _, n in rows), default=0) or 1
+    lines = ['<div class="bars">']
+    for label, n in rows:
+        pct = round(100 * n / max_value)
+        lines.append(
+            '<div class="bar-row">'
+            f'<span class="bar-label">{_esc(label)}</span>'
+            f'<div class="bar-track"><div class="bar-fill" style="width:{pct}%"></div></div>'
+            f'<span class="bar-value">{_esc(n)}</span>'
+            "</div>"
+        )
+    lines.append("</div>")
+    return "\n".join(lines)
+
+
+def _pct(numerator: Optional[float], denominator: Optional[float]) -> str:
+    if not denominator:
+        return "—"
+    return f"{100 * (numerator or 0) / denominator:.0f}%"
+
+
+def _round_or_dash(value: Optional[float]) -> str:
+    return "—" if value is None else str(round(value))
+
+
+def _render_panel_html() -> str:
+    stats = _gather_panel_stats()
+
+    funnel_rows = [
+        (label, stats["status_counts"].get(label, 0))
+        for label in ("active", "completed", "abandoned")
+    ]
+    trend_rows = list(stats["trend"])
+    drop_rows = [
+        (phase_id, stats["intake_drop_by_phase"].get(phase_id, 0))
+        for phase_id in stats["phase_ids"]
+        if stats["intake_drop_by_phase"].get(phase_id, 0)
+    ]
+
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hvac-guide — dev panel</title>
+<style>
+  :root {{ color-scheme: dark; }}
+  body {{
+    background: #14171c; color: #e6e8eb; margin: 0; padding: 2rem;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }}
+  h1 {{ font-size: 1.3rem; margin: 0 0 .25rem; }}
+  .meta {{ color: #8b93a1; font-size: .85rem; margin-bottom: 2rem; }}
+  section {{
+    background: #1b1f27; border: 1px solid #2a2f3a; border-radius: 10px;
+    padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+  }}
+  h2 {{ font-size: 1rem; margin: 0 0 1rem; color: #cdd3dc; }}
+  .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
+  .stat {{ min-width: 140px; }}
+  .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
+  .stat .label {{ font-size: .8rem; color: #8b93a1; }}
+  .bars {{ display: flex; flex-direction: column; gap: .4rem; }}
+  .bar-row {{ display: grid; grid-template-columns: minmax(120px, 240px) 1fr auto; gap: .6rem; align-items: center; }}
+  .bar-label {{ font-size: .85rem; color: #cdd3dc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+  .bar-track {{ background: #262b35; border-radius: 4px; height: 10px; overflow: hidden; }}
+  .bar-fill {{ background: #4a8fe0; height: 100%; }}
+  .bar-value {{ font-size: .8rem; color: #8b93a1; min-width: 2.5em; text-align: right; }}
+  .empty {{ color: #6b7280; font-size: .85rem; font-style: italic; }}
+  a.download {{
+    display: inline-block; margin-top: .5rem; color: #6fb1ff; text-decoration: none;
+    border: 1px solid #35405a; border-radius: 6px; padding: .5rem 1rem; font-size: .85rem;
+  }}
+</style>
+</head>
+<body>
+<h1>hvac-guide — dev panel</h1>
+<div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
+
+<section>
+  <h2>Session funnel</h2>
+  <div class="stat-grid">
+    <div class="stat"><div class="n">{_esc(stats['total_sessions'])}</div><div class="label">total sessions</div></div>
+  </div>
+  {_bar_chart(funnel_rows, "no sessions yet")}
+  <h2 style="margin-top:1.5rem">Trend (sessions/day, last 14 days)</h2>
+  {_bar_chart(trend_rows, "no data")}
+</section>
+
+<section>
+  <h2>Branch popularity</h2>
+  <h2 style="font-size:.85rem;color:#8b93a1;margin-top:0">By equipment type</h2>
+  {_bar_chart(stats['equipment_counts'], "no completed checklists yet")}
+  <h2 style="font-size:.85rem;color:#8b93a1">Top 10 entry symptoms</h2>
+  {_bar_chart(stats['top_symptoms'], "no data")}
+  <h2 style="font-size:.85rem;color:#8b93a1">Top 10 final result nodes</h2>
+  {_bar_chart(stats['top_final_nodes'], "no data")}
+</section>
+
+<section>
+  <h2>Intake checklist ("🔍 Deeper diagnosis")</h2>
+  <div class="stat-grid">
+    <div class="stat"><div class="n">{_pct(stats['intake_opened'], stats['total_sessions'])}</div><div class="label">of sessions opened it</div></div>
+    <div class="stat"><div class="n">{_pct(stats['intake_completed'], stats['intake_opened'])}</div><div class="label">of those reached the end</div></div>
+  </div>
+  <h2 style="font-size:.85rem;color:#8b93a1">Dropped off at phase</h2>
+  {_bar_chart(drop_rows, "no drop-offs recorded")}
+</section>
+
+<section>
+  <h2>AI usage</h2>
+  <div class="stat-grid">
+    <div class="stat"><div class="n">{_pct(stats['ai_used_sessions'], stats['ai_used_total'])}</div><div class="label">of sessions used AI</div></div>
+    <div class="stat"><div class="n">{_pct(stats['ai_calls_truncated'], stats['ai_calls_total'])}</div><div class="label">truncation rate</div></div>
+    <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_avg_tokens_in'])}</div><div class="label">avg tokens in</div></div>
+    <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_avg_tokens_out'])}</div><div class="label">avg tokens out</div></div>
+    <div class="stat"><div class="n">{_esc(stats['ai_calls_429'])}</div><div class="label">429s (rate-limited)</div></div>
+  </div>
+</section>
+
+<a class="download" href="?token={_esc(MONITOR_PANEL_TOKEN)}&download=1">Download statistics</a>
+</body>
+</html>"""
+
+
+@app.get("/panel")
+async def monitor_panel(request: Request, token: str = "", download: bool = False):
+    # Silent 404 (not 401/403) whether the panel is disabled, misconfigured,
+    # or the token just doesn't match — a random visitor shouldn't be able
+    # to tell "wrong token" apart from "this route doesn't exist".
+    if MONITOR_PANEL_TOKEN_STATUS != "ok" or not secrets.compare_digest(token, MONITOR_PANEL_TOKEN):
+        raise HTTPException(status_code=404)
+    html_body = await run_in_threadpool(_render_panel_html)
+    response = HTMLResponse(html_body)
+    if download:
+        filename = f"hvac-guide-{GIT_COMMIT}-{datetime.now(timezone.utc).strftime('%d-%m-%Y')}.html"
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 # Plain StaticFiles sends no Cache-Control at all, which lets browsers
