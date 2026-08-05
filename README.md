@@ -713,7 +713,7 @@ these cases:
 - the `?token=` query string doesn't match it
 
 Once enabled, it shows: the session funnel (active/completed/abandoned,
-14-day trend, traffic by hour of day in UTC, top 10 source IPs), branch
+14-day trend, traffic by hour of day in 2-hour buckets, top 10 source IPs), branch
 popularity (equipment type, top 10 entry symptoms, top 10 final result
 nodes — from `checklist_sessions`), how far technicians get through the "🔍
 Deeper diagnosis" intake checklist before dropping off (from
@@ -722,7 +722,10 @@ rate, average tokens in/out, 429 count — from the `ai_calls` table, written
 once per `/api/ai-assist` call, success or rate-limited, independent of
 `checklist_sessions`). IPs only show up for sessions saved after the
 `sessions.ip` column was added — older rows are excluded, not shown as a
-misleading blank/zero.
+misleading blank/zero. All timestamps on the page are shown in the deploying
+author's own local timezone (hardcoded as `LOCAL_TZ` in `main.py`, currently
+`America/Winnipeg`), not UTC and not the viewer's browser timezone — change
+that constant if you self-host this and want your own local time instead.
 
 **Download statistics** on the page exports the same report as a single
 self-contained HTML file (inline CSS, no external requests — opens fully
