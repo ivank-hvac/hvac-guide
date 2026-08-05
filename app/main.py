@@ -950,9 +950,11 @@ def _render_panel_html() -> str:
 <style>
   :root {{ color-scheme: dark; }}
   body {{
-    background: #14171c; color: #e6e8eb; margin: 0; padding: 2rem;
+    background: #14171c; color: #e6e8eb; margin: 0;
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
   }}
+  .wrap {{ width: 100%; max-width: 720px; padding: 2rem 1rem; box-sizing: border-box; }}
   h1 {{ font-size: 1.3rem; margin: 0 0 .25rem; }}
   .meta {{ color: #8b93a1; font-size: .85rem; margin-bottom: 2rem; }}
   section {{
@@ -984,6 +986,7 @@ def _render_panel_html() -> str:
 </style>
 </head>
 <body>
+<div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
 
@@ -1033,6 +1036,7 @@ def _render_panel_html() -> str:
 </section>
 
 <a class="download" href="?token={_esc(MONITOR_PANEL_TOKEN)}&download=1">Download statistics</a>
+</div>
 </body>
 </html>"""
 
