@@ -16,6 +16,7 @@ services:
       - AI_DEEP_DIVE_MAX_TOKENS=${AI_DEEP_DIVE_MAX_TOKENS:-3000}
       - LOG_SESSION_RATE_LIMIT=${LOG_SESSION_RATE_LIMIT:-30/minute}
       - SESSION_RATE_LIMIT=${SESSION_RATE_LIMIT:-20/minute}
+      - MONITOR_PANEL_TOKEN=${MONITOR_PANEL_TOKEN:-}
     volumes:
       - hvac_data:/app/data
     restart: unless-stopped
