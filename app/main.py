@@ -792,7 +792,15 @@ def _gather_panel_stats() -> Dict[str, Any]:
             )
         ]
 
-    hour_counts = [(f"{h:02d}:00", hour_rows.get(f"{h:02d}", 0)) for h in range(24)]
+    # 2-hour buckets (00-02, 02-04, ..., 22-24) rather than all 24 hours —
+    # coarser, easier to read at a glance in a vertical chart.
+    hour_counts = [
+        (
+            f"{h:02d}-{h + 2:02d}",
+            hour_rows.get(f"{h:02d}", 0) + hour_rows.get(f"{h + 1:02d}", 0),
+        )
+        for h in range(0, 24, 2)
+    ]
 
     # Top-10 "entry symptoms": the answer right after the equipment-type
     # choice (always answers[0] — see _save_session) is, for most branches,
@@ -889,6 +897,23 @@ def _bar_chart(rows: List[tuple], empty_label: str) -> str:
     return "\n".join(lines)
 
 
+def _vertical_bar_chart(rows: List[tuple], empty_label: str) -> str:
+    if not rows:
+        return f'<p class="empty">{_esc(empty_label)}</p>'
+    max_value = max((n for _, n in rows), default=0) or 1
+    cols = []
+    for label, n in rows:
+        pct = round(100 * n / max_value) if n else 0
+        cols.append(
+            '<div class="vbar-col">'
+            f'<span class="vbar-value">{_esc(n)}</span>'
+            f'<div class="vbar-track"><div class="vbar-fill" style="height:{pct}%"></div></div>'
+            f'<span class="vbar-label">{_esc(label)}</span>'
+            "</div>"
+        )
+    return f'<div class="vbars">{"".join(cols)}</div>'
+
+
 def _pct(numerator: Optional[float], denominator: Optional[float]) -> str:
     if not denominator:
         return "—"
@@ -943,6 +968,12 @@ def _render_panel_html() -> str:
   .bar-track {{ background: #262b35; border-radius: 4px; height: 10px; overflow: hidden; }}
   .bar-fill {{ background: #4a8fe0; height: 100%; }}
   .bar-value {{ font-size: .8rem; color: #8b93a1; min-width: 2.5em; text-align: right; }}
+  .vbars {{ display: flex; align-items: flex-end; gap: .5rem; height: 140px; }}
+  .vbar-col {{ display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }}
+  .vbar-value {{ font-size: .75rem; color: #8b93a1; margin-bottom: .3rem; }}
+  .vbar-track {{ background: #262b35; border-radius: 3px; width: 100%; flex: 1; display: flex; align-items: flex-end; overflow: hidden; }}
+  .vbar-fill {{ background: #4a8fe0; width: 100%; border-radius: 3px 3px 0 0; }}
+  .vbar-label {{ font-size: .7rem; color: #cdd3dc; margin-top: .4rem; white-space: nowrap; }}
   .empty {{ color: #6b7280; font-size: .85rem; font-style: italic; }}
   a.download {{
     display: inline-block; margin-top: .5rem; color: #6fb1ff; text-decoration: none;
@@ -962,8 +993,8 @@ def _render_panel_html() -> str:
   {_bar_chart(funnel_rows, "no sessions yet")}
   <h2 style="margin-top:1.5rem">Trend (sessions/day, last 14 days)</h2>
   {_bar_chart(trend_rows, "no data")}
-  <h2 style="font-size:.85rem;color:#8b93a1">By hour of day (UTC)</h2>
-  {_bar_chart(stats['hour_counts'], "no data")}
+  <h2 style="font-size:.85rem;color:#8b93a1">By hour of day (UTC, 2h buckets)</h2>
+  {_vertical_bar_chart(stats['hour_counts'], "no data")}
   <h2 style="font-size:.85rem;color:#8b93a1">Top IPs</h2>
   {_bar_chart(stats['top_ips'], "no IPs recorded yet (only sessions saved after this column was added)")}
 </section>
