@@ -224,6 +224,38 @@ header h1 {
 .badge.warning { background: #3a2f10; color: var(--warn); }
 .badge.critical { background: #3a1616; color: var(--crit); }
 
+.safety-banner {
+  background: #3a1616;
+  color: var(--crit);
+  border: 1px solid var(--crit);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.related-checks {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.related-checks-title {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.related-checks ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
 textarea {
   width: 100%;
   min-height: 90px;
