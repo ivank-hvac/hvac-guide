@@ -69,6 +69,8 @@ const I18N = {
     finishBtn: "✓ Завершить сессию",
     finishCompletedMsg: "Сессия завершена. Спасибо!",
     reportIntakeProgressTitle: "Чек-лист оборудования",
+    reportPhaseDone: "всё проверено",
+    reportPhaseRemaining: "осталось проверить: {n}",
     intakePhaseProgress: "Этап {n} из {total}",
     intakeSkipLabel: "N/A",
     intakeYesLabel: "Да",
@@ -148,6 +150,8 @@ const I18N = {
     finishBtn: "✓ Finish session",
     finishCompletedMsg: "Session completed. Thank you!",
     reportIntakeProgressTitle: "Equipment checklist",
+    reportPhaseDone: "all checked",
+    reportPhaseRemaining: "{n} left to check",
     intakePhaseProgress: "Phase {n} of {total}",
     intakeSkipLabel: "N/A",
     intakeYesLabel: "Yes",
@@ -995,10 +999,21 @@ function renderReportSection(resultNodeId, container) {
     title.className = "related-checks-title";
     title.textContent = strings.reportIntakeProgressTitle;
     wrap.appendChild(title);
-    phases.forEach((p) => {
-      const row = document.createElement("div");
-      row.className = "report-intake-row";
-      row.textContent = `${p.label}: ${p.done}/${p.total}`;
+    phases.forEach((p, phaseIndex) => {
+      const allDone = p.total === 0 || p.done === p.total;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "report-intake-row" + (allDone ? " done" : " pending");
+      const icon = document.createElement("span");
+      icon.className = "report-intake-icon";
+      icon.textContent = allDone ? "✓" : "○";
+      const text = document.createElement("span");
+      text.textContent = allDone
+        ? `${p.label} — ${strings.reportPhaseDone}`
+        : `${p.label} — ${strings.reportPhaseRemaining.replace("{n}", p.total - p.done)}`;
+      row.appendChild(icon);
+      row.appendChild(text);
+      row.onclick = () => startIntakeChecklist(resultNodeId, phaseIndex);
       wrap.appendChild(row);
     });
   }
@@ -1068,9 +1083,9 @@ function exclusiveGroupWinner(phase, item, values) {
 // (earlier phases' answers are still there, already resolved, so a review
 // pass is just clicking "Next phase" through them unless something needs
 // changing).
-function startIntakeChecklist(returnNodeId) {
+function startIntakeChecklist(returnNodeId, phaseIndex = 0) {
   state.pendingNodeId = returnNodeId;
-  state.intakePhaseIndex = 0;
+  state.intakePhaseIndex = phaseIndex;
   goTo(INTAKE_STEP_ID, { prevId: returnNodeId });
 }
 
