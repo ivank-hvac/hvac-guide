@@ -66,10 +66,11 @@ const I18N = {
     resumeContinue: "Продолжить",
     resumeStartOver: "Начать заново",
     checklistProgress: "Выполнено: {done} из {total}",
-    finishBtn: "✓ Завершить чек-лист",
-    finishSummaryTitle: "Итоги сессии",
-    finishCompleteBtn: "Завершить",
+    finishBtn: "✓ Завершить сессию",
     finishCompletedMsg: "Сессия завершена. Спасибо!",
+    reportIntakeProgressTitle: "Чек-лист оборудования",
+    reportPhaseDone: "всё проверено",
+    reportPhaseRemaining: "осталось проверить: {n}",
     intakePhaseProgress: "Этап {n} из {total}",
     intakeSkipLabel: "N/A",
     intakeYesLabel: "Да",
@@ -146,10 +147,11 @@ const I18N = {
     resumeContinue: "Continue",
     resumeStartOver: "Start Over",
     checklistProgress: "Completed: {done} of {total}",
-    finishBtn: "✓ Finish checklist",
-    finishSummaryTitle: "Session summary",
-    finishCompleteBtn: "Complete",
+    finishBtn: "✓ Finish session",
     finishCompletedMsg: "Session completed. Thank you!",
+    reportIntakeProgressTitle: "Equipment checklist",
+    reportPhaseDone: "all checked",
+    reportPhaseRemaining: "{n} left to check",
     intakePhaseProgress: "Phase {n} of {total}",
     intakeSkipLabel: "N/A",
     intakeYesLabel: "Yes",
@@ -938,75 +940,85 @@ function renderChecklist(nodeId, items, container) {
   container.appendChild(wrap);
 }
 
-// Reached via the "Finish checklist" button on a result node (see
-// renderResult) — a dedicated recap screen (full answer path + the same
-// checklist state, still editable) ending in an explicit "Complete" action
-// that marks the session status=completed server-side. Pure UI navigation,
-// not a graph.json node — see FINISH_STEP_ID and the goBack() special case.
-function renderFinishScreen() {
-  const strings = ui();
-  const nodeId = state.finishNodeId;
-  const node = nodeId ? GRAPH.nodes[nodeId] : null;
-
-  const title = document.createElement("div");
-  title.className = "q-text";
-  title.textContent = strings.finishSummaryTitle;
-  cardEl.appendChild(title);
-
-  const summary = document.createElement("div");
-  summary.className = "finish-summary";
-  currentAnswers().forEach((qa) => {
-    if (!qa.answer) return;
-    const row = document.createElement("div");
-    row.className = "finish-summary-row";
-    const q = document.createElement("div");
-    q.className = "finish-summary-q";
-    q.textContent = qa.question;
-    const a = document.createElement("div");
-    a.className = "finish-summary-a";
-    a.textContent = qa.answer;
-    row.appendChild(q);
-    row.appendChild(a);
-    summary.appendChild(row);
+// Per-phase {label, done, total} counts for the universal intake checklist
+// (see intake_checklist below), regardless of whether the tech reached it
+// via the "Deeper diagnosis" button or is seeing it summarized here for the
+// first time — same state.intake, just read differently. Reuses
+// intakeShowIfMet/intakeItemResolved so "done" means the same thing here as
+// it does on the gated phase screen itself.
+function intakePhaseProgress() {
+  const phases = GRAPH.intake_checklist || [];
+  return phases.map((phase) => {
+    const values = state.intake[phase.id] || {};
+    const visibleItems = phase.items.filter((item) => intakeShowIfMet(item.showIf));
+    const done = visibleItems.filter((item) => intakeItemResolved(values[item.id], item.type)).length;
+    return { label: t(phase.label), done, total: visibleItems.length };
   });
-  cardEl.appendChild(summary);
+}
 
-  if (node && node.checklist && node.checklist.length) {
-    renderChecklist(nodeId, node.checklist, cardEl);
+// The session's closing action, rendered in place at the bottom of the
+// result screen (see renderResult) — no separate screen/navigation. Used to
+// be a dedicated "Finish checklist" -> "Session summary" -> "Complete" flow
+// on its own step (FINISH_STEP_ID); folded together because that flow's
+// actual payoff (the diagnosis) was already one screen back and never
+// re-shown here, so completing a session felt like a dead end. Now:
+// clicking the button marks status=completed right away and expands this
+// same report in place — the diagnosis/related_checks/AI answer above never
+// leave view.
+function renderReportSection(resultNodeId, container) {
+  const strings = ui();
+
+  if (state.finishNodeId !== resultNodeId) {
+    const btn = document.createElement("button");
+    btn.className = "btn input-action";
+    btn.textContent = strings.finishBtn;
+    btn.onclick = () => {
+      if (sessionSaveTimer) {
+        clearTimeout(sessionSaveTimer);
+        sessionSaveTimer = null;
+      }
+      state.finishNodeId = resultNodeId;
+      saveSession("completed");
+      render();
+    };
+    container.appendChild(btn);
+    return;
   }
 
-  // The finish screen has the fullest picture available (graph path +
-  // checklist, both now in aiContextAnswers()) — worth an AI box here even
-  // though the result screen already has one, since checklist values are
-  // often filled in only after that first AI ask.
-  if (node) {
-    const aiBox = buildAiBox({
-      context: t(node.text),
-      highlighted: !!node.ai,
-      nodeId,
-      severity: node.severity || "info",
-    });
-    cardEl.appendChild(aiBox);
-  }
-
-  const completeBtn = document.createElement("button");
-  completeBtn.className = "btn input-action";
-  completeBtn.textContent = strings.finishCompleteBtn;
-  cardEl.appendChild(completeBtn);
+  const wrap = document.createElement("div");
+  wrap.className = "report-section";
 
   const doneMsg = document.createElement("div");
   doneMsg.className = "numeric-hint";
-  cardEl.appendChild(doneMsg);
+  doneMsg.textContent = strings.finishCompletedMsg;
+  wrap.appendChild(doneMsg);
 
-  completeBtn.onclick = () => {
-    if (sessionSaveTimer) {
-      clearTimeout(sessionSaveTimer);
-      sessionSaveTimer = null;
-    }
-    saveSession("completed");
-    completeBtn.disabled = true;
-    doneMsg.textContent = strings.finishCompletedMsg;
-  };
+  const phases = intakePhaseProgress();
+  if (phases.length) {
+    const title = document.createElement("div");
+    title.className = "related-checks-title";
+    title.textContent = strings.reportIntakeProgressTitle;
+    wrap.appendChild(title);
+    phases.forEach((p, phaseIndex) => {
+      const allDone = p.total === 0 || p.done === p.total;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "report-intake-row" + (allDone ? " done" : " pending");
+      const icon = document.createElement("span");
+      icon.className = "report-intake-icon";
+      icon.textContent = allDone ? "✓" : "○";
+      const text = document.createElement("span");
+      text.textContent = allDone
+        ? `${p.label} — ${strings.reportPhaseDone}`
+        : `${p.label} — ${strings.reportPhaseRemaining.replace("{n}", p.total - p.done)}`;
+      row.appendChild(icon);
+      row.appendChild(text);
+      row.onclick = () => startIntakeChecklist(resultNodeId, phaseIndex);
+      wrap.appendChild(row);
+    });
+  }
+
+  container.appendChild(wrap);
 }
 
 // ---- Phased intake checklist (visual -> electrical -> controls/safety ->
@@ -1071,9 +1083,9 @@ function exclusiveGroupWinner(phase, item, values) {
 // (earlier phases' answers are still there, already resolved, so a review
 // pass is just clicking "Next phase" through them unless something needs
 // changing).
-function startIntakeChecklist(returnNodeId) {
+function startIntakeChecklist(returnNodeId, phaseIndex = 0) {
   state.pendingNodeId = returnNodeId;
-  state.intakePhaseIndex = 0;
+  state.intakePhaseIndex = phaseIndex;
   goTo(INTAKE_STEP_ID, { prevId: returnNodeId });
 }
 
@@ -1553,10 +1565,11 @@ function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
 
 function goBack() {
   if (state.history.length === 0) return;
-  // The finish screen and the intake checklist screen are both pure UI
-  // navigation (see FINISH_STEP_ID/INTAKE_STEP_ID) — entering either never
-  // added an answer entry, so leaving them must not pop one either.
-  const leavingFinishScreen = state.currentId === FINISH_STEP_ID;
+  // The intake checklist screen is pure UI navigation (see INTAKE_STEP_ID) —
+  // entering it never added an answer entry, so leaving it must not pop one
+  // either. (The old finish screen used to need the same treatment — see
+  // renderReportSection — but it's no longer a navigable screen at all, so
+  // goBack can never be called while "on" it.)
   const leavingIntakeScreen = state.currentId === INTAKE_STEP_ID;
   const prev = state.history.pop();
   if (prev === MANUFACTURER_STEP_ID) {
@@ -1569,7 +1582,7 @@ function goBack() {
   } else if (prev === INTAKE_STEP_ID) {
     // Finishing the intake checklist never added an answer entry either —
     // nothing to undo.
-  } else if (!leavingFinishScreen && !leavingIntakeScreen) {
+  } else if (!leavingIntakeScreen) {
     // assumes 1 answer per question/numeric_input/measurement/refrigerant_select/
     // pt_calc step
     const popped = state.answers.pop();
@@ -1628,15 +1641,21 @@ function updateStaticUi() {
   langButtons.forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
 }
 
+// Plain small text in the footer, not styled as buttons — this is a passive
+// record of the path taken, not an interactive control (nothing here is
+// clickable), so it shouldn't look tappable.
 function renderBreadcrumb() {
   breadcrumbEl.innerHTML = "";
+  let first = true;
   state.answers.forEach((entry) => {
     const label = answerLabel(entry);
     if (!label) return;
-    const chip = document.createElement("span");
-    chip.className = entry.exceeds ? "chip chip-alert" : "chip";
-    chip.textContent = label;
-    breadcrumbEl.appendChild(chip);
+    if (!first) breadcrumbEl.appendChild(document.createTextNode(" → "));
+    first = false;
+    const span = document.createElement("span");
+    if (entry.exceeds) span.className = "breadcrumb-alert";
+    span.textContent = label;
+    breadcrumbEl.appendChild(span);
   });
   backBtn.style.display = state.history.length ? "inline-block" : "none";
 }
@@ -1656,7 +1675,12 @@ function render() {
     return;
   }
   if (state.currentId === FINISH_STEP_ID) {
-    renderFinishScreen();
+    // Back-compat for sessions saved before the separate finish screen was
+    // folded into the result screen's own report section (see
+    // renderReportSection) — land back on the underlying result node with
+    // its report already expanded (finishNodeId is still set from before).
+    state.currentId = state.finishNodeId || GRAPH.start;
+    render();
     return;
   }
   if (state.currentId === INTAKE_STEP_ID) {
@@ -2581,19 +2605,16 @@ function renderResult(node) {
   const intakeBtn = buildIntakeTriggerButton(state.currentId);
   if (intakeBtn) cardEl.appendChild(intakeBtn);
 
-  if (node.checklist && node.checklist.length) {
-    const resultNodeId = state.currentId;
-    renderChecklist(resultNodeId, node.checklist, cardEl);
-
-    const finishBtn = document.createElement("button");
-    finishBtn.className = "btn input-action";
-    finishBtn.textContent = strings.finishBtn;
-    finishBtn.onclick = () => {
-      state.finishNodeId = resultNodeId;
-      goTo(FINISH_STEP_ID, { prevId: resultNodeId });
-    };
-    cardEl.appendChild(finishBtn);
+  // fixing_phase items (recovery/recharge/replacement confirmations) belong to
+  // a future repair-tracking phase, not troubleshooting — hidden for now
+  // rather than deleted, so they're ready to re-enable once that phase exists.
+  const resultNodeId = state.currentId;
+  const activeChecklist = (node.checklist || []).filter((item) => !item.fixing_phase);
+  if (activeChecklist.length) {
+    renderChecklist(resultNodeId, activeChecklist, cardEl);
   }
+
+  renderReportSection(resultNodeId, cardEl);
 
   logSession({ finalNodeId: state.currentId, severity: node.severity || "info" });
 }
@@ -2701,6 +2722,7 @@ function checklistAnswers() {
     if (!node || !node.checklist) return;
     const values = state.checklist[nodeId];
     node.checklist.forEach((item) => {
+      if (item.fixing_phase) return;
       const value = values[item.id];
       if (!isChecklistItemDone(value, item.type)) return;
       const answer = item.type === "field" ? (item.unit ? `${value} ${item.unit}` : String(value)) : "✓";
@@ -2735,12 +2757,11 @@ function intakeAnswers() {
   return rows;
 }
 
-// currentAnswers() alone (graph path only) is what the finish screen's
-// read-only summary and logSession's history both use — checklist items are
-// already shown there as their own interactive widget, so folding them into
-// that same list would duplicate them on screen. The AI, on the other hand,
-// never sees the checklist at all today (that's the bug this fixes) — so
-// only its payload gets the combined view.
+// currentAnswers() alone (graph path only) is what logSession's history
+// uses — checklist items are already shown on-screen as their own
+// interactive widget, so folding them in here would duplicate them. The AI,
+// on the other hand, never sees the checklist at all otherwise — so only
+// its payload gets the combined view.
 function aiContextAnswers() {
   return currentAnswers().concat(checklistAnswers()).concat(intakeAnswers());
 }
