@@ -575,6 +575,10 @@
         "ru": "Классика — загрязнённый/выгоревший датчик ионизации пламени (flame sensor), или плохое заземление горелки. Также проверьте полярность питания (hot/neutral) — может мешать сигналу ionization, и давление газа на входе.",
         "en": "Classic case — a dirty/worn flame sensor (ionization rod), or poor burner grounding. Also check line-voltage polarity (hot/neutral) — reversed polarity can interfere with the ionization signal — and inlet gas pressure."
       },
+      "related_checks": [
+        {"ru": "Измерьте реальный сигнал ionization микроамперметром, а не только визуально осмотрите датчик", "en": "Measure the actual ionization signal with a microammeter, not just a visual inspection of the sensor"},
+        {"ru": "Проверьте теплообменник рядом с датчиком на нагар/трещины — может искажать сигнал", "en": "Check the heat exchanger near the sensor for soot/cracks — can distort the signal"}
+      ],
       "checklist": [
         {"id": "sensor_cleaned", "type": "checkbox", "label": {"ru": "Датчик ионизации очищен/осмотрен", "en": "Flame sensor cleaned/inspected"}},
         {"id": "grounding_checked", "type": "checkbox", "label": {"ru": "Проверено заземление горелки", "en": "Burner grounding checked"}},
@@ -847,6 +851,10 @@
         "ru": "Высокое всасывание + высокий superheat — недостаточный расход через ТРВ/капиллярную трубку при избыточной тепловой нагрузке, неисправность TXV (не открывается достаточно), либо ощутимая утечка (undercharge) в сочетании с высокой нагрузкой. Проверьте нагрузку по воздуху на испарителе, работу TXV и subcooling на жидкостной линии.",
         "en": "High suction + high superheat — insufficient flow through the TXV/cap tube under a heavy load, a TXV that isn't opening enough, or a noticeable undercharge combined with high load. Check the evaporator's air-side load, TXV operation, and liquid-line subcooling."
       },
+      "related_checks": [
+        {"ru": "Проверьте равномерность распределения хладагента по трубкам испарителя (не забит ли распределитель)", "en": "Check refrigerant distribution across the evaporator tubes (distributor not clogged)"},
+        {"ru": "Сверьте измеренный superheat с целевым значением производителя для этого типа метering-устройства", "en": "Compare the measured superheat against the manufacturer's target for this metering-device type"}
+      ],
       "checklist": [
         {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "Проверен airflow на испарителе (фильтр, вентилятор, койл)", "en": "Checked evaporator airflow (filter, blower, coil)"}},
         {"id": "txv_checked", "type": "checkbox", "label": {"ru": "Проверена работа TXV (колба, уравнительная линия)", "en": "Verified TXV operation (bulb, equalizer line)"}},
@@ -863,6 +871,10 @@
         "ru": "Высокое всасывание при низком superheat — риск переполнения испарителя (overfeeding) и floodback в компрессор. Проверьте, не залипает ли TXV открытым, не перезаряжена ли система, исправность колбы/чувствительного элемента TXV и изоляцию колбы.",
         "en": "High suction with low superheat — risk of evaporator overfeeding and compressor floodback. Check whether the TXV is stuck open, whether the system is overcharged, the condition of the TXV sensing bulb/element, and the bulb's insulation."
       },
+      "related_checks": [
+        {"ru": "Проверьте уровень и цвет масла компрессора (признаки разжижения от floodback)", "en": "Check compressor oil level and color (signs of dilution from floodback)"},
+        {"ru": "Проверьте работоспособность картерного нагревателя (crankcase heater)", "en": "Check that the crankcase heater is functioning"}
+      ],
       "checklist": [
         {"id": "txv_stuck_checked", "type": "checkbox", "label": {"ru": "Проверен TXV на залипание в открытом положении", "en": "Checked TXV for stuck-open condition"}},
         {"id": "bulb_checked", "type": "checkbox", "label": {"ru": "Проверен контакт и изоляция колбы TXV", "en": "Verified sensing bulb contact & insulation"}},
@@ -898,6 +910,10 @@
         "ru": "Низкое всасывание + низкий subcooling = недостаток заряда (undercharge) или утечка. Найдите утечку (электронный детектор / пузырьковый тест на фитингах), устраните, затем дозаправьте по массе — не 'на глаз' по манометру.",
         "en": "Low suction + low subcooling = undercharge or a leak. Find the leak (electronic leak detector / bubble test on fittings), repair it, then recharge by weight — not 'by feel' on the gauges."
       },
+      "related_checks": [
+        {"ru": "Проверьте историю сервисных работ на утечки в этой же зоне контура", "en": "Check service history for prior leaks in the same area of the circuit"},
+        {"ru": "Если установлен moisture/liquid indicator — проверьте его состояние (влажность/пузыри)", "en": "If a moisture/liquid indicator is installed, check its condition (wet/bubbling)"}
+      ],
       "checklist": [
         {"id": "leak_search", "type": "checkbox", "label": {"ru": "Выполнен поиск утечки (электронный детектор / пузырьковый тест)", "en": "Leak search performed (electronic detector / bubble test)"}},
         {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки найдено", "en": "Leak location found"}},
@@ -914,6 +930,10 @@
         "ru": "Низкое всасывание при высоком subcooling указывает на restriction (засор) на жидкостной линии — забитый фильтр-осушитель, перегиб трубки, частично закрытый клапан. Признак: холодная точка/перепад температуры на фильтре-осушителе. Замените drier, проверьте линию на зажимы/перегибы.",
         "en": "Low suction with high subcooling points to a restriction on the liquid line — a clogged filter-drier, a kinked line, or a partially closed valve. Tell-tale sign: a cold spot/temperature drop across the filter-drier. Replace the drier and check the line for kinks or pinches."
       },
+      "related_checks": [
+        {"ru": "Проверьте перепад температуры до/после каждого компонента жидкостной линии по отдельности (соленоид, смотровое стекло, ТРВ)", "en": "Check the temperature drop across each liquid-line component individually (solenoid, sight glass, TXV)"},
+        {"ru": "Осмотрите линию по всей длине на предмет механических повреждений, не только у фильтра-осушителя", "en": "Inspect the full line length for physical damage, not just around the filter-drier"}
+      ],
       "checklist": [
         {"id": "drier_inspected", "type": "checkbox", "label": {"ru": "Осмотрен фильтр-осушитель (холодная точка/перепад)", "en": "Filter-drier inspected for cold spot/pressure drop"}},
         {"id": "line_checked", "type": "checkbox", "label": {"ru": "Проверена жидкостная линия на перегибы/зажимы", "en": "Liquid line checked for kinks/pinches"}},
@@ -1042,6 +1062,10 @@
         "ru": "Признаки locked rotor: проверьте пусковой/рабочий конденсатор, сопротивление обмоток компрессора (замыкание на корпус/обрыв фазы), просадку напряжения в момент пуска. Если конденсатор и обмотки в норме — вероятен механический заклин компрессора, требуется замена.",
         "en": "Signs of a locked rotor: check the start/run capacitor, compressor winding resistance (short to ground/open winding), and voltage sag at start-up. If the capacitor and windings check out, a mechanically seized compressor is likely — replacement is needed."
       },
+      "related_checks": [
+        {"ru": "Проверьте историю срабатываний overload/защиты компрессора", "en": "Check the history of overload/compressor-protector trips"},
+        {"ru": "Если есть подозрение на пробой изоляции — проверьте обмотки megger-тестом на повышенном напряжении", "en": "If insulation breakdown is suspected, megger-test the windings at elevated voltage"}
+      ],
       "checklist": [
         {"id": "capacitor_tested", "type": "checkbox", "label": {"ru": "Проверен пусковой/рабочий конденсатор", "en": "Start/run capacitor tested"}},
         {"id": "winding_resistance", "type": "field", "unit": "MΩ", "label": {"ru": "Сопротивление обмоток (мегомметр на корпус)", "en": "Winding resistance (megger to ground)"}},
@@ -1125,6 +1149,10 @@
         "ru": "Высокий subcooling при высоком давлении конденсации = избыточный заряд (overcharge). Проверьте историю заправок и расчёт по массе (линия могла быть заряжена по номинальному, а не фактическому диаметру). Откачайте излишек через сервис-порт с учётом ambient и целевого SC/SH производителя.",
         "en": "High subcooling with high head pressure = overcharge. Check the charging history and the weight calculation (the line set may have been charged for a nominal rather than actual length/diameter). Recover the excess through the service port, accounting for ambient conditions and the manufacturer's target subcooling/superheat."
       },
+      "related_checks": [
+        {"ru": "Проверьте состояние конденсатора (грязь/забитость рёбер) — тоже поднимает давление конденсации", "en": "Check condenser condition (dirty/blocked fins) — this also raises head pressure"},
+        {"ru": "Проверьте работу вентилятора конденсатора (скорость, направление вращения)", "en": "Check condenser fan operation (speed, rotation direction)"}
+      ],
       "checklist": [
         {"id": "history_reviewed", "type": "checkbox", "label": {"ru": "Проверена история заправок", "en": "Charging history/records reviewed"}},
         {"id": "weight_recalculated", "type": "checkbox", "label": {"ru": "Пересчитан вес по фактической длине/диаметру линии", "en": "Line set length/diameter recalculated"}},
@@ -1173,6 +1201,10 @@
         "ru": "Неконденсируемые газы (воздух/азот) в контуре повышают давление сверх ожидаемого для температуры хладагента в состоянии покоя. Если standing pressure test выше ожидаемого — recovery, вакуумирование и полная перезаправка по массе устраняют проблему; если давление в норме — ищите другую причину высокого давления (грязный конденсатор, забитый фильтр, перезаправка и т.п.).",
         "en": "Non-condensable gases (air/nitrogen) in the circuit raise pressure above what the refrigerant alone would show at rest at that temperature. If the standing pressure test came back elevated — recovery, evacuation, and a full recharge by weight resolve it; if the pressure was normal, look elsewhere for the high-pressure cause (dirty condenser, restricted filter, overcharge, etc.)."
       },
+      "related_checks": [
+        {"ru": "Проверьте историю вакуумирования при последнем обслуживании контура (глубина/длительность)", "en": "Check the evacuation history from the last time the circuit was serviced (depth/duration)"},
+        {"ru": "Если установлено смотровое стекло — проверьте на пузыри/влагу", "en": "If a sight glass is installed, check for bubbles/moisture"}
+      ],
       "checklist": [
         {"id": "recovery_done", "type": "checkbox", "label": {"ru": "Выполнены recovery/вакуумирование/перезаправка при необходимости", "en": "Recovery/evacuation/recharge done if needed"}}
       ]
@@ -1243,6 +1275,10 @@
         "ru": "Наледь при недостаточном охлаждении — почти всегда недостаточный airflow (фильтр/вентилятор) либо низкий заряд (undercharge). Для холодильного оборудования дополнительно проверьте цикл дефроста: таймер, датчик окончания дефроста, ТЭНы дефроста, соленоид на жидкостной линии.",
         "en": "Ice with insufficient cooling is almost always low airflow (filter/blower) or an undercharge. For refrigeration equipment, also check the defrost cycle: the timer, defrost-termination sensor, defrost heaters, and the liquid-line solenoid."
       },
+      "related_checks": [
+        {"ru": "Проверьте плотность прилегания дверей/уплотнителей на холодильном оборудовании (инфильтрация влажного воздуха ускоряет обмерзание)", "en": "Check door/gasket seals on refrigeration equipment (moist-air infiltration accelerates icing)"},
+        {"ru": "Проверьте чистоту рёбер испарителя изнутри (не только фильтр снаружи)", "en": "Check the evaporator fins for internal buildup, not just the external filter"}
+      ],
       "checklist": [
         {"id": "airflow_checked", "type": "checkbox", "label": {"ru": "Проверен airflow (фильтр/вентилятор)", "en": "Airflow checked (filter/blower)"}},
         {"id": "charge_checked", "type": "checkbox", "label": {"ru": "Проверен заряд на недозаправку", "en": "Charge checked for undercharge"}},
@@ -1299,6 +1335,10 @@
         "ru": "Признаки утечки холодильного агента — масляные потёки в нетипичных местах (на фитингах, изгибах трубок, вокруг паяных соединений) являются надёжным индикатором утечки, а не просто загрязнением. Используйте электронный детектор или УФ-краситель для точной локализации. До ремонта не доливайте 'на глаз' — найдите и устраните течь, затем полная перезаправка по массе согласно шильдику.",
         "en": "Signs of a refrigerant leak — oil residue in atypical spots (fittings, tubing bends, around brazed joints) is a reliable leak indicator, not just dirt. Use an electronic leak detector or UV dye to pinpoint it exactly. Don't top off 'by feel' before repairing — find and fix the leak first, then do a full recharge by weight per the nameplate."
       },
+      "related_checks": [
+        {"ru": "Осмотрите паяные соединения на предмет флюса/окисления — частая причина скрытой утечки", "en": "Inspect brazed joints for flux residue/oxidation — a common source of hidden leaks"},
+        {"ru": "Сверьтесь с историей предыдущих утечек/ремонтов на этом оборудовании", "en": "Check the equipment's history for prior leaks/repairs"}
+      ],
       "checklist": [
         {"id": "leak_located", "type": "checkbox", "label": {"ru": "Утечка локализована (детектор/УФ-краситель)", "en": "Leak located (electronic detector/UV dye)"}},
         {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки", "en": "Leak location"}},
