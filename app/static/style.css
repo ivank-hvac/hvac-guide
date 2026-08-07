@@ -522,9 +522,40 @@ textarea {
 }
 
 .report-intake-row {
-  font-size: 0.85rem;
-  color: var(--step-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: #1e2330;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
 }
+
+.report-intake-row:hover { border-color: var(--accent); }
+
+.report-intake-row.done {
+  border-color: var(--ok);
+  background: rgba(62, 207, 142, 0.08);
+}
+
+.report-intake-row.pending {
+  border-color: var(--input-accent);
+  background: rgba(224, 145, 63, 0.08);
+}
+
+.report-intake-icon {
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.report-intake-row.done .report-intake-icon { color: var(--ok); }
+.report-intake-row.pending .report-intake-icon { color: var(--input-accent); }
 
 .mfg-doc-link {
   font-size: 0.85rem;
