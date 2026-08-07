@@ -917,8 +917,8 @@
       "checklist": [
         {"id": "leak_search", "type": "checkbox", "label": {"ru": "Выполнен поиск утечки (электронный детектор / пузырьковый тест)", "en": "Leak search performed (electronic detector / bubble test)"}},
         {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки найдено", "en": "Leak location found"}},
-        {"id": "leak_repaired", "type": "checkbox", "label": {"ru": "Утечка устранена", "en": "Leak repaired"}},
-        {"id": "recharge_weight", "type": "field", "unit": "oz", "label": {"ru": "Добавлено при перезаправке (по массе)", "en": "Recharge weight added"}}
+        {"id": "leak_repaired", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Утечка устранена", "en": "Leak repaired"}},
+        {"id": "recharge_weight", "type": "field", "unit": "oz", "fixing_phase": true, "label": {"ru": "Добавлено при перезаправке (по массе)", "en": "Recharge weight added"}}
       ]
     },
 
@@ -937,7 +937,7 @@
       "checklist": [
         {"id": "drier_inspected", "type": "checkbox", "label": {"ru": "Осмотрен фильтр-осушитель (холодная точка/перепад)", "en": "Filter-drier inspected for cold spot/pressure drop"}},
         {"id": "line_checked", "type": "checkbox", "label": {"ru": "Проверена жидкостная линия на перегибы/зажимы", "en": "Liquid line checked for kinks/pinches"}},
-        {"id": "drier_replaced", "type": "checkbox", "label": {"ru": "Фильтр-осушитель заменён", "en": "Filter-drier replaced"}}
+        {"id": "drier_replaced", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Фильтр-осушитель заменён", "en": "Filter-drier replaced"}}
       ]
     },
 
@@ -1070,7 +1070,7 @@
         {"id": "capacitor_tested", "type": "checkbox", "label": {"ru": "Проверен пусковой/рабочий конденсатор", "en": "Start/run capacitor tested"}},
         {"id": "winding_resistance", "type": "field", "unit": "MΩ", "label": {"ru": "Сопротивление обмоток (мегомметр на корпус)", "en": "Winding resistance (megger to ground)"}},
         {"id": "voltage_sag_checked", "type": "checkbox", "label": {"ru": "Проверена просадка напряжения при пуске", "en": "Start-up voltage sag checked"}},
-        {"id": "replacement_scheduled", "type": "checkbox", "label": {"ru": "Замена компрессора запланирована при заклине", "en": "Compressor replacement scheduled if seized"}}
+        {"id": "replacement_scheduled", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Замена компрессора запланирована при заклине", "en": "Compressor replacement scheduled if seized"}}
       ]
     },
 
@@ -1206,7 +1206,7 @@
         {"ru": "Если установлено смотровое стекло — проверьте на пузыри/влагу", "en": "If a sight glass is installed, check for bubbles/moisture"}
       ],
       "checklist": [
-        {"id": "recovery_done", "type": "checkbox", "label": {"ru": "Выполнены recovery/вакуумирование/перезаправка при необходимости", "en": "Recovery/evacuation/recharge done if needed"}}
+        {"id": "recovery_done", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Выполнены recovery/вакуумирование/перезаправка при необходимости", "en": "Recovery/evacuation/recharge done if needed"}}
       ]
     },
 
@@ -1342,8 +1342,8 @@
       "checklist": [
         {"id": "leak_located", "type": "checkbox", "label": {"ru": "Утечка локализована (детектор/УФ-краситель)", "en": "Leak located (electronic detector/UV dye)"}},
         {"id": "leak_location", "type": "field", "label": {"ru": "Место утечки", "en": "Leak location"}},
-        {"id": "leak_repaired", "type": "checkbox", "label": {"ru": "Утечка устранена до перезаправки", "en": "Leak repaired before recharging"}},
-        {"id": "full_recharge_done", "type": "checkbox", "label": {"ru": "Полная перезаправка по массе согласно шильдику", "en": "Full recharge by weight per nameplate"}}
+        {"id": "leak_repaired", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Утечка устранена до перезаправки", "en": "Leak repaired before recharging"}},
+        {"id": "full_recharge_done", "type": "checkbox", "fixing_phase": true, "label": {"ru": "Полная перезаправка по массе согласно шильдику", "en": "Full recharge by weight per nameplate"}}
       ]
     },
 

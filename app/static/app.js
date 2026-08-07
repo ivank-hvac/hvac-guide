@@ -971,8 +971,9 @@ function renderFinishScreen() {
   });
   cardEl.appendChild(summary);
 
-  if (node && node.checklist && node.checklist.length) {
-    renderChecklist(nodeId, node.checklist, cardEl);
+  const activeChecklist = node ? (node.checklist || []).filter((item) => !item.fixing_phase) : [];
+  if (activeChecklist.length) {
+    renderChecklist(nodeId, activeChecklist, cardEl);
   }
 
   // The finish screen has the fullest picture available (graph path +
@@ -2581,9 +2582,13 @@ function renderResult(node) {
   const intakeBtn = buildIntakeTriggerButton(state.currentId);
   if (intakeBtn) cardEl.appendChild(intakeBtn);
 
-  if (node.checklist && node.checklist.length) {
+  // fixing_phase items (recovery/recharge/replacement confirmations) belong to
+  // a future repair-tracking phase, not troubleshooting — hidden for now
+  // rather than deleted, so they're ready to re-enable once that phase exists.
+  const activeChecklist = (node.checklist || []).filter((item) => !item.fixing_phase);
+  if (activeChecklist.length) {
     const resultNodeId = state.currentId;
-    renderChecklist(resultNodeId, node.checklist, cardEl);
+    renderChecklist(resultNodeId, activeChecklist, cardEl);
 
     const finishBtn = document.createElement("button");
     finishBtn.className = "btn input-action";
@@ -2701,6 +2706,7 @@ function checklistAnswers() {
     if (!node || !node.checklist) return;
     const values = state.checklist[nodeId];
     node.checklist.forEach((item) => {
+      if (item.fixing_phase) return;
       const value = values[item.id];
       if (!isChecklistItemDone(value, item.type)) return;
       const answer = item.type === "field" ? (item.unit ? `${value} ${item.unit}` : String(value)) : "✓";
