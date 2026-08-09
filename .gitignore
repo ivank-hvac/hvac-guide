@@ -11,6 +11,11 @@ CLAUDE.md
 # choices, not app logic. Lives in the encrypted CLAUDE.md/memory backup
 # pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
 /tools/bootstrap-dev-vm.sh
+/tools/backup-to-pinas01.sh
+
+# Machine-local Claude Code permission allowlist (settings.json next to it
+# is shared on purpose; this one is per-clone scratch)
+.claude/settings.local.json
 
 # Python
 __pycache__/
