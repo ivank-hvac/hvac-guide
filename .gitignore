@@ -7,6 +7,11 @@
 # unreleased plans) - never meant for the public repo
 CLAUDE.md
 
+# Same reasoning as CLAUDE.md above - hardcodes pinas01's IP/hostnames/user
+# choices, not app logic. Lives in the encrypted CLAUDE.md/memory backup
+# pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
+/tools/bootstrap-dev-vm.sh
+
 # Python
 __pycache__/
 *.py[cod]
