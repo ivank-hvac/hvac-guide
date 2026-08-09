@@ -12,6 +12,8 @@ CLAUDE.md
 # pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
 /tools/bootstrap-dev-vm.sh
 /tools/backup-to-pinas01.sh
+/tools/deploy-prod.sh
+/tools/prod-status.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
