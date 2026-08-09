@@ -13,9 +13,10 @@ CLAUDE.md
 /tools/bootstrap-dev-vm.sh
 /tools/backup-to-pinas01.sh
 
-# Machine-local Claude Code permission allowlist (settings.json next to it
-# is shared on purpose; this one is per-clone scratch)
-.claude/settings.local.json
+# Claude Code's own working files (permission allowlists, agents, local
+# scratch) - tooling config for whoever happens to be developing this, not
+# part of the app. Same reasoning as CLAUDE.md above.
+.claude/
 
 # Python
 __pycache__/
