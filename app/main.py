@@ -750,9 +750,13 @@ def _gather_panel_stats() -> Dict[str, Any]:
         ai_calls_truncated = conn.execute(
             "SELECT COUNT(*) AS n FROM ai_calls WHERE stop_reason = 'max_tokens'"
         ).fetchone()["n"]
-        ai_calls_avg = conn.execute(
+        # MAX alongside AVG: the average hides the tail, and the tail is what
+        # says whether the heaviest real requests are getting close to
+        # AI_ASSIST_MAX_TOKENS / AI_DEEP_DIVE_MAX_TOKENS.
+        ai_calls_tokens = conn.execute(
             """
-            SELECT AVG(tokens_in) AS tin, AVG(tokens_out) AS tout
+            SELECT AVG(tokens_in) AS tin, AVG(tokens_out) AS tout,
+                   MAX(tokens_in) AS tin_max, MAX(tokens_out) AS tout_max
             FROM ai_calls WHERE stop_reason != 'rate_limited'
             """
         ).fetchone()
@@ -864,8 +868,10 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "ai_used_total": ai_used_row["total"] or 0,
         "ai_calls_total": ai_calls_total,
         "ai_calls_truncated": ai_calls_truncated,
-        "ai_calls_avg_tokens_in": ai_calls_avg["tin"],
-        "ai_calls_avg_tokens_out": ai_calls_avg["tout"],
+        "ai_calls_avg_tokens_in": ai_calls_tokens["tin"],
+        "ai_calls_avg_tokens_out": ai_calls_tokens["tout"],
+        "ai_calls_max_tokens_in": ai_calls_tokens["tin_max"],
+        "ai_calls_max_tokens_out": ai_calls_tokens["tout_max"],
         "ai_calls_429": ai_calls_429,
         "intake_opened": intake_opened,
         "intake_completed": intake_completed,
@@ -1031,6 +1037,8 @@ def _render_panel_html() -> str:
     <div class="stat"><div class="n">{_pct(stats['ai_calls_truncated'], stats['ai_calls_total'])}</div><div class="label">truncation rate</div></div>
     <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_avg_tokens_in'])}</div><div class="label">avg tokens in</div></div>
     <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_avg_tokens_out'])}</div><div class="label">avg tokens out</div></div>
+    <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_max_tokens_in'])}</div><div class="label">max tokens in</div></div>
+    <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_max_tokens_out'])}</div><div class="label">max tokens out</div></div>
     <div class="stat"><div class="n">{_esc(stats['ai_calls_429'])}</div><div class="label">429s (rate-limited)</div></div>
   </div>
 </section>
