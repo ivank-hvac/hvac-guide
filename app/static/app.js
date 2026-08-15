@@ -738,6 +738,38 @@ function equipmentLabel() {
   return answerLabel(first);
 }
 
+// Stable key for the chosen equipment type ("rtu", "chiller", ...), taken
+// from the `equipment` field on the start node's options rather than from
+// the option's index — the option order in graph.json is content, and
+// content gets reordered.
+function equipmentKey() {
+  const first = state.answers[0];
+  if (!first || first.nodeId !== GRAPH.start || first.optionIndex == null) return null;
+  const startNode = GRAPH.nodes[GRAPH.start];
+  const opt = startNode && startNode.options && startNode.options[first.optionIndex];
+  return (opt && opt.equipment) || null;
+}
+
+// Where an answered option leads. Two graph.json conventions on top of a
+// plain `next`:
+//   "__pending__"    - resume wherever the equipment-type choice was headed
+//                      (see the universal power/thermostat gate questions)
+//   nextByEquipment  - route by equipment class, with a `default`. Exists so
+//                      advice that only applies to some equipment doesn't get
+//                      handed to a tech whose machine physically can't have
+//                      the part in question (the case that prompted it:
+//                      king/queen valve advice on an RTU, which has no
+//                      receiver — see lp_stable_check).
+function resolveOptionNext(opt) {
+  if (opt.nextByEquipment) {
+    const key = equipmentKey();
+    const byEquipment = opt.nextByEquipment;
+    if (key && byEquipment[key]) return byEquipment[key];
+    return byEquipment.default;
+  }
+  return opt.next === "__pending__" ? state.pendingNodeId : opt.next;
+}
+
 function saveSession(status = "active") {
   localStorage.setItem("hvac_session_id", state.sessionId);
   fetch("./api/session", {
@@ -1759,13 +1791,7 @@ function renderQuestion(node) {
         render();
         return;
       }
-      // "__pending__" is a graph.json convention (used by thermostat_check's
-      // "Yes" option) for "resume wherever the equipment-type choice was
-      // originally headed" — lets the universal power/thermostat gate
-      // questions live as plain shared nodes instead of being duplicated
-      // per equipment type just to know where to route afterward.
-      const nextId = opt.next === "__pending__" ? state.pendingNodeId : opt.next;
-      goTo(nextId, { prevId: state.currentId });
+      goTo(resolveOptionNext(opt), { prevId: state.currentId });
     };
     opts.appendChild(b);
   });
