@@ -14,6 +14,7 @@ CLAUDE.md
 /tools/backup-to-pinas01.sh
 /tools/deploy-prod.sh
 /tools/prod-status.sh
+/tools/drive-notes.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
