@@ -39,8 +39,25 @@ def trunc(text: str, n: int = 40) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
+def option_targets(opt: dict) -> list:
+    """
+    Куда ведёт вариант ответа: [(node_id, суффикс подписи), ...].
+
+    Обычно один переход по `next`, но вариант может ветвиться по типу
+    оборудования (`nextByEquipment` — см. app.js resolveOptionNext): тогда
+    рёбер несколько, и в подписи указывается, для какого оборудования.
+    """
+    by_equipment = opt.get("nextByEquipment")
+    if by_equipment:
+        return [
+            (target, "" if key == "default" else f" [{key}]")
+            for key, target in by_equipment.items()
+        ]
+    return [(opt["next"], "")]
+
+
 def reachable(nodes: dict, root: str) -> set:
-    """BFS от root по всем option.next — для --root фильтра."""
+    """BFS от root по всем переходам вариантов — для --root фильтра."""
     seen, stack = set(), [root]
     while stack:
         cur = stack.pop()
@@ -50,7 +67,7 @@ def reachable(nodes: dict, root: str) -> set:
         node = nodes[cur]
         if node.get("type") == "question":
             for opt in node.get("options", []):
-                stack.append(opt["next"])
+                stack.extend(target for target, _ in option_targets(opt))
     return seen
 
 
@@ -93,10 +110,10 @@ def main():
 
         if ntype == "question":
             for opt in node.get("options", []):
-                target = opt["next"]
-                if target in include:
-                    opt_label = trunc(text_of(opt["label"], args.lang), 30)
-                    lines.append(f'    {nid} -->|"{opt_label}"| {sid(target)}')
+                for target, suffix in option_targets(opt):
+                    if target in include:
+                        opt_label = trunc(text_of(opt["label"], args.lang), 30) + suffix
+                        lines.append(f'    {nid} -->|"{opt_label}"| {sid(target)}')
 
     root_id = args.root or data.get("start", "start")
     lines.append(f"    Start((Старт)) --> {sid(root_id)}")

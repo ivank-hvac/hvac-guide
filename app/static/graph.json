@@ -292,12 +292,12 @@
       "type": "question",
       "text": {"ru": "Выберите тип оборудования", "en": "Select equipment type"},
       "options": [
-        {"label": {"ru": "RTU / Packaged Unit (крышный кондиционер)", "en": "RTU / Packaged Unit (rooftop unit)"}, "next": "rtu_symptom"},
-        {"label": {"ru": "Сплит-система / Ductless", "en": "Split system / Ductless (mini-split)"}, "next": "split_symptom"},
-        {"label": {"ru": "VRF / VRV", "en": "VRF / VRV"}, "next": "vrf_symptom"},
-        {"label": {"ru": "Чиллер (Chiller)", "en": "Chiller"}, "next": "chiller_symptom"},
-        {"label": {"ru": "Холодильное оборудование (walk-in / reach-in)", "en": "Refrigeration equipment (walk-in / reach-in)"}, "next": "refrig_symptom"},
-        {"label": {"ru": "Печь / Forced-air furnace", "en": "Furnace / Forced-air furnace"}, "next": "furnace_symptom"}
+        {"label": {"ru": "RTU / Packaged Unit (крышный кондиционер)", "en": "RTU / Packaged Unit (rooftop unit)"}, "next": "rtu_symptom", "equipment": "rtu"},
+        {"label": {"ru": "Сплит-система / Ductless", "en": "Split system / Ductless (mini-split)"}, "next": "split_symptom", "equipment": "split"},
+        {"label": {"ru": "VRF / VRV", "en": "VRF / VRV"}, "next": "vrf_symptom", "equipment": "vrf"},
+        {"label": {"ru": "Чиллер (Chiller)", "en": "Chiller"}, "next": "chiller_symptom", "equipment": "chiller"},
+        {"label": {"ru": "Холодильное оборудование (walk-in / reach-in)", "en": "Refrigeration equipment (walk-in / reach-in)"}, "next": "refrig_symptom", "equipment": "refrigeration"},
+        {"label": {"ru": "Печь / Forced-air furnace", "en": "Furnace / Forced-air furnace"}, "next": "furnace_symptom", "equipment": "furnace"}
       ]
     },
 
@@ -1214,7 +1214,7 @@
       "type": "question",
       "text": {"ru": "Фильтр и airflow на испарителе в норме?", "en": "Are the filter and evaporator airflow OK?"},
       "options": [
-        {"label": {"ru": "Да, airflow в норме", "en": "Yes, airflow is fine"}, "next": "lp_airflow_ok"},
+        {"label": {"ru": "Да, airflow в норме", "en": "Yes, airflow is fine"}, "next": "lp_stable_check"},
         {"label": {"ru": "Нет, ограничен/грязный фильтр", "en": "No, restricted/dirty filter"}, "next": "lp_airflow_bad"}
       ]
     },
@@ -1227,6 +1227,51 @@
         "ru": "Недостаточный airflow через испаритель — самая частая причина срабатывания защиты по низкому давлению и последующего замерзания. Замените/очистите фильтр, проверьте засор испарителя, вентилятор/ремень, воздуховоды и положение заслонок.",
         "en": "Insufficient airflow across the evaporator is the most common cause of low-pressure trips and subsequent freeze-ups. Replace/clean the filter, check the coil for blockage, the blower/belt, ductwork, and damper positions."
       }
+    },
+
+    "lp_stable_check": {
+      "type": "question",
+      "text": {
+        "ru": "Компрессор успевает поработать достаточно долго, чтобы показания стабилизировались, или защита по низкому давлению выбивает его почти сразу (short-cycling)?",
+        "en": "Does the compressor run long enough for the readings to stabilize, or does the low-pressure safety trip it almost immediately (short-cycling)?"
+      },
+      "options": [
+        {"label": {"ru": "Успевает, показания стабильны", "en": "It runs long enough, readings are stable"}, "next": "lp_airflow_ok"},
+        {
+          "label": {"ru": "Отключается почти сразу, стабильных показаний не снять", "en": "It trips almost immediately, no stable readings possible"},
+          "nextByEquipment": {"chiller": "lp_rapid_trip_result_receiver", "refrigeration": "lp_rapid_trip_result_receiver", "default": "lp_rapid_trip_result_rtu"}
+        }
+      ]
+    },
+
+    "lp_rapid_trip_result_rtu": {
+      "type": "result",
+      "severity": "warning",
+      "ai": true,
+      "text": {
+        "ru": "Защита выбивает раньше, чем давление успевает стабилизироваться — значит замер перегрева/переохлаждения сейчас физически недостоверен, и опираться на него нельзя. Сначала нужно понять, почему давление проваливается на старте. Куда смотреть на RTU/сплите: подача жидкости к испарителю (TXV или piston/fixed orifice — частичная блокировка, обмерзание, забитый фильтр-осушитель перед ним), реальный заряд (утечка даёт ровно такую картину), и само LP-реле — оно могло уйти по калибровке или залипать. Обратите внимание: на RTU/сплите обычно НЕТ ресивера, а значит нет и king/queen valve — совет 'проверьте, открыт ли king valve' к этому оборудованию не относится, искать его там бессмысленно.",
+        "en": "The safety trips before the pressure can stabilize, which means any superheat/subcooling reading taken now is physically unreliable — don't build on it. First work out why the pressure collapses on start-up. Where to look on an RTU/split: liquid feed to the evaporator (TXV or piston/fixed orifice — partial restriction, icing, a plugged filter-drier ahead of it), the actual charge (a leak produces exactly this picture), and the LP switch itself, which may have drifted out of calibration or be sticking. Note: RTUs and splits normally have NO receiver, and therefore no king/queen valve — 'check whether the king valve is open' does not apply to this equipment, there is nothing there to find."
+      },
+      "related_checks": [
+        {"ru": "LP/HP-реле на RTU обычно заводское и впаяно в контур: если калибровка ушла — это замена реле, а не подстройка в поле", "en": "LP/HP switches on an RTU are usually factory-set and brazed into the circuit: if the calibration has drifted, that's a switch replacement, not a field adjustment"},
+        {"ru": "Metering device (TXV или piston) — обмерзание/иней на входе, перепад температуры на фильтре-осушителе", "en": "Metering device (TXV or piston) — icing/frost at the inlet, temperature drop across the filter-drier"},
+        {"ru": "Масляные потёки в нетипичных местах — признак утечки, а утечка даёт ту же картину быстрого срабатывания LP", "en": "Oil traces in unusual places — a sign of a leak, and a leak produces the same rapid LP-trip picture"}
+      ]
+    },
+
+    "lp_rapid_trip_result_receiver": {
+      "type": "result",
+      "severity": "warning",
+      "ai": true,
+      "text": {
+        "ru": "Защита выбивает раньше, чем давление успевает стабилизироваться — замер перегрева/переохлаждения сейчас физически недостоверен, опираться на него нельзя. На системе с ресивером сначала проверьте, доходит ли жидкость до испарителя вообще: king/queen valve на жидкостной линии (не прикрыт ли частично после последнего обслуживания), соленоид на жидкостной линии, фильтр-осушитель на перепад, и подачу через metering device. Отдельно — сами настройки LP-реле: на этом классе оборудования они, в отличие от RTU, обычно настраиваемые, и cut-in/cut-out/differential могли быть выставлены не по паспорту.",
+        "en": "The safety trips before the pressure can stabilize, so any superheat/subcooling reading taken now is physically unreliable — don't build on it. On a system with a receiver, first confirm liquid is reaching the evaporator at all: the king/queen valve on the liquid line (partially closed after the last service?), the liquid-line solenoid, the filter-drier's temperature drop, and the feed through the metering device. Separately, check the LP switch settings themselves: unlike an RTU, this class of equipment usually has adjustable switches, and cut-in/cut-out/differential may have been set away from spec."
+      },
+      "related_checks": [
+        {"ru": "King valve на жидкостной линии — полностью открыт?", "en": "King valve on the liquid line — fully open?"},
+        {"ru": "Настройки LP switch (cut-in/cut-out/differential) соответствуют паспорту оборудования?", "en": "Do the LP switch settings (cut-in/cut-out/differential) match the equipment's spec?"},
+        {"ru": "Масляные потёки в нетипичных местах — признак утечки, а утечка даёт ту же картину быстрого срабатывания LP", "en": "Oil traces in unusual places — a sign of a leak, and a leak produces the same rapid LP-trip picture"}
+      ]
     },
 
     "lp_airflow_ok": {
