@@ -18,6 +18,9 @@ See also: [ROADMAP.md](ROADMAP.md) — future feature direction;
 [commands.md](commands.md) — cheat sheet of every prod command without
 explanations; [SECRETS.md](SECRETS.md) — optional: keeping the API key out
 of `.env` entirely via Bitwarden Secrets Manager (works on the free tier);
+[CONTRIBUTING.md](CONTRIBUTING.md) — what kind of help is most useful (field
+corrections beat refactors); [SECURITY.md](SECURITY.md) — reporting security
+issues privately; [LICENSE](LICENSE) — MIT;
 [CHANGELOG.md](CHANGELOG.md) — change history by date
 (kept in Russian, by choice — its only real audience is the author).
 
@@ -32,6 +35,24 @@ technician. (This is separate from the narrower AI-specific safety
 disclaimer shown as a banner in the app and appended to every AI response —
 that one is about the AI's answers specifically; this one is about using the
 tool at all.)
+
+**Safety.** Diagnosing live equipment means live electrical circuits,
+refrigerant under pressure, and — on heating equipment — combustion and
+carbon monoxide. Nothing here overrides lock-out/tag-out, your local codes,
+or your own training. If a step in the checklist would be unsafe on the
+machine in front of you, don't take it.
+
+**Scope.** The content targets ordinary commercial and light-commercial
+air conditioning and refrigeration: RTUs, splits, VRF/VRV, chillers,
+walk-in/reach-in refrigeration and forced-air furnaces. It does **not**
+cover ultra-low-temperature refrigeration (roughly below -30 °C / -22 °F),
+which has its own failure modes and its own safety rules. RTU content is the
+most thoroughly reviewed; other equipment classes are being brought up to
+the same standard, so treat their advice with extra scepticism and check
+that any component mentioned actually exists on your machine.
+
+**Terminology and units** follow North American field practice. Codes,
+recovery requirements and licensing differ by jurisdiction — yours governs.
 
 ## Quick start
 
