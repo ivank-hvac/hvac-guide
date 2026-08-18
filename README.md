@@ -13,6 +13,15 @@ text is pre-translated, no on-the-fly machine translation. The English version
 uses North American HVAC/R terminology and units (furnace, breaker,
 disconnect, °F, psig, etc.), not a literal translation from Russian.
 
+**Who wrote this.** The diagnostic content — the question graph, the
+terminology, what counts as a sensible next step with your hands on the
+equipment — comes from the author, an HVAC/R journeyman working in Winnipeg.
+Most of the code around it was written with Claude Code, an AI coding
+assistant, working from that direction; commits carry a `Co-Authored-By`
+trailer where that applies. Diagnostic content is reviewed against field
+practice before it ships: the AI doesn't get to invent HVAC advice unchecked,
+and where it has tried, that's a bug the review is there to catch.
+
 See also: [ROADMAP.md](ROADMAP.md) — future feature direction;
 [DEPLOY.md](DEPLOY.md) — deploy by phase, updating, rollback;
 [commands.md](commands.md) — cheat sheet of every prod command without
