@@ -40,7 +40,8 @@ RUN set -eux; \
 # works. An EXISTING volume keeps whatever ownership it already had, which
 # for deployments created before this change is root — see DEPLOY.md for the
 # one-time chown that upgrade needs.
-RUN useradd --system --uid 10001 --user-group --no-create-home hvac \
+RUN groupadd --system --gid 10001 hvac \
+    && useradd --system --uid 10001 --gid 10001 --no-create-home hvac \
     && mkdir -p /app/data \
     && chown -R hvac:hvac /app
 
