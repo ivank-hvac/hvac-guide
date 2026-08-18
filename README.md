@@ -16,7 +16,9 @@ disconnect, °F, psig, etc.), not a literal translation from Russian.
 See also: [ROADMAP.md](ROADMAP.md) — future feature direction;
 [DEPLOY.md](DEPLOY.md) — deploy by phase, updating, rollback;
 [commands.md](commands.md) — cheat sheet of every prod command without
-explanations; [CHANGELOG.md](CHANGELOG.md) — change history by date
+explanations; [SECRETS.md](SECRETS.md) — optional: keeping the API key out
+of `.env` entirely via Bitwarden Secrets Manager (works on the free tier);
+[CHANGELOG.md](CHANGELOG.md) — change history by date
 (kept in Russian, by choice — its only real audience is the author).
 
 ## Disclaimer
