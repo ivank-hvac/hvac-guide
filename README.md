@@ -15,7 +15,7 @@ disconnect, °F, psig, etc.), not a literal translation from Russian.
 
 **Who wrote this.** The diagnostic content — the question graph, the
 terminology, what counts as a sensible next step with your hands on the
-equipment — comes from the author, an HVAC/R journeyman working in Winnipeg.
+equipment — comes from the author, an HVAC/R enthusiast in Winnipeg.
 Most of the code around it was written with Claude Code, an AI coding
 assistant, working from that direction; commits carry a `Co-Authored-By`
 trailer where that applies. Diagnostic content is reviewed against field
