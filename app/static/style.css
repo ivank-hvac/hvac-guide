@@ -614,3 +614,11 @@ footer {
   text-align: center;
   opacity: 0.6;
 }
+
+/* The source link sits in the same muted footer line as the commit hash and
+   deliberately doesn't stand out — it's there to satisfy AGPL section 13 and
+   for the curious, not to pull attention away from the diagnosis. */
+.version-info a {
+  color: inherit;
+  text-decoration: underline;
+}
