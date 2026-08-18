@@ -15,6 +15,7 @@ CLAUDE.md
 /tools/deploy-prod.sh
 /tools/prod-status.sh
 /tools/drive-notes.sh
+/tools/backup-watchdog.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
