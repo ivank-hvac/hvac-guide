@@ -20,9 +20,15 @@ explanations; [SECRETS.md](SECRETS.md) — optional: keeping the API key out
 of `.env` entirely via Bitwarden Secrets Manager (works on the free tier);
 [CONTRIBUTING.md](CONTRIBUTING.md) — what kind of help is most useful (field
 corrections beat refactors); [SECURITY.md](SECURITY.md) — reporting security
-issues privately; [LICENSE](LICENSE) — MIT;
+issues privately; [LICENSE](LICENSE) — AGPL-3.0;
 [CHANGELOG.md](CHANGELOG.md) — change history by date
 (kept in Russian, by choice — its only real audience is the author).
+
+## License
+
+[AGPL-3.0](LICENSE). Use it, change it, run it — but if you run a modified
+version as a network service, the people using it are entitled to that
+modified source. Chosen over a permissive licence for exactly that reason.
 
 ## Disclaimer
 
