@@ -1,7 +1,7 @@
 # Contributing
 
-Thanks for looking. This is a personal project by a working HVAC/R
-journeyman, so the most valuable contributions are usually not code.
+Thanks for looking. This is a personal project by an HVAC/R enthusiast, so
+the most valuable contributions are usually not code.
 
 ## What helps most
 
