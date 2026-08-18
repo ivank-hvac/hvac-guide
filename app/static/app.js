@@ -592,6 +592,21 @@ function generateSessionId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
     return window.crypto.randomUUID();
   }
+  // randomUUID is secure-context-only, so it is simply absent when the app is
+  // served over plain HTTP (any self-host following the README's Quick start,
+  // for instance). getRandomValues has no such restriction — use it to build
+  // the same UUIDv4 rather than falling back to Date.now()+Math.random(),
+  // which is predictable enough to enumerate other people's session ids.
+  if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+    const b = new Uint8Array(16);
+    window.crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40; // version 4
+    b[8] = (b[8] & 0x3f) | 0x80; // variant 10x
+    const hex = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  // No Web Crypto at all: pre-2017 browsers only. Kept so the app still runs
+  // rather than throwing, but such a session id must be treated as guessable.
   return `sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 

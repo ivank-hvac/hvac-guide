@@ -470,8 +470,18 @@ def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
 def _get_session(session_id: str) -> Optional[Dict[str, Any]]:
     with _db_connect() as conn:
         conn.row_factory = sqlite3.Row
+        # Columns listed explicitly, NOT "SELECT *": this endpoint is
+        # unauthenticated (anyone holding a session_id can read it), and the
+        # `ip` column added later for the /panel dashboard would otherwise be
+        # handed straight back to the caller. Any column added here in future
+        # is opt-in for this response rather than opt-out.
         row = conn.execute(
-            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+            """
+            SELECT session_id, equipment, node_path, checklist_state,
+                   status, created_at, updated_at, completed_at
+            FROM sessions WHERE session_id = ?
+            """,
+            (session_id,),
         ).fetchone()
     if row is None:
         return None

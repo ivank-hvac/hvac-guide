@@ -90,6 +90,32 @@ The `post-merge` git hook automatically refreshes
 are enabled on this machine (see below). Without them nothing breaks, the
 version in the footer/label will just show `unknown`.
 
+## Upgrading past the non-root container change (one time)
+
+The image runs as the unprivileged user `hvac` (uid 10001) rather than root.
+A brand-new deployment needs nothing extra — Docker seeds an empty named
+volume from the image directory, ownership included.
+
+A deployment that already has a `hvac_data` volume from before this change
+does need one step. The existing volume is still owned by root, the new
+non-root process cannot write to it, and the container will fail to open the
+sessions database:
+
+```bash
+docker compose -f docker-compose.prod.yml down
+docker run --rm -v hvac-guide_hvac_data:/data alpine chown -R 10001:10001 /data
+docker compose -f docker-compose.prod.yml -f docker-compose.bitwarden.yml up -d --build
+```
+
+Check the volume name first with `docker volume ls` — compose prefixes it
+with the project directory name, so it is usually `hvac-guide_hvac_data`.
+
+Verify afterwards that the process is no longer root:
+
+```bash
+docker exec hvac-guide id     # uid=10001(hvac)
+```
+
 ## Build version
 
 Every image is tagged with the commit it was built from — you can check
