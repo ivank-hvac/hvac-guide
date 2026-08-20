@@ -32,7 +32,20 @@ RUN set -eux; \
     apt-get purge -y --auto-remove curl unzip; \
     rm -rf /var/lib/apt/lists/*
 
-COPY app/ .
+# Run as a dedicated unprivileged service user rather than root. uvicorn
+# binds 8000, so no privileged port is needed and nothing here requires root
+# at runtime. /app/data is created and owned here because that is where the
+# named volume gets mounted — Docker seeds a NEW empty volume from the
+# image's directory (content and ownership), so a fresh deployment just
+# works. An EXISTING volume keeps whatever ownership it already had, which
+# for deployments created before this change is root — see DEPLOY.md for the
+# one-time chown that upgrade needs.
+RUN groupadd --system --gid 10001 hvac \
+    && useradd --system --uid 10001 --gid 10001 --no-create-home hvac \
+    && mkdir -p /app/data \
+    && chown -R hvac:hvac /app
+
+COPY --chown=hvac:hvac app/ .
 
 # Populated by docker-compose's build.args (see docker-compose*.yml), which
 # in turn read GIT_COMMIT/GIT_COMMIT_DATE from .env — kept fresh by the
@@ -46,5 +59,7 @@ ENV GIT_COMMIT=${GIT_COMMIT} \
     GIT_COMMIT_DATE=${GIT_COMMIT_DATE}
 
 EXPOSE 8000
+
+USER hvac
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
