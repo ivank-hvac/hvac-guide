@@ -68,6 +68,9 @@ LOG_SESSION_RATE_LIMIT = os.getenv("LOG_SESSION_RATE_LIMIT", "30/minute")
 # Where completed checklist paths (answers + final node + AI outcome) are
 # stored for later pattern analysis — see README "История чек-листов".
 SESSIONS_DB_PATH = os.getenv("SESSIONS_DB_PATH", "data/sessions.db")
+# How long a write waits for a competing write to finish before giving up.
+# See _db_connect for why leaving this at SQLite's default of 0 is a bug.
+SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 
 # How many resumable-session save/restore calls a single IP may make per
 # minute. Separate from LOG_SESSION_RATE_LIMIT above: that one fires once per
@@ -134,6 +137,17 @@ def _db_connect() -> sqlite3.Connection:
         os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(SESSIONS_DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
+    # WAL lets readers and one writer work concurrently, but a second writer
+    # can still find the database locked, and SQLite's default busy timeout is
+    # 0 — it gives up instantly instead of waiting, surfacing as a 500.
+    #
+    # This is insurance, not a fix for an observed failure: 60 concurrent
+    # upserts with ~28KB node_path payloads produced zero lock errors even
+    # with the timeout left at 0, because each write here is a single short
+    # statement. It earns its keep on a slower disk or at concurrency this
+    # app has not seen yet, where the alternative is an instant error rather
+    # than a brief wait.
+    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
     return conn
 
 
@@ -470,8 +484,18 @@ def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
 def _get_session(session_id: str) -> Optional[Dict[str, Any]]:
     with _db_connect() as conn:
         conn.row_factory = sqlite3.Row
+        # Columns listed explicitly, NOT "SELECT *": this endpoint is
+        # unauthenticated (anyone holding a session_id can read it), and the
+        # `ip` column added later for the /panel dashboard would otherwise be
+        # handed straight back to the caller. Any column added here in future
+        # is opt-in for this response rather than opt-out.
         row = conn.execute(
-            "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
+            """
+            SELECT session_id, equipment, node_path, checklist_state,
+                   status, created_at, updated_at, completed_at
+            FROM sessions WHERE session_id = ?
+            """,
+            (session_id,),
         ).fetchone()
     if row is None:
         return None
