@@ -10,6 +10,19 @@
 	# exceptions (this is exactly what happened while the address was a
 	# domain name).
 	auto_https off
+
+	# The application sits behind two proxies: an edge Caddy on a public host
+	# and this one, reached over a WireGuard tunnel. Without this block every
+	# request arrives from the tunnel peer, so the app sees one client for the
+	# whole internet and its per-client rate limits are meaningless.
+	#
+	# Only the tunnel peer is trusted. X-Forwarded-For is attacker-controlled
+	# up to the point it enters infrastructure we run, so the address is taken
+	# from the trusted end of the chain, not from whatever the client sent.
+	servers {
+		trusted_proxies static 10.0.1.1
+		client_ip_headers X-Forwarded-For
+	}
 }
 
 :80 {
@@ -48,5 +61,10 @@
 		format json
 	}
 
-	reverse_proxy {$CADDY_UPSTREAM}
+	reverse_proxy {$CADDY_UPSTREAM} {
+		# Resolved by Caddy against trusted_proxies above, so the application
+		# receives one header it can rely on instead of parsing a chain and
+		# having to decide which element is not forged.
+		header_up X-Real-IP {client_ip}
+	}
 }
