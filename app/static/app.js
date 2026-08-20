@@ -89,6 +89,7 @@ const I18N = {
     graphLaunchReviewBtn: "↺ Посмотреть результат",
     componentCheckSaveBtn: "✓ Сохранить и вернуться к чек-листу",
     componentCheckDescPlaceholder: "Дополнительное описание (опционально)",
+    charsLeft: "Осталось символов: {n}",
   },
   en: {
     back: "← Back",
@@ -171,10 +172,18 @@ const I18N = {
     graphLaunchReviewBtn: "↺ View result",
     componentCheckSaveBtn: "✓ Save & return to checklist",
     componentCheckDescPlaceholder: "Additional description (optional)",
+    charsLeft: "Characters left: {n}",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
 const DEFAULT_LANG = "ru";
+
+// Mirrors of the request-size caps in app/main.py (MAX_ANSWER_FIELD_LEN /
+// MAX_FREE_TEXT_LEN) — the server stays authoritative, these only stop the
+// tech from typing past it and losing the text to a bare 422. Must be
+// changed together with main.py.
+const MAX_ANSWER_FIELD_LEN = 400;
+const MAX_FREE_TEXT_LEN = 2000;
 
 // ---- Unit conversions ---------------------------------------------------
 // graph.json authors write each value in a single "native" unit only
@@ -648,6 +657,27 @@ function ui() {
   return I18N[LANG] || I18N[DEFAULT_LANG];
 }
 
+// Caps a free-text field at the server's limit and returns a live counter
+// element to place under it. The counter keeps its height whether or not it
+// is highlighted (see .char-counter) — this is read on a phone, in the
+// field, and a line that grows/shrinks while typing would nudge every tap
+// target below it.
+function attachCharCounter(el, limit) {
+  el.maxLength = limit;
+  const counter = document.createElement("div");
+  counter.className = "char-counter";
+  // Only the last 10% is worth pulling the tech's eye off the equipment.
+  const warnAt = Math.ceil(limit / 10);
+  const update = () => {
+    const left = limit - el.value.length;
+    counter.textContent = ui().charsLeft.replace("{n}", left);
+    counter.classList.toggle("near-limit", left <= warnAt);
+  };
+  el.addEventListener("input", update);
+  update();
+  return counter;
+}
+
 async function loadGraph() {
   const [graphRes] = await Promise.all([
     fetch("./graph.json"),
@@ -956,6 +986,9 @@ function renderChecklist(nodeId, items, container) {
   items.forEach((item) => {
     const row = document.createElement("label");
     row.className = "checklist-item";
+    // Hung under the row rather than inside it — .checklist-item is a flex
+    // row, so a counter placed in it would land beside the field.
+    let counter = null;
 
     if (item.type === "field") {
       const labelEl = document.createElement("span");
@@ -965,6 +998,10 @@ function renderChecklist(nodeId, items, container) {
       input.type = "text";
       input.className = "checklist-field-input" + (item.unit ? " numeric" : "");
       input.value = values[item.id] || "";
+      // A field with a unit is a few digits (see .checklist-field-input.numeric)
+      // — worth capping against a paste, but a counter there is just noise.
+      if (item.unit) input.maxLength = MAX_ANSWER_FIELD_LEN;
+      else counter = attachCharCounter(input, MAX_ANSWER_FIELD_LEN);
       input.addEventListener("input", () => {
         values[item.id] = input.value;
         updateProgress();
@@ -996,6 +1033,7 @@ function renderChecklist(nodeId, items, container) {
       row.appendChild(labelEl);
     }
     wrap.appendChild(row);
+    if (counter) wrap.appendChild(counter);
   });
 
   updateProgress();
@@ -1266,6 +1304,11 @@ function renderIntakeChecklist() {
       input.id = `intake-field-${item.id}`;
       input.value = entry.value || "";
       input.disabled = entry.skipped || !!lockedBy;
+      // Same split as renderChecklist: unit-bearing fields are numeric
+      // readings, so they get the cap but not a counter.
+      let counter = null;
+      if (item.unit) input.maxLength = MAX_ANSWER_FIELD_LEN;
+      else counter = attachCharCounter(input, MAX_ANSWER_FIELD_LEN);
       // Only updates the gate (button/hint), never a full re-render — a
       // full render() on every keystroke would reset focus/cursor position
       // mid-typing. Safe here because showIf conditions in this graph only
@@ -1306,6 +1349,7 @@ function renderIntakeChecklist() {
       }
       fieldRow.appendChild(naBtn);
       row.appendChild(fieldRow);
+      if (counter) row.appendChild(counter);
     } else if (item.type === "select") {
       const group = document.createElement("div");
       group.className = "intake-toggle-group";
@@ -1609,6 +1653,12 @@ function renderComponentCheck() {
     state.componentCheck.description = descInput.value;
   });
   cardEl.appendChild(descInput);
+  // The finding is saved as "<result text> — <description>" and travels to
+  // the server as ONE answer field (see finishComponentCheck), so what the
+  // tech may type is the cap minus the result text already spent on it.
+  cardEl.appendChild(
+    attachCharCounter(descInput, Math.max(0, MAX_ANSWER_FIELD_LEN - (t(node.text).length + " — ".length)))
+  );
 
   const saveBtn = document.createElement("button");
   saveBtn.className = "btn input-action";
@@ -1933,9 +1983,14 @@ function renderManufacturerStep() {
   otherInput.placeholder = strings.manufacturerOtherPlaceholder;
   otherInput.style.display = "none";
   cardEl.appendChild(otherInput);
+  const otherCounter = attachCharCounter(otherInput, MAX_ANSWER_FIELD_LEN);
+  otherCounter.style.display = "none";
+  cardEl.appendChild(otherCounter);
 
   select.addEventListener("change", () => {
-    otherInput.style.display = select.value === "other" ? "block" : "none";
+    const show = select.value === "other" ? "block" : "none";
+    otherInput.style.display = show;
+    otherCounter.style.display = show;
   });
 
   const modelWrap = document.createElement("div");
@@ -1949,6 +2004,7 @@ function renderManufacturerStep() {
   modelInput.className = "numeric-input";
   modelInput.placeholder = strings.modelPlaceholder;
   modelWrap.appendChild(modelInput);
+  modelWrap.appendChild(attachCharCounter(modelInput, MAX_ANSWER_FIELD_LEN));
   cardEl.appendChild(modelWrap);
 
   const nextBtn = document.createElement("button");
@@ -2686,6 +2742,7 @@ function renderAiPrompt(node) {
   const textarea = document.createElement("textarea");
   textarea.placeholder = strings.freeformPlaceholder;
   cardEl.appendChild(textarea);
+  cardEl.appendChild(attachCharCounter(textarea, MAX_FREE_TEXT_LEN));
 
   const sendBtn = document.createElement("button");
   sendBtn.className = "btn ai";
