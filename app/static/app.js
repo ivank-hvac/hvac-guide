@@ -184,6 +184,12 @@ const DEFAULT_LANG = "ru";
 // changed together with main.py.
 const MAX_ANSWER_FIELD_LEN = 400;
 const MAX_FREE_TEXT_LEN = 2000;
+// Numeric readings need far less room than a text field: six digits, a
+// decimal separator and a sign cover every pressure, temperature, current or
+// micron value this tool asks for. Capping them keeps a measurement field
+// from ever approaching the server's 400-char answer limit once the unit
+// suffix is appended to the stored value.
+const MAX_NUMERIC_FIELD_LEN = 10;
 
 // ---- Unit conversions ---------------------------------------------------
 // graph.json authors write each value in a single "native" unit only
@@ -296,6 +302,9 @@ function formatNumericValue(value, unit) {
 // one leading "-" (only when the node allows negative values) and one ".".
 function sanitizeNumericInput(raw, allowNegative) {
   let s = raw.replace(allowNegative ? /[^0-9.\-]/g : /[^0-9.]/g, "");
+  // Capped here as well as via maxLength: this runs on every input event, so
+  // it also covers paths maxLength does not, such as a programmatic paste.
+  if (s.length > MAX_NUMERIC_FIELD_LEN) s = s.slice(0, MAX_NUMERIC_FIELD_LEN);
   if (allowNegative) {
     const negative = s.startsWith("-");
     s = s.replace(/-/g, "");
@@ -2096,6 +2105,7 @@ function renderNumericInput(node) {
   const input = document.createElement("input");
   input.type = "text";
   input.inputMode = "decimal";
+  input.maxLength = MAX_NUMERIC_FIELD_LEN;
   input.autocomplete = "off";
   input.className = "numeric-input narrow";
   input.placeholder = "0";
@@ -2203,6 +2213,7 @@ function renderMeasurement(node) {
     const input = document.createElement("input");
     input.type = "text";
     input.inputMode = "decimal";
+    input.maxLength = MAX_NUMERIC_FIELD_LEN;
     input.autocomplete = "off";
     input.className = "numeric-input narrow";
     input.placeholder = "0";
