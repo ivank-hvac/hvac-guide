@@ -90,6 +90,7 @@ const I18N = {
     componentCheckSaveBtn: "✓ Сохранить и вернуться к чек-листу",
     componentCheckDescPlaceholder: "Дополнительное описание (опционально)",
     charsLeft: "Осталось символов: {n}",
+    quotaRemaining: "Обращений к ассистенту сегодня осталось: {n}",
   },
   en: {
     back: "← Back",
@@ -173,6 +174,7 @@ const I18N = {
     componentCheckSaveBtn: "✓ Save & return to checklist",
     componentCheckDescPlaceholder: "Additional description (optional)",
     charsLeft: "Characters left: {n}",
+    quotaRemaining: "Assistant requests left today: {n}",
   },
 };
 const SUPPORTED_LANGS = Object.keys(I18N);
@@ -2923,6 +2925,20 @@ function renderAiText(el, text) {
   el.innerHTML = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
+// Warn while there is still room to act, rather than refusing without notice
+// partway through a diagnosis. Silent below half the allowance, a plain note
+// from there, and an unmistakable one for the last tenth.
+function renderQuotaNotice(target, remaining, limit) {
+  if (typeof remaining !== "number" || typeof limit !== "number" || limit <= 0) return;
+  const share = remaining / limit;
+  if (share > 0.5) return;
+  const strings = ui();
+  const notice = document.createElement("div");
+  notice.className = share <= 0.1 ? "quota-notice critical" : "quota-notice";
+  notice.textContent = strings.quotaRemaining.replace("{n}", remaining);
+  target.appendChild(notice);
+}
+
 async function runAiAssist({ context, freeText, target, onDone, nodeId, severity }) {
   const strings = ui();
   target.innerHTML = "";
@@ -2951,6 +2967,10 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
         // session, since that answer set has real extra grounding to
         // reason over, not just the plain symptom-graph path.
         deep_dive: state.intakeAsked,
+        // The backend refuses requests that carry no live session: a real
+        // technician always has one by this point, an automated caller
+        // hitting the endpoint directly does not.
+        session_id: state.sessionId,
       }),
     });
     const data = await r.json();
@@ -2969,6 +2989,7 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
       warning.appendChild(warningText);
       target.appendChild(warning);
     }
+    renderQuotaNotice(target, data.calls_remaining, data.calls_limit);
     logSession({ finalNodeId: nodeId, severity, freeText, aiUsed: true, aiAnalysis: data.analysis });
   } catch (err) {
     resp.className = "ai-response error";
