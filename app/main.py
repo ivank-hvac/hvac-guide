@@ -1,5 +1,6 @@
 import asyncio
 import html
+import ipaddress
 import json
 import logging
 import os
@@ -134,7 +135,31 @@ elif MONITOR_PANEL_TOKEN_STATUS == "unsafe":
         "`openssl rand -hex 16`."
     )
 
-limiter = Limiter(key_func=get_remote_address)
+def client_key(request: Request) -> str:
+    """The address rate limits and statistics are counted against.
+
+    Behind a proxy, request.client.host is the proxy, so every visitor lands
+    in one bucket and a single caller can exhaust the limit for everyone.
+    X-Real-IP is set by the internal Caddy from its own trusted_proxies
+    resolution, so by the time it arrives here the value has already been
+    taken from the trusted end of the forwarding chain rather than from
+    anything the client could set.
+
+    Trusting the header is safe only because the application publishes no
+    host port and is reachable solely through that proxy; the value is still
+    validated, so a malformed header degrades to the old behaviour instead
+    of poisoning the key with arbitrary text.
+    """
+    forwarded = request.headers.get("x-real-ip", "").strip()
+    if forwarded:
+        try:
+            return str(ipaddress.ip_address(forwarded))
+        except ValueError:
+            pass
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=client_key)
 
 app = FastAPI(title="HVAC Troubleshooting Guide")
 app.state.limiter = limiter
@@ -709,7 +734,7 @@ async def _rate_limit_exceeded_handler_with_logging(request: Request, exc: RateL
             tokens_out=None,
             stop_reason="rate_limited",
             latency_ms=0,
-            ip=get_remote_address(request),
+            ip=client_key(request),
         )
     return _rate_limit_exceeded_handler(request, exc)
 
@@ -785,7 +810,7 @@ async def ai_assist(request: Request, req: AssistRequest):
         tokens_out=usage.get("output_tokens"),
         stop_reason=stop_reason,
         latency_ms=latency_ms,
-        ip=get_remote_address(request),
+        ip=client_key(request),
     )
     # calls_remaining lets the interface warn before the technician runs out,
     # rather than refusing mid-diagnosis with no warning at all.
@@ -807,7 +832,7 @@ async def log_session(request: Request, req: LogSessionRequest):
 @app.post("/api/session")
 @limiter.limit(SESSION_RATE_LIMIT)
 async def save_session(request: Request, req: SessionUpsertRequest):
-    await run_in_threadpool(_upsert_session, req, get_remote_address(request))
+    await run_in_threadpool(_upsert_session, req, client_key(request))
     return {"status": "ok"}
 
 
