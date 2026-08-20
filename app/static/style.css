@@ -316,6 +316,22 @@ textarea {
   min-height: 1.1em;
 }
 
+/* Same muted small-print register as .numeric-hint above, and reserved
+   height for the same reason: the line is always present, so nothing below
+   it moves as the count changes while typing. Only goes loud (--warn, the
+   palette's existing "pay attention, not an error" colour) in the last 10%. */
+.char-counter {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-height: 1.1em;
+  text-align: right;
+}
+
+.char-counter.near-limit {
+  color: var(--warn);
+}
+
 .measurement-field {
   display: flex;
   flex-direction: column;
