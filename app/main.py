@@ -938,6 +938,23 @@ def _gather_panel_stats() -> Dict[str, Any]:
             "SELECT COUNT(*) AS n FROM ai_calls WHERE stop_reason = 'rate_limited'"
         ).fetchone()["n"]
 
+        # A node technicians keep taking to the assistant is a node whose own
+        # text isn't answering their question — so this ranking is a to-do
+        # list for graph content, not a popularity score. 429s are left out
+        # (as everywhere else in this section): a rate-limited call carries no
+        # node context and would only pad the "no node" row.
+        top_ai_nodes = [
+            (row["context"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT COALESCE(TRIM(node_context), '') AS context, COUNT(*) AS n
+                FROM ai_calls WHERE stop_reason != 'rate_limited'
+                GROUP BY COALESCE(TRIM(node_context), '')
+                ORDER BY n DESC LIMIT 10
+                """
+            )
+        ]
+
         node_path_blobs = [row["node_path"] for row in conn.execute(
             "SELECT node_path FROM sessions"
         )]
@@ -1047,6 +1064,7 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "ai_calls_max_tokens_in": ai_calls_tokens["tin_max"],
         "ai_calls_max_tokens_out": ai_calls_tokens["tout_max"],
         "ai_calls_429": ai_calls_429,
+        "top_ai_nodes": top_ai_nodes,
         "intake_opened": intake_opened,
         "intake_completed": intake_completed,
         "intake_drop_by_phase": drop_by_phase,
@@ -1118,6 +1136,17 @@ def _render_panel_html() -> str:
         for phase_id in stats["phase_ids"]
         if stats["intake_drop_by_phase"].get(phase_id, 0)
     ]
+
+    # node_context holds the node's own prose, not an id (see /api/ai-assist),
+    # so labels are clipped here — the bar-label CSS ellipsis alone would
+    # still ship whole paragraphs into the downloadable copy of this page.
+    ai_node_rows = []
+    for label, n in stats["top_ai_nodes"]:
+        if not label:
+            label = "(free-text prompt screen — no node)"
+        elif len(label) > 68:
+            label = label[:67].rstrip() + "…"
+        ai_node_rows.append((label, n))
 
     now_local = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
     generated_at = now_local.strftime("%Y-%m-%d %H:%M %Z")
@@ -1215,6 +1244,12 @@ def _render_panel_html() -> str:
     <div class="stat"><div class="n">{_round_or_dash(stats['ai_calls_max_tokens_out'])}</div><div class="label">max tokens out</div></div>
     <div class="stat"><div class="n">{_esc(stats['ai_calls_429'])}</div><div class="label">429s (rate-limited)</div></div>
   </div>
+</section>
+
+<section>
+  <h2>Nodes the assistant is asked about most (top 10)</h2>
+  <h2 style="font-size:.85rem;color:#8b93a1;margin-top:0">Repeat questions on a node = that node's own text isn't saying enough — a to-do list for graph content</h2>
+  {_bar_chart(ai_node_rows, "no AI calls recorded yet")}
 </section>
 
 <a class="download" href="?token={_esc(MONITOR_PANEL_TOKEN)}&download=1">Download statistics</a>
