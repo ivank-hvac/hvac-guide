@@ -32,5 +32,18 @@
 	# To disable basic auth and open access to everyone — comment out the
 	# basicauth block above (no need to touch the application code).
 
+	# Access logging is off by default in Caddy, which means an incident — or
+	# a penetration test — leaves no trace at all. JSON to stderr keeps this
+	# file free of host-specific paths: `docker compose logs caddy` works for a
+	# plain self-host, and a deployment that ships logs elsewhere can collect
+	# them from the container's log file without extra volumes.
+	#
+	# Request headers are NOT logged: the Authorization header would otherwise
+	# put basic-auth credentials in plain text into every single log line.
+	log {
+		output stderr
+		format json
+	}
+
 	reverse_proxy {$CADDY_UPSTREAM}
 }
