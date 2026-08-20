@@ -20,17 +20,20 @@
 	# Without `sed`-escaping, docker compose swallows everything after the
 	# first "$" in the value from .env when substituting
 	# ${CADDY_BASIC_AUTH_HASH} — the hash ends up truncated to 5-6 characters
-	# in the container, basicauth won't accept any password, and the login
+	# in the container, basic_auth won't accept any password, and the login
 	# prompt keeps reappearing for everyone. Check what actually made it into
 	# the container:
 	#   docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
 	# (should be the full ~60-character string, not a stub like "$2a$14").
-	basicauth {
+	# `basic_auth` is the current spelling; Caddy renamed it in 2.8 and warns
+	# on every start about the old `basicauth`. Anyone self-hosting on a Caddy
+	# older than 2.8 needs the old spelling instead.
+	basic_auth {
 		{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 	}
 	# --- Phase 2 (public launch) ---
 	# To disable basic auth and open access to everyone — comment out the
-	# basicauth block above (no need to touch the application code).
+	# basic_auth block above (no need to touch the application code).
 
 	# Access logging is off by default in Caddy, which means an incident — or
 	# a penetration test — leaves no trace at all. JSON to stderr keeps this
