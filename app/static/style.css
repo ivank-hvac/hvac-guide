@@ -320,6 +320,26 @@ textarea {
    height for the same reason: the line is always present, so nothing below
    it moves as the count changes while typing. Only goes loud (--warn, the
    palette's existing "pay attention, not an error" colour) in the last 10%. */
+/* Quota warning. Deliberately quiet at the halfway mark and unmistakable in
+   the last tenth: the point is to let a technician finish the job on the
+   requests left, not to nag. The pink reads as "running out" without the
+   alarm of an error state, which this is not — the checklist keeps working
+   either way. */
+.quota-notice {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid rgba(139, 147, 163, 0.35);
+}
+
+.quota-notice.critical {
+  color: #ffd7e4;
+  background: rgba(255, 122, 168, 0.14);
+  border-color: rgba(255, 122, 168, 0.55);
+}
+
 .char-counter {
   font-family: var(--mono);
   font-size: 0.72rem;
