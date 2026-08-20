@@ -72,6 +72,15 @@ SESSIONS_DB_PATH = os.getenv("SESSIONS_DB_PATH", "data/sessions.db")
 # See _db_connect for why leaving this at SQLite's default of 0 is a bug.
 SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 
+# Daily ceilings on AI usage. These bound the bill and the blast radius in a
+# way rate limiting cannot: a per-minute limit still allows unlimited spend
+# given enough minutes. The per-session figure is what a technician sees
+# counting down; the global one is the wallet guard and should stay well
+# under the provider's own spend limit so this fails first, with a message,
+# rather than the provider failing opaquely mid-diagnosis.
+AI_DAILY_LIMIT_PER_SESSION = int(os.getenv("AI_DAILY_LIMIT_PER_SESSION", "100"))
+AI_DAILY_LIMIT_GLOBAL = int(os.getenv("AI_DAILY_LIMIT_GLOBAL", "400"))
+
 # How many resumable-session save/restore calls a single IP may make per
 # minute. Separate from LOG_SESSION_RATE_LIMIT above: that one fires once per
 # completed checklist, this one fires on every debounced save while a
@@ -230,6 +239,20 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_ai_calls_created ON ai_calls(created_at)"
         )
+        # Quota counters live apart from ai_calls on purpose: ai_calls is
+        # deliberately aggregate and carries no session id, and adding one
+        # there to support limits would quietly undo that. This table holds
+        # nothing but a count per session per day.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai_quota (
+                session_id TEXT NOT NULL,
+                day TEXT NOT NULL,
+                calls INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (session_id, day)
+            )
+            """
+        )
 
 
 init_db()
@@ -329,6 +352,28 @@ def build_system_prompt(lang: str) -> str:
     )
 
 
+NO_SESSION_ERROR = {
+    "ru": "Сначала пройдите диагностику по чек-листу — ассистент отвечает только "
+          "в контексте начатой сессии.",
+    "en": "Start a checklist diagnosis first — the assistant only answers in the "
+          "context of an active session.",
+}
+
+DAILY_SESSION_LIMIT_ERROR = {
+    "ru": "На сегодня лимит обращений к ассистенту исчерпан. Диагностика по "
+          "чек-листу продолжает работать; лимит обновится завтра.",
+    "en": "You have used today's assistant requests. The checklist diagnosis keeps "
+          "working; the limit resets tomorrow.",
+}
+
+DAILY_GLOBAL_LIMIT_ERROR = {
+    "ru": "Ассистент временно недоступен: исчерпан общий дневной лимит обращений. "
+          "Диагностика по чек-листу продолжает работать.",
+    "en": "The assistant is temporarily unavailable: the shared daily request limit "
+          "is used up. The checklist diagnosis keeps working.",
+}
+
+
 class Answer(BaseModel):
     question: str = Field(max_length=MAX_ANSWER_FIELD_LEN)
     answer: str = Field(max_length=MAX_ANSWER_FIELD_LEN)
@@ -343,6 +388,10 @@ class AssistRequest(BaseModel):
     # has gone through the intake checklist this session, so this request's
     # answers carry that richer context. See AI_DEEP_DIVE_MAX_TOKENS.
     deep_dive: bool = False
+    # Required in practice: the endpoint refuses requests whose session did
+    # not walk the graph. Optional in the model so a missing value produces a
+    # clear 403 rather than a validation error a caller cannot interpret.
+    session_id: Optional[str] = Field(default=None, max_length=MAX_SESSION_ID_LEN)
 
     @field_validator("answers")
     @classmethod
@@ -561,6 +610,66 @@ EMPTY_MODEL_RESPONSE = {
 }
 
 
+def _session_is_live(session_id: str) -> bool:
+    """True if this id belongs to a session that actually walked the graph.
+
+    The cheapest honest signal we have against automated abuse, and it is
+    structural rather than textual: a real technician arrives here having
+    picked equipment and answered questions, so a session row exists and its
+    node_path is non-empty. A script hitting /api/ai-assist directly has
+    neither. Unlike trying to recognise "suspicious" wording, this cannot be
+    defeated by rephrasing — only by actually walking the graph, which costs
+    the attacker the very speed the attack depends on.
+    """
+    with _db_connect() as conn:
+        row = conn.execute(
+            "SELECT node_path FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    if row is None:
+        return False
+    try:
+        return bool(json.loads(row[0]))
+    except (TypeError, ValueError):
+        return False
+
+
+def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
+    """Reserve one AI call against today's allowances.
+
+    Reserved before the provider is called rather than recorded after, so a
+    request that fails or times out still costs quota — the conservative
+    direction when the thing being protected is a metered API key.
+    """
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with _db_connect() as conn:
+        used_global = conn.execute(
+            "SELECT COALESCE(SUM(calls), 0) FROM ai_quota WHERE day = ?", (day,)
+        ).fetchone()[0]
+        if used_global >= AI_DAILY_LIMIT_GLOBAL:
+            return {"allowed": False, "scope": "global", "remaining": 0,
+                    "limit": AI_DAILY_LIMIT_PER_SESSION}
+
+        row = conn.execute(
+            "SELECT calls FROM ai_quota WHERE session_id = ? AND day = ?",
+            (session_id, day),
+        ).fetchone()
+        used = row[0] if row else 0
+        if used >= AI_DAILY_LIMIT_PER_SESSION:
+            return {"allowed": False, "scope": "session", "remaining": 0,
+                    "limit": AI_DAILY_LIMIT_PER_SESSION}
+
+        conn.execute(
+            """
+            INSERT INTO ai_quota (session_id, day, calls) VALUES (?, ?, 1)
+            ON CONFLICT(session_id, day) DO UPDATE SET calls = calls + 1
+            """,
+            (session_id, day),
+        )
+    return {"allowed": True, "scope": None,
+            "remaining": AI_DAILY_LIMIT_PER_SESSION - (used + 1),
+            "limit": AI_DAILY_LIMIT_PER_SESSION}
+
+
 def _log_ai_call(
     node_context: Optional[str],
     tokens_in: Optional[int],
@@ -613,6 +722,15 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler_with_l
 async def ai_assist(request: Request, req: AssistRequest):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail=SETUP_ERROR[req.lang])
+
+    if not req.session_id or not await run_in_threadpool(_session_is_live, req.session_id):
+        raise HTTPException(status_code=403, detail=NO_SESSION_ERROR[req.lang])
+
+    quota = await run_in_threadpool(_consume_ai_quota, req.session_id)
+    if not quota["allowed"]:
+        detail = (DAILY_GLOBAL_LIMIT_ERROR if quota["scope"] == "global"
+                  else DAILY_SESSION_LIMIT_ERROR)[req.lang]
+        raise HTTPException(status_code=429, detail=detail)
 
     labels = USER_MESSAGE_LABELS[req.lang]
     answers_text = "\n".join(f"- {a.question} -> {a.answer}" for a in req.answers)
@@ -669,7 +787,14 @@ async def ai_assist(request: Request, req: AssistRequest):
         latency_ms=latency_ms,
         ip=get_remote_address(request),
     )
-    return {"analysis": text or EMPTY_MODEL_RESPONSE[req.lang], "truncated": truncated}
+    # calls_remaining lets the interface warn before the technician runs out,
+    # rather than refusing mid-diagnosis with no warning at all.
+    return {
+        "analysis": text or EMPTY_MODEL_RESPONSE[req.lang],
+        "truncated": truncated,
+        "calls_remaining": quota["remaining"],
+        "calls_limit": quota["limit"],
+    }
 
 
 @app.post("/api/log-session")
