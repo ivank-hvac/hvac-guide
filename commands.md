@@ -97,7 +97,7 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
 
 # Disable basic auth (Phase 2 — open to everyone):
-# 1. Comment out the basicauth { ... } block in Caddyfile
+# 1. Comment out the basic_auth { ... } block in Caddyfile
 # 2. docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 ```
 

@@ -72,7 +72,7 @@ above).
 
 ## Phase 2 — open to everyone
 
-1. In `Caddyfile`, comment the `basicauth { ... }` block back out.
+1. In `Caddyfile`, comment the `basic_auth { ... }` block back out.
 2. In `.env`, tighten `AI_ASSIST_RATE_LIMIT` (e.g. `3/minute`) if you expect
    a lot of traffic.
 3. `docker compose -f docker-compose.prod.yml up -d --force-recreate caddy`
