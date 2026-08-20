@@ -1,0 +1,29 @@
+# Optional override: ship Caddy's access log off the host as it is written.
+#
+# Why off-host at all: logs that live only on the machine being attacked are
+# the first thing an intruder edits, and they are also lost with the machine.
+#
+# Why UDP and not TCP: Docker's syslog driver opens the connection when the
+# container starts, so a TCP target that is down stops the container from
+# starting at all. That would make this deployment depend on the log
+# collector being up, which is a far worse failure than losing log lines.
+# UDP never blocks. The cost is best-effort delivery, acceptable on a trusted
+# local segment and for data that is useful in aggregate.
+#
+# Trade-off worth knowing: this REPLACES the default json-file driver for the
+# caddy service, so `docker compose logs caddy` no longer shows its output on
+# this host — the collector holds it instead. The application container is
+# untouched and still logs locally.
+#
+# Usage — SYSLOG_ADDRESS comes from .env, e.g. udp://192.168.100.42:5514
+#   docker compose -f docker-compose.prod.yml \
+#                  -f docker-compose.bitwarden.yml \
+#                  -f docker-compose.logging.yml up -d
+services:
+  caddy:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "${SYSLOG_ADDRESS}"
+        tag: "caddy"
+        syslog-format: "rfc5424"
