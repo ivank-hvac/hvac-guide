@@ -11,6 +11,18 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
         GIT_COMMIT_DATE: ${GIT_COMMIT_DATE:-unknown}
     container_name: hvac-guide
+    # Bounded on purpose: the log is a ring, not an archive. Two rotated
+    # files of 10 MB each cap what any traffic spike — a scan, a flood — can
+    # write to disk, while still holding plenty for local debugging. The
+    # durable copy lives on the collector, shipped by rsyslog on the host,
+    # which is deliberately NOT wired into the container's start: a logging
+    # driver that dials the network makes the container fail to start when
+    # the network is not up yet, which is how a reboot took the site down.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     ports:
       - "8080:8000"
     environment:
