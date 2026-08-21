@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Literal, Optional
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -1290,4 +1290,17 @@ class NoCacheStaticFiles(StaticFiles):
 
 # Static frontend (index.html, app.js, style.css, graph.json) — mounted last so
 # /api/* routes above take precedence.
+# The tool itself is served from a named path rather than from "/", so that
+# "/" can be a public description page. A path with no trailing slash keeps
+# relative URLs in the page resolving against the root, so the API calls and
+# asset references inside it need no rewriting and cannot drift out of sync
+# with where the page happens to be mounted.
+@app.get("/diagnose", include_in_schema=False)
+async def diagnose_page():
+    return FileResponse(
+        os.path.join("static", "tool.html"),
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 app.mount("/", NoCacheStaticFiles(directory="static", html=True), name="static")
