@@ -703,6 +703,7 @@ async function loadGraph() {
     // was seeded with at module load) so the footer/screenshot is accurate
     // even before the technician picks Continue vs. Start over.
     state.sessionId = resumable.session_id;
+    state.pendingResume = resumable;
     renderResumePrompt(resumable);
   } else {
     goTo(GRAPH.start, { pushHistory: false });
@@ -917,6 +918,7 @@ function renderResumePrompt(data) {
 }
 
 function resumeSession(data) {
+  state.pendingResume = null;
   const np = data.node_path || {};
   state = {
     currentId: np.currentId || GRAPH.start,
@@ -943,6 +945,7 @@ function resumeSession(data) {
 // before a brand-new session starts. Reuses the same upsert shape, just
 // with the last-known node_path/checklist_state resubmitted as-is.
 function abandonAndRestart(data) {
+  state.pendingResume = null;
   fetch("./api/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1752,7 +1755,14 @@ function setLang(lang) {
   localStorage.setItem("hvac_lang", lang);
   document.documentElement.lang = lang;
   updateStaticUi();
-  if (GRAPH) render();
+  // The resume prompt is not a graph node, so re-rendering through render()
+  // would look up a node that isn't there and blank the screen. Redraw the
+  // screen that is actually showing instead.
+  if (state.pendingResume) {
+    renderResumePrompt(state.pendingResume);
+  } else if (GRAPH) {
+    render();
+  }
 }
 
 function updateStaticUi() {
