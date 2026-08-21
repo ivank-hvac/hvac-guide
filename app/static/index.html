@@ -1,38 +1,168 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>HVAC Troubleshooting Guide</title>
 <link rel="icon" href="./favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
 <link rel="apple-touch-icon" href="./icon-512.png">
 <link rel="stylesheet" href="./style.css">
+<style>
+/* Landing-only layout. The palette comes from style.css so this page and the
+   tool cannot drift apart visually. */
+.landing { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.landing h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+.landing .tagline { color: var(--muted); margin: 0 0 1.75rem; }
+.landing h2 { font-size: 1rem; margin: 2rem 0 .6rem; }
+.landing p, .landing li { line-height: 1.55; }
+.landing ul { padding-left: 1.1rem; }
+.landing .card {
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: 12px; padding: 1rem 1.1rem; margin: 1rem 0;
+}
+.landing .card.beta { border-color: var(--warn); }
+.landing .card.beta strong { color: var(--warn); }
+.landing .enter {
+  display: block; width: 100%; text-align: center; text-decoration: none;
+  background: var(--accent); color: #06121d; font-weight: 600;
+  padding: 0.95rem 1rem; border-radius: 10px; margin: 1.75rem 0 .5rem;
+  font-size: 1.05rem;
+}
+.landing .foot { color: var(--muted); font-size: .82rem; margin-top: 2.5rem; }
+.landing .foot a { color: inherit; }
+.lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1rem; }
+.lang-switch button {
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
+.lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+[data-lang-block] { display: none; }
+[data-lang-block].shown { display: block; }
+</style>
 </head>
 <body>
-  <div id="disclaimer" class="disclaimer"></div>
-  <div class="wrap">
-    <header>
-      <div class="header-top">
-        <h1><img class="header-icon" src="./icon-512.png" alt="">HVAC Troubleshooting Guide</h1>
-        <div class="lang-switch">
-          <button class="lang-btn" data-lang="ru">RU</button>
-          <button class="lang-btn" data-lang="en">EN</button>
-        </div>
-      </div>
-    </header>
+<div class="landing">
 
-    <main id="card" class="card"></main>
-
-    <footer>
-      <button id="backBtn" class="btn ghost" style="display:none"></button>
-      <button id="restartBtn" class="btn ghost"></button>
-    </footer>
-    <div id="breadcrumb" class="breadcrumb"></div>
-    <div id="footerDisclaimer" class="footer-disclaimer"></div>
-    <div id="versionInfo" class="version-info"></div>
+  <div class="lang-switch">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="ru">RU</button>
   </div>
 
-  <script src="./app.js"></script>
+  <section data-lang-block="en">
+    <h1>HVAC Troubleshooting Guide</h1>
+    <p class="tagline">A structured fault-finding checklist for HVAC/R equipment.</p>
+
+    <p>This tool walks a technician through diagnosis one question at a time —
+    rooftop units, split systems, VRF/VRV, chillers, commercial refrigeration and
+    furnaces. It exists to make skipping a basic step inconvenient, because under
+    time pressure that is what gets skipped.</p>
+
+    <p>It does not tell you what is wrong. It narrows the search and keeps the
+    order honest; the conclusion stays with the technician.</p>
+
+    <div class="card beta">
+      <p><strong>Public beta.</strong> Content is being reviewed equipment type
+      by equipment type, starting with rooftop units. Advice for other equipment
+      may be incomplete or wrong. Treat every suggestion as a lead to verify, not
+      an instruction to follow.</p>
+    </div>
+
+    <h2>Safety</h2>
+    <p>Diagnosis means live circuits, systems under pressure and, on gas
+    equipment, combustion. Follow lockout/tagout and the codes that apply where
+    you work. If a step is outside your qualifications or licensing, stop and
+    hand it to someone qualified.</p>
+
+    <h2>What is recorded</h2>
+    <p>Your answers, checklist entries and any free-text notes are stored so a
+    session can be resumed, together with the request address and timestamps. It
+    is used to understand where the tool falls short and to keep the assistant
+    from being abused. Do not enter customer names, addresses or anything else
+    identifying a person or a site.</p>
+
+    <h2>The AI assistant</h2>
+    <p>On request, the collected answers are sent to an AI model for a second
+    opinion. Its output is generated text, not a verified diagnosis, and it can
+    be confidently wrong. There is a daily limit per session.</p>
+
+    <a class="enter" href="/diagnose">Start a diagnosis →</a>
+  </section>
+
+  <section data-lang-block="ru">
+    <h1>HVAC Troubleshooting Guide</h1>
+    <p class="tagline">Структурированный чек-лист поиска неисправностей в HVAC/R.</p>
+
+    <p>Инструмент ведёт техника по диагностике вопрос за вопросом — RTU, сплит-системы,
+    VRF/VRV, чиллеры, коммерческое холодильное оборудование и печи. Его задача — сделать
+    пропуск базового шага неудобным, потому что под давлением времени пропускают именно их.</p>
+
+    <p>Он не называет неисправность. Он сужает поиск и удерживает порядок проверок;
+    вывод остаётся за техником.</p>
+
+    <div class="card beta">
+      <p><strong>Публичная бета.</strong> Контент выверяется по типам оборудования,
+      начиная с RTU. Для остального советы могут быть неполными или неверными.
+      Считайте любую подсказку поводом проверить, а не указанием к действию.</p>
+    </div>
+
+    <h2>Безопасность</h2>
+    <p>Диагностика — это цепи под напряжением, системы под давлением, а на газовом
+    оборудовании ещё и горение. Соблюдайте LOTO и нормы, действующие там, где вы
+    работаете. Если шаг выходит за рамки вашей квалификации или лицензии — остановитесь
+    и передайте тому, у кого она есть.</p>
+
+    <h2>Что сохраняется</h2>
+    <p>Ваши ответы, отметки чек-листа и свободные заметки сохраняются, чтобы сессию можно
+    было продолжить, вместе с адресом запроса и временем. Это нужно, чтобы понимать, где
+    инструмент недоговаривает, и чтобы ассистентом не злоупотребляли. Не вводите имена
+    клиентов, адреса объектов и всё, что позволяет опознать человека или объект.</p>
+
+    <h2>AI-ассистент</h2>
+    <p>По запросу собранные ответы отправляются в языковую модель за вторым мнением.
+    Её ответ — сгенерированный текст, а не проверенный диагноз, и он может быть уверенно
+    неверным. Есть дневной лимит обращений на сессию.</p>
+
+    <a class="enter" href="/diagnose">Начать диагностику →</a>
+  </section>
+
+  <p class="foot">
+    <span data-lang-block="en" class="shown">Open source under AGPL-3.0 —
+      <a href="https://github.com/ivank-hvac/hvac-guide">source code</a>.
+      Built by an HVAC enthusiast in Winnipeg.</span>
+    <span data-lang-block="ru">Открытый исходный код под AGPL-3.0 —
+      <a href="https://github.com/ivank-hvac/hvac-guide">исходники</a>.
+      Сделано HVAC-энтузиастом в Виннипеге.</span>
+  </p>
+</div>
+
+<script>
+// Mirrors the tool's own language preference so switching here does not get
+// undone the moment the technician enters the checklist.
+(function () {
+  var SUPPORTED = ["en", "ru"];
+  function apply(lang) {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-lang-block]").forEach(function (el) {
+      el.classList.toggle("shown", el.getAttribute("data-lang-block") === lang);
+    });
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-set-lang") === lang);
+    });
+    try { localStorage.setItem("hvac_lang", lang); } catch (e) {}
+  }
+  var saved;
+  try { saved = localStorage.getItem("hvac_lang"); } catch (e) {}
+  if (!SUPPORTED.includes(saved)) {
+    saved = SUPPORTED.includes((navigator.language || "").slice(0, 2))
+      ? navigator.language.slice(0, 2) : "en";
+  }
+  apply(saved);
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+    b.onclick = function () { apply(b.getAttribute("data-set-lang")); };
+  });
+})();
+</script>
 </body>
 </html>
