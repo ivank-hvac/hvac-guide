@@ -980,6 +980,24 @@ def _gather_panel_stats() -> Dict[str, Any]:
             "SELECT answers_json FROM checklist_sessions"
         )]
 
+        # Sessions where the assistant's own response triggered the redaction
+        # in _save_session — nothing sensitive to show here (the content is
+        # already replaced with FLAGGED_CONTENT_PLACEHOLDER at write time),
+        # just enough to point at which session to look up if it needs
+        # follow-up. Kept as its own query rather than folded into the stats
+        # above so an empty result stays cheap and the row disappears from
+        # the panel entirely rather than rendering an empty section.
+        flagged_sessions = [
+            (row["session_id"], row["updated_at"], row["final_node_id"])
+            for row in conn.execute(
+                """
+                SELECT session_id, updated_at, final_node_id FROM checklist_sessions
+                WHERE free_text = ? ORDER BY updated_at DESC LIMIT 20
+                """,
+                (FLAGGED_CONTENT_PLACEHOLDER,),
+            )
+        ]
+
         ai_used_row = conn.execute(
             "SELECT COUNT(*) AS total, SUM(ai_used) AS used FROM checklist_sessions"
         ).fetchone()
@@ -1137,6 +1155,7 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "phase_ids": [p["id"] for p in phases],
         "hour_counts": hour_counts,
         "top_ips": top_ips,
+        "flagged_sessions": flagged_sessions,
     }
 
 
@@ -1217,6 +1236,34 @@ def _render_panel_html() -> str:
     now_local = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
     generated_at = now_local.strftime("%Y-%m-%d %H:%M %Z")
 
+    # Nothing sensitive to render here — free_text/answers are already
+    # redacted to FLAGGED_CONTENT_PLACEHOLDER at write time (see
+    # _save_session) — just enough per row to find the session for
+    # follow-up. Renders nothing at all when the list is empty, so a quiet
+    # instance doesn't grow a permanent empty red box.
+    flagged_section_html = ""
+    if stats["flagged_sessions"]:
+        flagged_rows = []
+        for session_id, updated_at, final_node_id in stats["flagged_sessions"]:
+            try:
+                ts = datetime.fromisoformat(updated_at).astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+            except (TypeError, ValueError):
+                ts = _esc(updated_at)
+            flagged_rows.append(
+                f'<div class="flagged-row">'
+                f'<span class="flagged-session">session {_esc(session_id[:8])}</span>'
+                f'<span class="flagged-node">{_esc(final_node_id)}</span>'
+                f'<span class="flagged-ts">{_esc(ts)}</span>'
+                f"</div>"
+            )
+        flagged_section_html = f"""
+<section class="flagged">
+  <h2>🚩 Flagged by the assistant ({_esc(len(stats['flagged_sessions']))})</h2>
+  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">Free-text content was withheld from storage on these — see CLAUDE.md "Публичный запуск". Look up the session id in sessions.db for anything beyond this.</p>
+  {"".join(flagged_rows)}
+</section>
+"""
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1237,6 +1284,16 @@ def _render_panel_html() -> str:
     padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
   }}
   h2 {{ font-size: 1rem; margin: 0 0 1rem; color: #cdd3dc; }}
+  section.flagged {{ border-color: #e5484d; background: #2a1518; }}
+  section.flagged h2 {{ color: #ff7a7f; }}
+  .flagged-row {{
+    display: flex; gap: 1rem; padding: .5rem 0; border-top: 1px solid #4a2226;
+    font-size: .85rem; flex-wrap: wrap;
+  }}
+  .flagged-row:first-of-type {{ border-top: none; }}
+  .flagged-session {{ font-family: monospace; color: #ff7a7f; }}
+  .flagged-node {{ color: #cdd3dc; }}
+  .flagged-ts {{ color: #8b93a1; margin-left: auto; }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
   .stat {{ min-width: 140px; }}
   .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
@@ -1264,7 +1321,7 @@ def _render_panel_html() -> str:
 <div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
-
+{flagged_section_html}
 <section>
   <h2>Session funnel</h2>
   <div class="stat-grid">
