@@ -16,6 +16,8 @@ CLAUDE.md
 /tools/prod-status.sh
 /tools/drive-notes.sh
 /tools/backup-watchdog.sh
+/tools/backup-prod-db-snapshot.sh
+/tools/backup-prod-db-pull.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
