@@ -26,6 +26,24 @@
 }
 
 :80 {
+	# The landing page ("/" and the handful of static files it needs) is
+	# public — it exists to be read before anyone has a password. Everything
+	# else, including the diagnostic tool itself, stays behind basic auth.
+	#
+	# This list must be kept in sync with the equivalent block on the edge
+	# Caddy (Linode) — see CLAUDE.md. A mismatch fails toward "the landing
+	# page 401s" rather than a leak, because whichever layer is stricter
+	# challenges first — but the two are still supposed to agree.
+	#
+	# Caddyfile directives compile to routes ordered by Caddy's own directive
+	# priority, not by their order in this file — basic_auth always runs
+	# before a bare route block regardless of where it's written. @not_public
+	# is the inverse match, gating basic_auth itself, rather than trying to
+	# out-order it.
+	@not_public {
+		not path / /style.css /favicon.ico /icon-512.png
+	}
+
 	# --- Phase 1 (team-only access) — basic auth enabled by default ---
 	# The password hash is generated like this (MUST end with `| sed`!):
 	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YOUR_PASSWORD' | sed 's/\$/\$\$/g'
@@ -41,7 +59,7 @@
 	# `basic_auth` is the current spelling; Caddy renamed it in 2.8 and warns
 	# on every start about the old `basicauth`. Anyone self-hosting on a Caddy
 	# older than 2.8 needs the old spelling instead.
-	basic_auth {
+	basic_auth @not_public {
 		{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 	}
 	# --- Phase 2 (public launch) ---
