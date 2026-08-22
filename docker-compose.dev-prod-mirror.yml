@@ -1,0 +1,17 @@
+# Dev-only override: run the same shape as prod (Caddy in front, basic auth,
+# non-root app container) instead of the bare docker-compose.yml, which
+# publishes the app's port directly and skips Caddy entirely. That gap is
+# exactly how the syslog-driver reboot bug and the landing-page routing
+# needed to be caught on prod first instead of here.
+#
+# The only thing this changes versus docker-compose.prod.yml is which host
+# port Caddy answers on, so it doesn't fight the dev VM's existing services
+# on 80/443 or require binding a privileged port.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.bitwarden.yml \
+#                  -f docker-compose.dev-prod-mirror.yml up -d --build
+services:
+  caddy:
+    ports:
+      - "8080:80"
