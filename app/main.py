@@ -278,6 +278,26 @@ def init_db() -> None:
             )
             """
         )
+        # One row per assistant response that matched SAFETY_REDIRECT_MESSAGE
+        # (the child-exploitation redirect, not the generic off-topic
+        # REFUSAL_MESSAGE — that one is far too common/low-stakes to ban on).
+        # Keyed by IP, not session_id: a session id is free for a client to
+        # rotate, an IP at least costs something to change. Any row at all
+        # for an IP means that IP is banned from /api/ai-assist — permanent,
+        # no expiry, no auto-unban (see _is_ip_banned).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai_safety_flags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                ip TEXT NOT NULL,
+                session_id TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ai_safety_flags_ip ON ai_safety_flags(ip)"
+        )
 
 
 init_db()
@@ -700,6 +720,39 @@ EMPTY_MODEL_RESPONSE = {
     "en": "Empty response from the model.",
 }
 
+IP_BANNED_ERROR = {
+    "ru": "Доступ к ассистенту с этого адреса заблокирован.",
+    "en": "Assistant access from this address has been blocked.",
+}
+
+
+def _is_ip_banned(ip: Optional[str]) -> bool:
+    """True once this IP has ever tripped SAFETY_REDIRECT_MESSAGE.
+
+    One occurrence can be a genuine, one-time field discovery — see
+    CLAUDE.md "Публичный запуск" — so it isn't banned on its own. A SECOND
+    one from the same IP is a much stronger signal of deliberate misuse
+    than accident, and that's the bar this checks: called before the first
+    is ever recorded, so "banned" means "this would be at least the second."
+    No expiry — unbanning, if it's ever warranted, is a manual DB edit, not
+    an automatic timeout.
+    """
+    if not ip:
+        return False
+    with _db_connect() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM ai_safety_flags WHERE ip = ?", (ip,)
+        ).fetchone()
+    return row[0] > 0
+
+
+def _record_safety_flag(ip: Optional[str], session_id: Optional[str]) -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO ai_safety_flags (created_at, ip, session_id) VALUES (?, ?, ?)",
+            (datetime.now(timezone.utc).isoformat(), ip or "unknown", session_id),
+        )
+
 
 def _session_is_live(session_id: str) -> bool:
     """True if this id belongs to a session that actually walked the graph.
@@ -814,6 +867,10 @@ async def ai_assist(request: Request, req: AssistRequest):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail=SETUP_ERROR[req.lang])
 
+    ip = client_key(request)
+    if await run_in_threadpool(_is_ip_banned, ip):
+        raise HTTPException(status_code=403, detail=IP_BANNED_ERROR[req.lang])
+
     if not req.session_id or not await run_in_threadpool(_session_is_live, req.session_id):
         raise HTTPException(status_code=403, detail=NO_SESSION_ERROR[req.lang])
 
@@ -876,8 +933,10 @@ async def ai_assist(request: Request, req: AssistRequest):
         tokens_out=usage.get("output_tokens"),
         stop_reason=stop_reason,
         latency_ms=latency_ms,
-        ip=client_key(request),
+        ip=ip,
     )
+    if text.strip() == SAFETY_REDIRECT_MESSAGE[req.lang]:
+        await run_in_threadpool(_record_safety_flag, ip, req.session_id)
     # calls_remaining lets the interface warn before the technician runs out,
     # rather than refusing mid-diagnosis with no warning at all.
     return {
@@ -995,6 +1054,21 @@ def _gather_panel_stats() -> Dict[str, Any]:
                 WHERE free_text = ? ORDER BY updated_at DESC LIMIT 20
                 """,
                 (FLAGGED_CONTENT_PLACEHOLDER,),
+            )
+        ]
+
+        # Any IP with 2+ rows here is currently banned from /api/ai-assist
+        # (see _is_ip_banned — the FIRST occurrence doesn't ban on its own).
+        # Grouped rather than one row per flag: what matters on the panel is
+        # which IPs are banned and how many times each tripped it, not a
+        # duplicate timeline of the same address.
+        banned_ips = [
+            (row["ip"], row["n"], row["last_at"])
+            for row in conn.execute(
+                """
+                SELECT ip, COUNT(*) AS n, MAX(created_at) AS last_at
+                FROM ai_safety_flags GROUP BY ip ORDER BY last_at DESC LIMIT 20
+                """
             )
         ]
 
@@ -1156,6 +1230,7 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "hour_counts": hour_counts,
         "top_ips": top_ips,
         "flagged_sessions": flagged_sessions,
+        "banned_ips": banned_ips,
     }
 
 
@@ -1264,6 +1339,34 @@ def _render_panel_html() -> str:
 </section>
 """
 
+    # Any row here means that IP is banned, effective from its NEXT request
+    # onward (see _is_ip_banned — the gate blocks before a banned IP could
+    # ever add a second row, so the count almost always stays at 1; it isn't
+    # a "how many times" tally, just "has this happened at all").
+    banned_section_html = ""
+    if stats["banned_ips"]:
+        banned_rows = []
+        for ip, n, last_at in stats["banned_ips"]:
+            try:
+                ts = datetime.fromisoformat(last_at).astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+            except (TypeError, ValueError):
+                ts = _esc(last_at)
+            hits = f"🚫 BANNED ({n} trip{'s' if n != 1 else ''})"
+            banned_rows.append(
+                f'<div class="flagged-row">'
+                f'<span class="flagged-session">{_esc(ip)}</span>'
+                f'<span class="flagged-node">{_esc(hits)}</span>'
+                f'<span class="flagged-ts">last {_esc(ts)}</span>'
+                f"</div>"
+            )
+        banned_section_html = f"""
+<section class="flagged">
+  <h2>🚫 IPs banned from the assistant ({_esc(len(stats['banned_ips']))})</h2>
+  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">Blocked from /api/ai-assist from their next request onward after tripping the child-exploitation redirect once — see CLAUDE.md "Публичный запуск". No auto-expiry; unbanning is a manual DB edit.</p>
+  {"".join(banned_rows)}
+</section>
+"""
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1321,6 +1424,7 @@ def _render_panel_html() -> str:
 <div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
+{banned_section_html}
 {flagged_section_html}
 <section>
   <h2>Session funnel</h2>
