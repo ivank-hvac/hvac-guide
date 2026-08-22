@@ -137,32 +137,6 @@
   </p>
 </div>
 
-<script>
-// Mirrors the tool's own language preference so switching here does not get
-// undone the moment the technician enters the checklist.
-(function () {
-  var SUPPORTED = ["en", "ru"];
-  function apply(lang) {
-    document.documentElement.lang = lang;
-    document.querySelectorAll("[data-lang-block]").forEach(function (el) {
-      el.classList.toggle("shown", el.getAttribute("data-lang-block") === lang);
-    });
-    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-set-lang") === lang);
-    });
-    try { localStorage.setItem("hvac_lang", lang); } catch (e) {}
-  }
-  var saved;
-  try { saved = localStorage.getItem("hvac_lang"); } catch (e) {}
-  if (!SUPPORTED.includes(saved)) {
-    saved = SUPPORTED.includes((navigator.language || "").slice(0, 2))
-      ? navigator.language.slice(0, 2) : "en";
-  }
-  apply(saved);
-  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
-    b.onclick = function () { apply(b.getAttribute("data-set-lang")); };
-  });
-})();
-</script>
+<script src="./landing.js"></script>
 </body>
 </html>
