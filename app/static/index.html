@@ -26,11 +26,12 @@
 .landing .card.beta strong { color: var(--warn); }
 .landing .enter {
   display: block; width: 100%; text-align: center; text-decoration: none;
-  background: var(--accent); color: #06121d; font-weight: 600;
-  padding: 0.95rem 1rem; border-radius: 10px; margin: 1.75rem 0 .5rem;
-  font-size: 1.05rem;
+  background: var(--accent); color: #06121d; font-weight: 700;
+  padding: 1.35rem 1rem; border-radius: 14px; margin: 1.5rem 0 2.25rem;
+  font-size: 1.35rem; box-shadow: 0 4px 16px rgba(0,0,0,.18);
 }
-.landing .foot { color: var(--muted); font-size: .82rem; margin-top: 2.5rem; }
+.landing .data-note { color: var(--muted); font-size: .82rem; margin-top: 2.5rem; }
+.landing .foot { color: var(--muted); font-size: .82rem; margin-top: 1rem; }
 .landing .foot a { color: inherit; }
 .lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1rem; }
 .lang-switch button {
@@ -69,25 +70,24 @@
       an instruction to follow.</p>
     </div>
 
+    <a class="enter" href="/diagnose">Start a diagnosis →</a>
+
     <h2>Safety</h2>
     <p>Diagnosis means live circuits, systems under pressure and, on gas
     equipment, combustion. Follow lockout/tagout and the codes that apply where
     you work. If a step is outside your qualifications or licensing, stop and
     hand it to someone qualified.</p>
 
-    <h2>What is recorded</h2>
-    <p>Your answers, checklist entries and any free-text notes are stored so a
-    session can be resumed, together with the request address and timestamps. It
-    is used to understand where the tool falls short and to keep the assistant
-    from being abused. Do not enter customer names, addresses or anything else
-    identifying a person or a site.</p>
-
     <h2>The AI assistant</h2>
     <p>On request, the collected answers are sent to an AI model for a second
     opinion. Its output is generated text, not a verified diagnosis, and it can
     be confidently wrong. There is a daily limit per session.</p>
 
-    <a class="enter" href="/diagnose">Start a diagnosis →</a>
+    <p class="data-note">Your answers, checklist entries and any free-text notes
+    are stored so a session can be resumed, together with the request address
+    and timestamps. It is used to understand where the tool falls short and to
+    keep the assistant from being abused. Do not enter customer names, addresses
+    or anything else identifying a person or a site.</p>
   </section>
 
   <section data-lang-block="ru">
@@ -107,24 +107,24 @@
       Считайте любую подсказку поводом проверить, а не указанием к действию.</p>
     </div>
 
+    <a class="enter" href="/diagnose">Начать диагностику →</a>
+
     <h2>Безопасность</h2>
     <p>Диагностика — это цепи под напряжением, системы под давлением, а на газовом
     оборудовании ещё и горение. Соблюдайте LOTO и нормы, действующие там, где вы
     работаете. Если шаг выходит за рамки вашей квалификации или лицензии — остановитесь
     и передайте тому, у кого она есть.</p>
 
-    <h2>Что сохраняется</h2>
-    <p>Ваши ответы, отметки чек-листа и свободные заметки сохраняются, чтобы сессию можно
-    было продолжить, вместе с адресом запроса и временем. Это нужно, чтобы понимать, где
-    инструмент недоговаривает, и чтобы ассистентом не злоупотребляли. Не вводите имена
-    клиентов, адреса объектов и всё, что позволяет опознать человека или объект.</p>
-
     <h2>AI-ассистент</h2>
     <p>По запросу собранные ответы отправляются в языковую модель за вторым мнением.
     Её ответ — сгенерированный текст, а не проверенный диагноз, и он может быть уверенно
     неверным. Есть дневной лимит обращений на сессию.</p>
 
-    <a class="enter" href="/diagnose">Начать диагностику →</a>
+    <p class="data-note">Ваши ответы, отметки чек-листа и свободные заметки сохраняются,
+    чтобы сессию можно было продолжить, вместе с адресом запроса и временем. Это нужно,
+    чтобы понимать, где инструмент недоговаривает, и чтобы ассистентом не злоупотребляли.
+    Не вводите имена клиентов, адреса объектов и всё, что позволяет опознать человека или
+    объект.</p>
   </section>
 
   <p class="foot">
