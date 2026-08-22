@@ -43,7 +43,7 @@
 	# is the inverse match, gating basic_auth itself, rather than trying to
 	# out-order it.
 	@not_public {
-		not path / /style.css /favicon.ico /icon-512.png
+		not path / /style.css /landing.js /favicon.ico /icon-512.png
 	}
 
 	# --- Phase 1 (team-only access) — basic auth enabled by default ---
