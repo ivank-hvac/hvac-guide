@@ -30,10 +30,12 @@
 	# public — it exists to be read before anyone has a password. Everything
 	# else, including the diagnostic tool itself, stays behind basic auth.
 	#
-	# This list must be kept in sync with the equivalent block on the edge
-	# Caddy (Linode) — see CLAUDE.md. A mismatch fails toward "the landing
-	# page 401s" rather than a leak, because whichever layer is stricter
-	# challenges first — but the two are still supposed to agree.
+	# This is the ONLY place auth is enforced — confirmed live 2026-08-22.
+	# The edge Caddy on Linode does no auth of its own; it terminates TLS and
+	# forwards into the WireGuard tunnel. An earlier version of this comment
+	# assumed a matching block was needed there too and warned about keeping
+	# the two in sync — that assumption was wrong, there's nothing there to
+	# sync with.
 	#
 	# Caddyfile directives compile to routes ordered by Caddy's own directive
 	# priority, not by their order in this file — basic_auth always runs
