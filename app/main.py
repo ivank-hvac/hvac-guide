@@ -161,7 +161,7 @@ def client_key(request: Request) -> str:
 
 limiter = Limiter(key_func=client_key)
 
-app = FastAPI(title="HVAC Troubleshooting Guide")
+app = FastAPI(title="HVAC DiagTree")
 app.state.limiter = limiter
 
 
