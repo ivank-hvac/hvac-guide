@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import html
 import ipaddress
 import json
@@ -16,7 +17,7 @@ from typing import Any, Dict, List, Literal, Optional
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -95,6 +96,53 @@ SESSION_RATE_LIMIT = os.getenv("SESSION_RATE_LIMIT", "20/minute")
 # they're kept indefinitely as future outcome-tracking data.
 SESSION_ABANDON_TTL_HOURS = 3
 SESSION_CLEANUP_INTERVAL_SECONDS = 30 * 60
+
+# Invite-gate + passwordless login (see CLAUDE.md "план выхода в паблик").
+# Entirely optional, same pattern as ANTHROPIC_API_KEY above: an unset key
+# just means the feature doesn't exist, so /diagnose and graph.json stay
+# exactly as open as they are today. This keeps the plain self-host README
+# quick-start (docker compose up, no accounts) completely unaffected — only
+# a deploy that sets RESEND_API_KEY opts into the invite/login wall.
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+# `or`, not getenv's own default arg: docker-compose's `${RESEND_FROM_EMAIL:-}`
+# passes an explicit empty string into the container when the host var is
+# unset (compose distinguishes "unset" from "set to empty"), and getenv's
+# default only ever kicks in for the former — this way both collapse to the
+# same fallback.
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL") or "HVAC DiagTree <login@mail.hvacdiagtree.com>"
+RESEND_URL = "https://api.resend.com/emails"
+AUTH_ENABLED = bool(RESEND_API_KEY)
+
+# A magic-link token is single-use and short-lived on purpose — the window
+# during which a leaked/intercepted link (email forwarding, a shared inbox,
+# a screenshot) is still valid. A login session, once established, is
+# allowed to live much longer (field techs shouldn't have to re-auth every
+# week), and is a separate credential from the token that created it.
+LOGIN_TOKEN_TTL_MINUTES = int(os.getenv("LOGIN_TOKEN_TTL_MINUTES", "15"))
+LOGIN_SESSION_TTL_DAYS = int(os.getenv("LOGIN_SESSION_TTL_DAYS", "30"))
+LOGIN_COOKIE_NAME = "hvac_auth"
+# Secure cookies require HTTPS, which the app itself never sees directly —
+# TLS is terminated at the edge (prod) or not present at all (dev's plain
+# :8080 mirror), and the internal Caddy always hands this process plain
+# HTTP either way, so the request's own scheme can't be used to tell them
+# apart. docker-compose.dev-prod-mirror.yml sets this to false for local
+# testing; every real deploy keeps the secure default.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+
+# Per-IP cap on magic-link requests (/api/login, /api/register) — these send
+# email, so unlike most rate limits here this also protects a stranger's
+# inbox from being spammed by repeated requests for their address.
+LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/minute")
+
+# How many invite codes a single can_invite account may generate per day.
+# Guards against a compromised or overenthusiastic trusted account flooding
+# the beta, without needing to guess who's "trustworthy enough" — see
+# CLAUDE.md for how this number was picked.
+INVITE_DAILY_LIMIT_PER_USER = int(os.getenv("INVITE_DAILY_LIMIT_PER_USER", "20"))
+
+EMAIL_RE = re.compile(r"^[^@\s]{1,254}@[^@\s]{1,253}\.[A-Za-z]{2,63}$")
+MAX_EMAIL_LEN = 254
+MAX_INVITE_CODE_LEN = 40
 
 # Hidden dev-only stats dashboard at GET /panel?token=... — see README "Dev
 # monitoring panel". Empty by default, same as every other secret in
@@ -298,9 +346,100 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_ai_safety_flags_ip ON ai_safety_flags(ip)"
         )
+        # Invite-gate + passwordless login (see AUTH_ENABLED above). Four
+        # tables, each with one job: `users` is identity, `invites` is who's
+        # allowed to create an account, `login_tokens` is the short-lived
+        # magic-link credential, `login_sessions` is the long-lived cookie
+        # credential it hands out once. Kept separate from `sessions` above
+        # on purpose — that table is checklist/graph progress (localStorage
+        # session_id, no identity), this is account identity; conflating them
+        # would make the eventual nullable-user_id link (see CLAUDE.md Phase
+        # 3, core/pro split) messier, not simpler.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                can_invite INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        # created_by/used_by are nullable: NULL created_by means an invite
+        # seeded directly (dev-panel/DB, not through the app) rather than
+        # generated by another user — there is no such user for the very
+        # first invites before anyone has can_invite yet.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS invites (
+                code TEXT PRIMARY KEY,
+                created_by INTEGER,
+                created_at TEXT NOT NULL,
+                used_by INTEGER,
+                used_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_invites_created_by_at ON invites(created_by, created_at)"
+        )
+        # Only the SHA-256 of the token is ever stored — the raw value exists
+        # solely in the emailed link, the same reasoning as never storing a
+        # plaintext password. A magic-link token doesn't need bcrypt/argon2
+        # the way a human-chosen password would: it's already 32 bytes of
+        # `secrets.token_urlsafe` entropy, not something worth brute-forcing
+        # letter by letter, and it's single-use/short-lived regardless.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS login_tokens (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS login_sessions (
+                session_token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 init_db()
+
+if AUTH_ENABLED:
+    # Chicken-and-egg fix for the very first account: invites can only be
+    # created by an existing can_invite user (see _create_invite), but on a
+    # fresh deploy there are no users at all yet. If the users table is
+    # still empty and no unused invite exists either, mint one bootstrap
+    # invite with created_by=NULL (same "seeded, not generated by a user"
+    # meaning as any other NULL created_by) and log it — the operator reads
+    # it from `docker logs`, registers through it, then grants their own
+    # account can_invite from /panel to bootstrap everyone else.
+    with _db_connect() as _conn:
+        _has_user = _conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()
+        _has_unused_invite = _conn.execute(
+            "SELECT 1 FROM invites WHERE used_by IS NULL LIMIT 1"
+        ).fetchone()
+        if not _has_user and not _has_unused_invite:
+            _bootstrap_code = secrets.token_urlsafe(8)
+            _conn.execute(
+                "INSERT INTO invites (code, created_by, created_at) VALUES (?, NULL, ?)",
+                (_bootstrap_code, datetime.now(timezone.utc).isoformat()),
+            )
+            logger.warning(
+                "AUTH_ENABLED with no users yet — bootstrap invite created: "
+                "visit /invite/%s to register the first account, then grant it "
+                "can_invite from /panel.",
+                _bootstrap_code,
+            )
 
 # Hard caps on request size, independent of rate limiting — prevents a single
 # oversized request from being expensive or from stuffing the context with
@@ -685,6 +824,231 @@ async def _cleanup_abandoned_sessions_loop() -> None:
             pass
 
 
+# --- Invite-gate + passwordless login -------------------------------------
+# See AUTH_ENABLED above for why this whole block is a no-op wherever
+# RESEND_API_KEY isn't set.
+
+INVITE_MESSAGES = {
+    "ru": {
+        "sent": "Письмо со ссылкой для входа отправлено на {email}. Ссылка действует "
+                f"{LOGIN_TOKEN_TTL_MINUTES} минут.",
+        "invalid_email": "Введите корректный email.",
+        "expired_link": "Ссылка недействительна или уже использована — запросите новую.",
+        "send_failed": "Не удалось отправить письмо. Попробуйте ещё раз чуть позже.",
+        "invite_limit": f"Дневной лимит инвайтов ({INVITE_DAILY_LIMIT_PER_USER}) исчерпан. Лимит обновится завтра.",
+        "not_inviter": "У вашего аккаунта нет прав на создание инвайтов.",
+    },
+    "en": {
+        "sent": "A login link was sent to {email}. It's valid for "
+                f"{LOGIN_TOKEN_TTL_MINUTES} minutes.",
+        "invalid_email": "Enter a valid email address.",
+        "expired_link": "That link is invalid or already used — request a new one.",
+        "send_failed": "Could not send the email. Try again shortly.",
+        "invite_limit": f"Daily invite limit ({INVITE_DAILY_LIMIT_PER_USER}) reached. It resets tomorrow.",
+        "not_inviter": "Your account isn't allowed to create invites.",
+    },
+}
+
+
+class RegisterRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=MAX_INVITE_CODE_LEN)
+    email: str = Field(min_length=3, max_length=MAX_EMAIL_LEN)
+    lang: Literal["ru", "en"] = "en"
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not EMAIL_RE.match(v):
+            raise ValueError("invalid email")
+        return v
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=MAX_EMAIL_LEN)
+    lang: Literal["ru", "en"] = "en"
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not EMAIL_RE.match(v):
+            raise ValueError("invalid email")
+        return v
+
+
+def _hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _get_invite(code: str) -> Optional[Dict[str, Any]]:
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT code, created_by, used_by FROM invites WHERE code = ?", (code,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def _get_or_create_user(email: str) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO users (email, created_at) VALUES (?, ?) "
+            "ON CONFLICT(email) DO NOTHING",
+            (email, now),
+        )
+        return conn.execute(
+            "SELECT id FROM users WHERE email = ?", (email,)
+        ).fetchone()[0]
+
+
+def _mark_invite_used(code: str, user_id: int) -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            "UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?",
+            (user_id, datetime.now(timezone.utc).isoformat(), code),
+        )
+
+
+def _create_login_token(user_id: int) -> str:
+    raw = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(minutes=LOGIN_TOKEN_TTL_MINUTES)).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO login_tokens (token_hash, user_id, created_at, expires_at) "
+            "VALUES (?, ?, ?, ?)",
+            (_hash_token(raw), user_id, now.isoformat(), expires_at),
+        )
+    return raw
+
+
+def _consume_login_token(raw: str) -> Optional[int]:
+    """One-shot: a token that validates here can never validate again,
+    win or lose the race — the UPDATE and the validity check happen against
+    the same row read, so a token can't be used twice even if two requests
+    for it arrive at once."""
+    token_hash = _hash_token(raw)
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        row = conn.execute(
+            "SELECT user_id, expires_at, used_at FROM login_tokens WHERE token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+        if row is None:
+            return None
+        user_id, expires_at, used_at = row
+        if used_at is not None or expires_at < now:
+            return None
+        conn.execute(
+            "UPDATE login_tokens SET used_at = ? WHERE token_hash = ?",
+            (now, token_hash),
+        )
+    return user_id
+
+
+def _create_login_session(user_id: int) -> str:
+    raw = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(days=LOGIN_SESSION_TTL_DAYS)).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO login_sessions (session_token_hash, user_id, created_at, expires_at) "
+            "VALUES (?, ?, ?, ?)",
+            (_hash_token(raw), user_id, now.isoformat(), expires_at),
+        )
+    return raw
+
+
+def _get_user_by_session_cookie(raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not raw:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT u.id, u.email, u.can_invite FROM login_sessions ls
+            JOIN users u ON u.id = ls.user_id
+            WHERE ls.session_token_hash = ? AND ls.expires_at > ?
+            """,
+            (_hash_token(raw), now),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+async def _send_login_email(email: str, login_url: str, lang: str) -> bool:
+    subject = {
+        "ru": "Ссылка для входа — HVAC DiagTree",
+        "en": "Your HVAC DiagTree login link",
+    }[lang]
+    body_text = {
+        "ru": f"Перейдите по ссылке, чтобы войти (действует {LOGIN_TOKEN_TTL_MINUTES} минут):\n\n{login_url}",
+        "en": f"Click to log in (valid for {LOGIN_TOKEN_TTL_MINUTES} minutes):\n\n{login_url}",
+    }[lang]
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                RESEND_URL,
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": RESEND_FROM_EMAIL,
+                    "to": [email],
+                    "subject": subject,
+                    "text": body_text,
+                },
+            )
+        return r.status_code < 300
+    except httpx.RequestError:
+        return False
+
+
+def _user_can_invite(user_id: int) -> bool:
+    with _db_connect() as conn:
+        row = conn.execute("SELECT can_invite FROM users WHERE id = ?", (user_id,)).fetchone()
+    return bool(row and row[0])
+
+
+def _invites_created_today(user_id: int) -> int:
+    day_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00")
+    with _db_connect() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM invites WHERE created_by = ? AND created_at >= ?",
+            (user_id, day_start),
+        ).fetchone()[0]
+
+
+def _create_invite(user_id: int) -> str:
+    code = secrets.token_urlsafe(8)
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO invites (code, created_by, created_at) VALUES (?, ?, ?)",
+            (code, user_id, datetime.now(timezone.utc).isoformat()),
+        )
+    return code
+
+
+def _external_base_url(request: Request) -> str:
+    """scheme+host to build links (email, invite share link) from.
+
+    Same problem as COOKIE_SECURE above: this app only ever sees plain HTTP
+    by the time a request reaches it (edge terminates TLS in prod; the dev
+    mirror has no TLS at all), so request.url.scheme can't be trusted to
+    reflect what the visitor's browser actually used — COOKIE_SECURE is
+    already the answer to "are we really behind HTTPS here", so reuse it.
+    """
+    scheme = "https" if COOKIE_SECURE else request.url.scheme
+    netloc = request.url.hostname or "localhost"
+    port = request.url.port
+    if port and port not in (80, 443):
+        netloc = f"{netloc}:{port}"
+    return f"{scheme}://{netloc}"
+
+
 USER_MESSAGE_LABELS = {
     "ru": {
         "checklist": "Чек-лист (вопрос -> ответ):",
@@ -972,6 +1336,125 @@ async def restore_session(request: Request, session_id: str):
     return result
 
 
+# --- Invite-gate + passwordless login routes -------------------------------
+# Every route below 404s outright when AUTH_ENABLED is false, same as /panel
+# does when unconfigured — a deploy that never set RESEND_API_KEY shouldn't
+# even reveal that this feature exists.
+
+@app.get("/invite/{code}", include_in_schema=False)
+async def invite_landing(code: str):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    if len(code) > MAX_INVITE_CODE_LEN:
+        raise HTTPException(status_code=404)
+    invite = await run_in_threadpool(_get_invite, code)
+    # Same message for "no such code" and "already used" — confirming which
+    # one it was would tell a guesser their guess landed on a real, spent
+    # code, which is more than a stranger needs to know.
+    if invite is None or invite["used_by"] is not None:
+        raise HTTPException(status_code=404)
+    return FileResponse(os.path.join("static", "invite.html"), headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/register")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def register(request: Request, req: RegisterRequest):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    invite = await run_in_threadpool(_get_invite, req.code)
+    if invite is None or invite["used_by"] is not None:
+        raise HTTPException(status_code=404, detail=INVITE_MESSAGES[req.lang]["expired_link"])
+
+    user_id = await run_in_threadpool(_get_or_create_user, req.email)
+    await run_in_threadpool(_mark_invite_used, req.code, user_id)
+    raw_token = await run_in_threadpool(_create_login_token, user_id)
+    login_url = f"{_external_base_url(request)}/login/{raw_token}"
+    sent = await _send_login_email(req.email, login_url, req.lang)
+    if not sent:
+        raise HTTPException(status_code=502, detail=INVITE_MESSAGES[req.lang]["send_failed"])
+    return {"status": "sent", "message": INVITE_MESSAGES[req.lang]["sent"].format(email=req.email)}
+
+
+@app.get("/login", include_in_schema=False)
+async def login_page():
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    return FileResponse(os.path.join("static", "login.html"), headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/login")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def request_login(request: Request, req: LoginRequest):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    # Always the same response whether or not the email has an account —
+    # anything else lets a caller enumerate which addresses are registered.
+    with _db_connect() as conn:
+        row = conn.execute("SELECT id FROM users WHERE email = ?", (req.email,)).fetchone()
+    if row is not None:
+        raw_token = await run_in_threadpool(_create_login_token, row[0])
+        login_url = f"{_external_base_url(request)}/login/{raw_token}"
+        await _send_login_email(req.email, login_url, req.lang)
+    return {"status": "sent", "message": INVITE_MESSAGES[req.lang]["sent"].format(email=req.email)}
+
+
+@app.get("/login/{token}", include_in_schema=False)
+async def consume_login_token(token: str):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    if len(token) > 128:
+        return RedirectResponse(url="/login?expired=1", status_code=303)
+    user_id = await run_in_threadpool(_consume_login_token, token)
+    if user_id is None:
+        return RedirectResponse(url="/login?expired=1", status_code=303)
+    session_token = await run_in_threadpool(_create_login_session, user_id)
+    response = RedirectResponse(url="/diagnose", status_code=303)
+    response.set_cookie(
+        key=LOGIN_COOKIE_NAME,
+        value=session_token,
+        max_age=LOGIN_SESSION_TTL_DAYS * 86400,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@app.get("/manage-invites", include_in_schema=False)
+async def manage_invites_page(request: Request):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    user = await run_in_threadpool(_get_user_by_session_cookie, request.cookies.get(LOGIN_COOKIE_NAME))
+    if user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    if not user["can_invite"]:
+        raise HTTPException(status_code=404)
+    return FileResponse(os.path.join("static", "manage-invites.html"), headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/invite/create")
+async def create_invite(request: Request):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    lang = request.query_params.get("lang", "en")
+    lang = lang if lang in ("ru", "en") else "en"
+    user = await run_in_threadpool(_get_user_by_session_cookie, request.cookies.get(LOGIN_COOKIE_NAME))
+    if user is None:
+        raise HTTPException(status_code=401)
+    if not user["can_invite"]:
+        raise HTTPException(status_code=403, detail=INVITE_MESSAGES[lang]["not_inviter"])
+    used_today = await run_in_threadpool(_invites_created_today, user["id"])
+    if used_today >= INVITE_DAILY_LIMIT_PER_USER:
+        raise HTTPException(status_code=429, detail=INVITE_MESSAGES[lang]["invite_limit"])
+    code = await run_in_threadpool(_create_invite, user["id"])
+    return {
+        "code": code,
+        "url": f"{_external_base_url(request)}/invite/{code}",
+        "remaining_today": INVITE_DAILY_LIMIT_PER_USER - used_today - 1,
+    }
+
+
 @app.on_event("startup")
 async def _start_background_tasks() -> None:
     asyncio.create_task(_cleanup_abandoned_sessions_loop())
@@ -979,12 +1462,22 @@ async def _start_background_tasks() -> None:
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "ai_configured": bool(ANTHROPIC_API_KEY)}
+    return {"status": "ok", "ai_configured": bool(ANTHROPIC_API_KEY), "auth_configured": AUTH_ENABLED}
 
 
 @app.get("/api/version")
 async def version():
     return {"commit": GIT_COMMIT, "commit_date": GIT_COMMIT_DATE}
+
+
+@app.get("/api/me")
+async def me(request: Request):
+    if not AUTH_ENABLED:
+        return {"logged_in": False, "can_invite": False}
+    user = await run_in_threadpool(_get_user_by_session_cookie, request.cookies.get(LOGIN_COOKIE_NAME))
+    if user is None:
+        return {"logged_in": False, "can_invite": False}
+    return {"logged_in": True, "email": user["email"], "can_invite": bool(user["can_invite"])}
 
 
 def _load_intake_phases() -> List[Dict[str, Any]]:
@@ -1131,6 +1624,20 @@ def _gather_panel_stats() -> Dict[str, Any]:
             )
         ]
 
+        # Invite-gate accounts, newest first. Small table (beta-scale), so a
+        # plain unpaginated list is fine — this is where can_invite gets
+        # toggled from (see the panel's users section + /panel/toggle-invite).
+        users = [
+            dict(row) for row in conn.execute(
+                """
+                SELECT u.id, u.email, u.created_at, u.can_invite,
+                       (SELECT COUNT(*) FROM invites WHERE created_by = u.id) AS invites_created,
+                       (SELECT COUNT(*) FROM invites WHERE used_by = u.id) AS invites_used
+                FROM users u ORDER BY u.created_at DESC
+                """
+            )
+        ]
+
     # created_at is always stored as UTC (datetime.now(timezone.utc).isoformat())
     # — converted to LOCAL_TZ here so the panel reads in the author's own time
     # rather than UTC, both for calendar-day grouping (a late-evening local
@@ -1231,6 +1738,7 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "top_ips": top_ips,
         "flagged_sessions": flagged_sessions,
         "banned_ips": banned_ips,
+        "users": users,
     }
 
 
@@ -1283,7 +1791,7 @@ def _round_or_dash(value: Optional[float]) -> str:
     return "—" if value is None else str(round(value))
 
 
-def _render_panel_html() -> str:
+def _render_panel_html(token: str) -> str:
     stats = _gather_panel_stats()
 
     funnel_rows = [
@@ -1367,6 +1875,40 @@ def _render_panel_html() -> str:
 </section>
 """
 
+    # Invite-gate accounts + the can_invite toggle. Plain HTML forms, not JS
+    # — the panel has never had any client-side scripting, and a couple of
+    # trusted accounts at beta scale doesn't need more than that. Renders
+    # nothing when AUTH_ENABLED is off (no users table gets populated then),
+    # same "quiet instance, no permanent empty box" rule as the sections above.
+    users_section_html = ""
+    if stats["users"]:
+        user_rows = []
+        for u in stats["users"]:
+            try:
+                created = datetime.fromisoformat(u["created_at"]).astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+            except (TypeError, ValueError):
+                created = _esc(u["created_at"])
+            action = "Revoke" if u["can_invite"] else "Grant"
+            badge = "✅ can invite" if u["can_invite"] else "—"
+            user_rows.append(
+                f'<div class="user-row">'
+                f'<span class="user-email">{_esc(u["email"])}</span>'
+                f'<span class="user-meta">joined {_esc(created)} · {_esc(u["invites_created"])} sent / '
+                f'{_esc(u["invites_used"])} used</span>'
+                f'<span class="user-badge">{badge}</span>'
+                f'<form method="post" action="/panel/toggle-invite?token={_esc(token)}&user_id={_esc(u["id"])}" class="user-form">'
+                f'<button type="submit">{action}</button>'
+                f"</form>"
+                f"</div>"
+            )
+        users_section_html = f"""
+<section>
+  <h2>Invite-gate accounts ({_esc(len(stats['users']))})</h2>
+  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">"Grant" lets an account create up to {_esc(INVITE_DAILY_LIMIT_PER_USER)} invite links/day at /manage-invites.</p>
+  {"".join(user_rows)}
+</section>
+"""
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1397,6 +1939,18 @@ def _render_panel_html() -> str:
   .flagged-session {{ font-family: monospace; color: #ff7a7f; }}
   .flagged-node {{ color: #cdd3dc; }}
   .flagged-ts {{ color: #8b93a1; margin-left: auto; }}
+  .user-row {{
+    display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+    padding: .6rem 0; border-top: 1px solid #2a2f3a; font-size: .85rem;
+  }}
+  .user-row:first-of-type {{ border-top: none; }}
+  .user-email {{ font-family: monospace; color: #cdd3dc; }}
+  .user-meta {{ color: #8b93a1; }}
+  .user-badge {{ color: #4fd18b; margin-left: auto; }}
+  .user-form button {{
+    background: transparent; color: #6fb1ff; border: 1px solid #35405a;
+    border-radius: 6px; padding: .3rem .7rem; font: inherit; cursor: pointer;
+  }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
   .stat {{ min-width: 140px; }}
   .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
@@ -1426,6 +1980,7 @@ def _render_panel_html() -> str:
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
 {banned_section_html}
 {flagged_section_html}
+{users_section_html}
 <section>
   <h2>Session funnel</h2>
   <div class="stat-grid">
@@ -1492,12 +2047,33 @@ async def monitor_panel(request: Request, token: str = "", download: bool = Fals
     # to tell "wrong token" apart from "this route doesn't exist".
     if MONITOR_PANEL_TOKEN_STATUS != "ok" or not secrets.compare_digest(token, MONITOR_PANEL_TOKEN):
         raise HTTPException(status_code=404)
-    html_body = await run_in_threadpool(_render_panel_html)
+    html_body = await run_in_threadpool(_render_panel_html, token)
     response = HTMLResponse(html_body)
     if download:
         filename = f"hvac-guide-{GIT_COMMIT}-{datetime.now(timezone.utc).strftime('%d-%m-%Y')}.html"
         response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+def _set_can_invite(user_id: int, can_invite: bool) -> None:
+    with _db_connect() as conn:
+        conn.execute("UPDATE users SET can_invite = ? WHERE id = ?", (int(can_invite), user_id))
+
+
+# Flips can_invite for one account from the panel's user list. Query-string
+# params, not a JSON/Form body — the panel has no JS and this keeps the
+# plain HTML <form method="post" action="...?token=...&user_id=..."> above
+# from needing python-multipart (a new dependency) just to parse one field.
+@app.post("/panel/toggle-invite")
+async def toggle_invite(token: str = "", user_id: int = 0):
+    if MONITOR_PANEL_TOKEN_STATUS != "ok" or not secrets.compare_digest(token, MONITOR_PANEL_TOKEN):
+        raise HTTPException(status_code=404)
+    with _db_connect() as conn:
+        row = conn.execute("SELECT can_invite FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404)
+    await run_in_threadpool(_set_can_invite, user_id, not row[0])
+    return RedirectResponse(url=f"/panel?token={token}", status_code=303)
 
 
 # Plain StaticFiles sends no Cache-Control at all, which lets browsers
@@ -1523,9 +2099,32 @@ class NoCacheStaticFiles(StaticFiles):
 # asset references inside it need no rewriting and cannot drift out of sync
 # with where the page happens to be mounted.
 @app.get("/diagnose", include_in_schema=False)
-async def diagnose_page():
+async def diagnose_page(request: Request):
+    if AUTH_ENABLED:
+        user = await run_in_threadpool(_get_user_by_session_cookie, request.cookies.get(LOGIN_COOKIE_NAME))
+        if user is None:
+            return RedirectResponse(url="/login", status_code=303)
     return FileResponse(
         os.path.join("static", "tool.html"),
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+# Pulled out of the static mount below and gated the same way as /diagnose:
+# graph.json is the one file in static/ that actually is the product (field-
+# learned failure modes, RTU-vs-chiller branches, component sub-trees — see
+# CLAUDE.md "план выхода в паблик") rather than UI plumbing, so unlike
+# style.css/app.js/icons it needs its own auth check instead of riding the
+# open static mount. When AUTH_ENABLED is false this behaves exactly like
+# the plain static file it always was.
+@app.get("/graph.json", include_in_schema=False)
+async def graph_json(request: Request):
+    if AUTH_ENABLED:
+        user = await run_in_threadpool(_get_user_by_session_cookie, request.cookies.get(LOGIN_COOKIE_NAME))
+        if user is None:
+            raise HTTPException(status_code=401)
+    return FileResponse(
+        os.path.join("static", "graph.json"),
         headers={"Cache-Control": "no-cache"},
     )
 
