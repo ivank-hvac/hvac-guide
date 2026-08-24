@@ -1044,6 +1044,31 @@ def _set_session_cookie(response: Response, raw_token: str) -> None:
     )
 
 
+async def _require_login(request: Request, response: Response) -> None:
+    """Gate the app-data API surface on a real login session, not just on
+    /diagnose having served the page that calls it.
+
+    /diagnose and /graph.json already turn away a browser with no valid
+    cookie — but nothing stopped a script from skipping the UI entirely and
+    hitting /api/session, /api/log-session or /api/ai-assist directly:
+    _session_is_live() (see there) only checks that *some* session row with
+    a non-empty node_path exists, and POST /api/session would happily create
+    one for anyone, logged in or not. That was a fine floor while basic auth
+    was the only thing standing between a stranger and this app; once it's
+    the sole gate, "reached the AI endpoint at all" needs to mean "has a
+    real account," not just "bothered to fake a plausible session first."
+    No-op entirely when AUTH_ENABLED is false, so the plain self-host path
+    (no RESEND_API_KEY configured) is untouched.
+    """
+    if not AUTH_ENABLED:
+        return
+    raw = request.cookies.get(LOGIN_COOKIE_NAME)
+    user = await run_in_threadpool(_get_user_by_session_cookie, raw)
+    if user is None:
+        raise HTTPException(status_code=401)
+    _set_session_cookie(response, raw)
+
+
 async def _send_login_email(email: str, login_url: str, lang: str) -> bool:
     subject = {
         "ru": "Ссылка для входа — HVAC DiagTree",
@@ -1293,9 +1318,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler_with_l
 
 @app.post("/api/ai-assist")
 @limiter.limit(AI_ASSIST_RATE_LIMIT)
-async def ai_assist(request: Request, req: AssistRequest):
+async def ai_assist(request: Request, response: Response, req: AssistRequest):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail=SETUP_ERROR[req.lang])
+
+    await _require_login(request, response)
 
     ip = client_key(request)
     if await run_in_threadpool(_is_ip_banned, ip):
@@ -1379,21 +1406,24 @@ async def ai_assist(request: Request, req: AssistRequest):
 
 @app.post("/api/log-session")
 @limiter.limit(LOG_SESSION_RATE_LIMIT)
-async def log_session(request: Request, req: LogSessionRequest):
+async def log_session(request: Request, response: Response, req: LogSessionRequest):
+    await _require_login(request, response)
     await run_in_threadpool(_save_session, req)
     return {"status": "ok"}
 
 
 @app.post("/api/session")
 @limiter.limit(SESSION_RATE_LIMIT)
-async def save_session(request: Request, req: SessionUpsertRequest):
+async def save_session(request: Request, response: Response, req: SessionUpsertRequest):
+    await _require_login(request, response)
     await run_in_threadpool(_upsert_session, req, client_key(request))
     return {"status": "ok"}
 
 
 @app.get("/api/session/{session_id}")
 @limiter.limit(SESSION_RATE_LIMIT)
-async def restore_session(request: Request, session_id: str):
+async def restore_session(request: Request, response: Response, session_id: str):
+    await _require_login(request, response)
     if len(session_id) > MAX_SESSION_ID_LEN:
         raise HTTPException(status_code=404, detail="not found")
     result = await run_in_threadpool(_get_session, session_id)
