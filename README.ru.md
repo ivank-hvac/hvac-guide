@@ -1,4 +1,4 @@
-# HVAC Troubleshooting Guide
+# HVAC DiagTree
 
 *[English](README.md) | Русский*
 

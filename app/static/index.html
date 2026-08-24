@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>HVAC Troubleshooting Guide</title>
+<title>HVAC DiagTree</title>
 <link rel="icon" href="./favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
 <link rel="apple-touch-icon" href="./icon-512.png">
@@ -31,7 +31,12 @@
   font-size: 1.35rem; box-shadow: 0 4px 16px rgba(0,0,0,.18);
 }
 .landing .data-note { color: var(--muted); font-size: .82rem; margin-top: 2.5rem; }
-.landing .foot { color: var(--muted); font-size: .82rem; margin-top: 1rem; }
+.landing .brand-foot {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  margin-top: 2.5rem; color: var(--muted); font-weight: 600; font-size: .95rem;
+}
+.landing .brand-foot img { width: 22px; height: 22px; border-radius: 5px; }
+.landing .foot { color: var(--muted); font-size: .82rem; margin-top: .6rem; text-align: center; }
 .landing .foot a { color: inherit; }
 .lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1rem; }
 .lang-switch button {
@@ -126,6 +131,8 @@
     Не вводите имена клиентов, адреса объектов и всё, что позволяет опознать человека или
     объект.</p>
   </section>
+
+  <p class="brand-foot"><img src="./icon-512.png" alt="">HVAC DiagTree</p>
 
   <p class="foot">
     <span data-lang-block="en" class="shown">Open source under AGPL-3.0 —
