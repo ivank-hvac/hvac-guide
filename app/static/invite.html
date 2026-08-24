@@ -35,6 +35,12 @@ button.submit:disabled { opacity: .6; cursor: default; }
 .result { margin-top: 1.2rem; font-size: .9rem; }
 .result.ok { color: #4fd18b; }
 .result.err { color: #ff7a7f; }
+label.tos {
+  display: flex; align-items: flex-start; gap: .55rem; color: var(--muted);
+  font-size: .85rem; line-height: 1.4; margin: 0 0 1rem; cursor: pointer;
+}
+label.tos input { margin-top: .2rem; flex: none; }
+label.tos a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -50,6 +56,10 @@ button.submit:disabled { opacity: .6; cursor: default; }
     <p>Enter your email and we'll send a one-time login link. No password to remember.</p>
     <form id="form-en">
       <input type="email" name="email" placeholder="you@example.com" required>
+      <label class="tos">
+        <input type="checkbox" name="tos" required>
+        <span>I agree to the <a href="/legal" target="_blank" rel="noopener">Terms of Service &amp; Privacy Policy</a>.</span>
+      </label>
       <button type="submit" class="submit">Send login link</button>
     </form>
     <div class="result" id="result-en"></div>
@@ -61,6 +71,10 @@ button.submit:disabled { opacity: .6; cursor: default; }
     <p>Введите email — пришлём одноразовую ссылку для входа. Пароль запоминать не нужно.</p>
     <form id="form-ru">
       <input type="email" name="email" placeholder="you@example.com" required>
+      <label class="tos">
+        <input type="checkbox" name="tos" required>
+        <span>Я принимаю <a href="/legal" target="_blank" rel="noopener">условия использования и политику конфиденциальности</a>.</span>
+      </label>
       <button type="submit" class="submit">Отправить ссылку</button>
     </form>
     <div class="result" id="result-ru"></div>

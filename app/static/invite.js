@@ -21,6 +21,7 @@
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var email = form.email.value.trim();
+      var tosAccepted = form.tos.checked;
       var button = form.querySelector("button");
       button.disabled = true;
       result.className = "result";
@@ -28,7 +29,7 @@
       fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code, email: email, lang: lang }),
+        body: JSON.stringify({ code: code, email: email, lang: lang, tos_accepted: tosAccepted }),
       })
         .then(function (r) {
           return r.json().then(function (data) { return { ok: r.ok, data: data }; });
