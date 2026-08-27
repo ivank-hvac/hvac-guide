@@ -47,7 +47,15 @@ top end.
   or eliminate mechanical cooling)
 - Heat-recovery chillers (reject heat usefully instead of just to ambient)
 - Centrifugal or magnetic-bearing (oil-free) compressors on large-tonnage
-  units — different failure modes entirely from scroll/screw
+  units — different failure modes entirely from scroll/screw. **Scope note
+  (Ivan, 27 Aug 2026): revisit this tier later, but stay out of
+  compressor-internals territory when it happens** — surge control, magnetic-
+  bearing levitation/control electronics, internal lubrication systems on
+  oil-bearing centrifugals, and similar are compressor-rebuild-shop depth,
+  not field troubleshooting depth. Same boundary as the project's existing
+  troubleshooting-vs-fixing/repair principle (see CLAUDE.md), just showing
+  up earlier here because centrifugal failure modes are inherently more
+  internal-to-the-compressor than scroll/screw ones.
 - Water-cooled variants add: a condenser-water loop, cooling tower
   interaction, condenser-water pump staging — a whole second system the
   chiller depends on
