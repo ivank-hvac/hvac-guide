@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>HVAC DiagTree — invite friends</title>
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
+<link rel="stylesheet" href="./style.css">
+<style>
+.landing { max-width: 560px; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+.landing h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.landing p { line-height: 1.55; color: var(--muted); }
+.lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1.5rem; }
+.lang-switch button {
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
+.lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+[data-lang-block] { display: none; }
+[data-lang-block].shown { display: block; }
+button.submit {
+  width: 100%; background: var(--accent); color: #06121d; font-weight: 700;
+  border: none; border-radius: 12px; padding: 1rem; font-size: 1.05rem; cursor: pointer;
+  margin-top: 1.5rem;
+}
+button.submit:disabled { opacity: .6; cursor: default; }
+.remaining { font-size: .82rem; color: var(--muted); margin-top: .5rem; }
+.links { margin-top: 1.5rem; display: flex; flex-direction: column; gap: .6rem; }
+.link-row {
+  display: flex; gap: .6rem; align-items: center; background: var(--panel);
+  border: 1px solid var(--panel-border); border-radius: 10px; padding: .7rem .9rem;
+}
+.link-row input {
+  flex: 1; background: transparent; border: none; color: var(--text);
+  font-family: monospace; font-size: .85rem;
+}
+.link-row button {
+  background: transparent; color: var(--accent); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .4rem .8rem; cursor: pointer; font: inherit; font-size: .82rem;
+}
+.result.err { color: #ff7a7f; font-size: .9rem; margin-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="landing">
+  <div class="lang-switch">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="ru">RU</button>
+  </div>
+
+  <section data-lang-block="en">
+    <h1>Invite someone</h1>
+    <p>Each link works once, for one person. Send it however you like — text, email, whatever.</p>
+    <button type="button" class="submit" id="create-en">Create invite link</button>
+    <div class="remaining" id="remaining-en"></div>
+    <div class="result err" id="error-en"></div>
+    <div class="links" id="links-en"></div>
+  </section>
+
+  <section data-lang-block="ru">
+    <h1>Пригласить кого-то</h1>
+    <p>Каждая ссылка работает один раз, для одного человека. Шлите как удобно — SMS, email, что угодно.</p>
+    <button type="button" class="submit" id="create-ru">Создать ссылку</button>
+    <div class="remaining" id="remaining-ru"></div>
+    <div class="result err" id="error-ru"></div>
+    <div class="links" id="links-ru"></div>
+  </section>
+</div>
+<script src="./landing.js"></script>
+<script src="./manage-invites.js"></script>
+</body>
+</html>

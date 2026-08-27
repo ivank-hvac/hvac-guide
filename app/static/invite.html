@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>HVAC DiagTree — invite</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="/icon-512.png" sizes="512x512">
+<link rel="stylesheet" href="/style.css">
+<style>
+.landing { max-width: 480px; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+.landing h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.landing p { line-height: 1.55; color: var(--muted); }
+.landing .tagline { margin: 0 0 1.5rem; }
+.lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1.5rem; }
+.lang-switch button {
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
+.lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+[data-lang-block] { display: none; }
+[data-lang-block].shown { display: block; }
+form { margin-top: 1.5rem; }
+input[type="email"] {
+  width: 100%; box-sizing: border-box; background: var(--panel); color: var(--text);
+  border: 1px solid var(--panel-border); border-radius: 10px; padding: .9rem 1rem;
+  font-size: 1rem; margin-bottom: .9rem;
+}
+button.submit {
+  width: 100%; background: var(--accent); color: #06121d; font-weight: 700;
+  border: none; border-radius: 12px; padding: 1rem; font-size: 1.05rem; cursor: pointer;
+}
+button.submit:disabled { opacity: .6; cursor: default; }
+.result { margin-top: 1.2rem; font-size: .9rem; }
+.result.ok { color: #4fd18b; }
+.result.err { color: #ff7a7f; }
+label.tos {
+  display: flex; align-items: flex-start; gap: .55rem; color: var(--muted);
+  font-size: .85rem; line-height: 1.4; margin: 0 0 1rem; cursor: pointer;
+}
+label.tos input { margin-top: .2rem; flex: none; }
+label.tos a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="landing">
+  <div class="lang-switch">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="ru">RU</button>
+  </div>
+
+  <section data-lang-block="en">
+    <h1>You've been invited to HVAC DiagTree</h1>
+    <p class="tagline">An HVAC troubleshooting guide.</p>
+    <p>Enter your email and we'll send a one-time login link. No password to remember.</p>
+    <form id="form-en">
+      <input type="email" name="email" placeholder="you@example.com" required>
+      <label class="tos">
+        <input type="checkbox" name="tos" required>
+        <span>I agree to the <a href="/legal" target="_blank" rel="noopener">Terms of Service &amp; Privacy Policy</a>.</span>
+      </label>
+      <button type="submit" class="submit">Send login link</button>
+    </form>
+    <div class="result" id="result-en"></div>
+  </section>
+
+  <section data-lang-block="ru">
+    <h1>Вас пригласили в HVAC DiagTree</h1>
+    <p class="tagline">Трабл-шутер для HVAC/R оборудования.</p>
+    <p>Введите email — пришлём одноразовую ссылку для входа. Пароль запоминать не нужно.</p>
+    <form id="form-ru">
+      <input type="email" name="email" placeholder="you@example.com" required>
+      <label class="tos">
+        <input type="checkbox" name="tos" required>
+        <span>Я принимаю <a href="/legal" target="_blank" rel="noopener">условия использования и политику конфиденциальности</a>.</span>
+      </label>
+      <button type="submit" class="submit">Отправить ссылку</button>
+    </form>
+    <div class="result" id="result-ru"></div>
+  </section>
+</div>
+<script src="/landing.js"></script>
+<script src="/invite.js"></script>
+</body>
+</html>

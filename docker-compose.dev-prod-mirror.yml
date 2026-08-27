@@ -4,9 +4,14 @@
 # exactly how the syslog-driver reboot bug and the landing-page routing
 # needed to be caught on prod first instead of here.
 #
-# The only thing this changes versus docker-compose.prod.yml is which host
-# port Caddy answers on, so it doesn't fight the dev VM's existing services
-# on 80/443 or require binding a privileged port.
+# Three things this changes versus docker-compose.prod.yml: which host port
+# Caddy answers on (so it doesn't fight the dev VM's existing services on
+# 80/443 or require binding a privileged port), COOKIE_SECURE — this stack
+# has no TLS anywhere, so a Secure-flagged login cookie (see app/main.py)
+# would silently never be stored by the browser and every invite-gate test
+# here would look like a mysterious instant-logout — and the Caddyfile
+# itself, swapped for Caddyfile.dev-mirror (same file minus basic auth, see
+# its own header comment for why).
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml -f docker-compose.bitwarden.yml \
@@ -15,3 +20,8 @@ services:
   caddy:
     ports:
       - "8080:80"
+    volumes:
+      - ./Caddyfile.dev-mirror:/etc/caddy/Caddyfile:ro
+  hvac-guide:
+    environment:
+      - COOKIE_SECURE=false
