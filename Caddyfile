@@ -61,10 +61,14 @@
 	# `basic_auth` is the current spelling; Caddy renamed it in 2.8 and warns
 	# on every start about the old `basicauth`. Anyone self-hosting on a Caddy
 	# older than 2.8 needs the old spelling instead.
-	basic_auth @not_public {
-		{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
-	}
-	# --- Phase 2 (public launch) ---
+	# basic_auth @not_public {
+	# 	{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+	# }
+	# --- Phase 2 (public launch, 27 авг. 2026) ---
+	# Disabled: invite-gate + passwordless login is the access control now
+	# (see CLAUDE.md "план выхода в паблик"). The 6 testers who shared this
+	# password lose access until they register via a personal invite from
+	# /manage-invites — expected and already agreed with the team.
 	# To disable basic auth and open access to everyone — comment out the
 	# basic_auth block above (no need to touch the application code).
 
