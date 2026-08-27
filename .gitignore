@@ -7,6 +7,11 @@
 # unreleased plans) - never meant for the public repo
 CLAUDE.md
 
+# Bitwarden Secrets Manager topology (project ids, machine-account names,
+# key names) - infra detail, same reasoning as CLAUDE.md above, never the
+# public repo. Synced to pinas01 separately, not via git.
+BITWARDEN.md
+
 # Same reasoning as CLAUDE.md above - hardcodes pinas01's IP/hostnames/user
 # choices, not app logic. Lives in the encrypted CLAUDE.md/memory backup
 # pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
