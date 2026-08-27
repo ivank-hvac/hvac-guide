@@ -13,12 +13,21 @@ The current graph's implicit assumption, and the right default.
 - Single-stage cooling (on/off)
 - Metering: TXV or fixed orifice/piston (EEV rare at this tier)
 - Condenser fan(s): single-speed, on/off with the compressor
-- Heat: single-stage gas (standing pilot or hot-surface ignition) or
-  single-stage electric heat strips
+- Heat: single-stage gas (hot-surface or direct-spark ignition) or
+  single-stage electric heat strips. **Standing pilot is not a realistic
+  Tier 1 case for RTU** (Ivan, 27 Aug: hasn't seen one on an actual RTU —
+  electronic ignition is universal on modern units; standing pilot still
+  shows up on older unit heaters, a different equipment category, and on
+  some newer HWT/hot-water-tank equipment, out of scope here)
 - Supply fan: belt-drive or direct-drive, single speed (PSC motor)
 - Economizer: none, or basic dry-bulb changeover (optional, not universal)
-- Safeties Cooling: factory-set, non-adjustable LP/HP switches; no field calibration
-- Safeties heating: Flame sensing rod, flue gases inducer air proving switch
+- Cooling safeties: factory-set, non-adjustable LP/HP switches; no field
+  calibration
+- Heating safeties: flame-sensing rod, induced-draft (inducer) proving
+  switch, **high-limit switch** (over-temperature — Ivan: "100%
+  попадание", the most universal gas-heat safety of the three), **low-limit
+  switch** (discharge-air/freeze protection — Ivan: "очень часто", common
+  enough to list at Tier 1 too)
 - No BAS/BACnet integration — stand-alone thermostat or basic controller
 
 ## Tier 2 — Mid-complexity (adds to Tier 1)
@@ -66,3 +75,10 @@ The current graph's implicit assumption, and the right default.
   actually has to verify — could matter more for the future
   Commissioning & Startup mode (see ROADMAP.md) than for break/fix
   troubleshooting.
+- **Air Make Up Units (AMU/MUA) flagged by Ivan (27 Aug) as a related but
+  distinct category, not covered here** — on these, both high-limit AND
+  low-limit switches are mandatory (not just common, as on a Tier 1 RTU),
+  and some MUA configurations add a cooling section on top of the heat
+  (Ivan's own reaction: "🤦" — not a common combination, but a real one).
+  Not built out as its own profile yet — noted so it isn't silently lumped
+  into RTU if/when this reference expands.
