@@ -17,8 +17,8 @@ The current graph's implicit assumption, and the right default.
   single-stage electric heat strips
 - Supply fan: belt-drive or direct-drive, single speed (PSC motor)
 - Economizer: none, or basic dry-bulb changeover (optional, not universal)
-- Safeties: factory-set, non-adjustable LP/HP switches; no field
-  calibration
+- Safeties Cooling: factory-set, non-adjustable LP/HP switches; no field calibration
+- Safeties heating: Flame sensing rod, flue gases inducer air proving switch
 - No BAS/BACnet integration — stand-alone thermostat or basic controller
 
 ## Tier 2 — Mid-complexity (adds to Tier 1)
