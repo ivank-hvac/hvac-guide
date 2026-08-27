@@ -55,9 +55,17 @@ services:
       options:
         max-size: "10m"
         max-file: "2"
+    # Bound to a specific host address, not 0.0.0.0, on purpose: traffic is
+    # meant to arrive only through the WireGuard tunnel from the edge Caddy
+    # (see Caddyfile comment). Publishing on every interface let anyone who
+    # can already reach the host's LAN segment hit this Caddy directly on
+    # plain HTTP, skipping the edge's TLS/HSTS/CSP entirely — set
+    # CADDY_BIND_ADDR to the host's tunnel-side address (e.g. the wg1 IP) in
+    # .env. Defaults to 0.0.0.0 so a plain self-host with no tunnel still
+    # works unchanged.
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_BIND_ADDR:-0.0.0.0}:80:80"
+      - "${CADDY_BIND_ADDR:-0.0.0.0}:443:443"
     # Overridden on dev — see docker-compose.dev-prod-mirror.yml.
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
