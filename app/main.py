@@ -1641,6 +1641,35 @@ def _node_edges(node: Dict[str, Any], equipment: Optional[str]) -> List[str]:
     return targets
 
 
+# Node ids reachable only through JS-orchestrated navigation that doesn't
+# correspond to a literal graph edge — found by tracing every call site
+# that changes state.currentId in app.js (28 Aug 2026), not guessed:
+#   - "power_check": the universal power/thermostat gate pair is spliced in
+#     unconditionally right after the one-time manufacturer step, for every
+#     equipment type — see app.js renderManufacturerStep. Nothing in
+#     graph-structure.json points to it (thermostat_check IS a normal edge
+#     FROM power_check, so it doesn't need its own entry here).
+#   - Any node.js listed as a `graph_launch` intake item's `root` — same
+#     pattern, launched straight from the INTAKE_STEP_ID screen (not a real
+#     graph node) via its own button, not a graph edge. Currently just
+#     "pt_suction_pressure" (the precise SH/SC calc chain), but read from
+#     the graph itself rather than hardcoded, since content can add more.
+# The "__pending__" sentinel (resolves back to whichever node start's
+# equipment option pointed at) does NOT need an entry here — the frontend
+# resolves it by re-validating with from=<graph start>, which is already a
+# real edge, just fetched later than the literal graph position.
+_UNIVERSAL_ENTRY_WHITELIST = {"power_check"}
+
+
+def _universal_entry_nodes(graph: Dict[str, Any]) -> set:
+    nodes = set(_UNIVERSAL_ENTRY_WHITELIST)
+    for phase in graph.get("intake_checklist", []):
+        for item in phase.get("items", []):
+            if item.get("type") == "graph_launch" and item.get("root"):
+                nodes.add(item["root"])
+    return nodes
+
+
 def _node_path_contains(node_path: Optional[Dict[str, Any]], node_id: str) -> bool:
     if not node_path:
         return False
@@ -1658,9 +1687,11 @@ def _validate_node_edge(
     session_id: Optional[str],
 ) -> bool:
     """Anti-scraping check: a node is only servable if it's the graph's
-    start node, a genuine single-hop edge from a node the caller says
-    they're coming from, or a node this exact session has already reached
-    (covers resuming a saved session straight to a deep node). Structural
+    start node, one of a small fixed set of JS-orchestrated universal
+    entry points (see _UNIVERSAL_ENTRY_WHITELIST above), a genuine
+    single-hop edge from a node the caller says they're coming from, or a
+    node this exact session has already reached (covers resuming a saved
+    session straight to a deep node). Structural
     (edge-based), not a database lookup, except for the resume case — see
     CLAUDE.md "Server-driven graph delivery" for why this doesn't need to
     consult sessions.node_path for ordinary forward navigation: the
@@ -1669,6 +1700,8 @@ def _validate_node_edge(
     rejections for a real user clicking normally.
     """
     if node_id == graph.get("start"):
+        return True
+    if node_id in _universal_entry_nodes(graph):
         return True
     if from_id:
         from_node = graph.get("nodes", {}).get(from_id)
