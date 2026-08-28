@@ -2354,16 +2354,37 @@ async def graph_json(request: Request):
     return response
 
 
+# Companion to /api/graph/node/<id> below: everything in graph.json EXCEPT
+# the big `nodes` dict — start id, intake_checklist, component_checks.
+# These aren't split into per-node delivery (intake_checklist is a fixed,
+# always-free universal checklist per CLAUDE.md's core/pro principle, not
+# secret; component_checks is its own small self-contained mini-tree, not
+# part of the main 101-node diagnostic graph this is protecting) — served
+# whole, same gate as everything else here.
+@app.get("/api/graph/meta", include_in_schema=False)
+async def graph_meta(request: Request):
+    raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
+    if AUTH_ENABLED:
+        user = await run_in_threadpool(_get_user_by_session_cookie, raw_cookie)
+        if user is None:
+            raise HTTPException(status_code=401)
+    try:
+        graph = await run_in_threadpool(_load_graph)
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404)
+    meta = {k: v for k, v in graph.items() if k != "nodes"}
+    resp = Response(content=json.dumps(meta, ensure_ascii=False), media_type="application/json")
+    resp.headers["Cache-Control"] = "no-cache"
+    if AUTH_ENABLED:
+        _set_session_cookie(resp, raw_cookie)
+    return resp
+
+
 # Per-node alternative to /graph.json above — same gating, but serves one
 # node at a time instead of the whole tree in one response, so a script
 # can't download the entire graph in a single request the way a real
 # session (which only ever sees nodes it actually navigates to) never
-# would. NOT YET USED by the frontend (app.js still fetches /graph.json
-# whole) — see CLAUDE.md "Server-driven graph delivery": switching app.js
-# over requires making its render()/goTo() call chain async-aware, staged
-# as a separate, reviewed step given this is a live app with real users.
-# This route exists and is tested ahead of that so the backend contract is
-# settled before the frontend rewrite starts.
+# would.
 @app.get("/api/graph/node/{node_id}", include_in_schema=False)
 @limiter.limit(GRAPH_NODE_RATE_LIMIT)
 async def graph_node(
