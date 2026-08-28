@@ -122,7 +122,17 @@ below.
 
 `app/static/graph.json` is plain JSON, no image rebuild needed (you can mount
 `./app/static:/app/static` in compose for live edits, or just rebuild the
-container after changes).
+container after changes). Just edit it directly — that's the whole
+workflow, and it's unaffected by the next paragraph.
+
+This project's own copy of `graph.json` is also generated from
+`app/graph_src/` (`graph-structure.json` + `content/<lang>.json`, plus
+`tools/build_graph.py`/`tools/split_graph_content.py`/
+`tools/validate_content.py`) — an internal authoring convenience for
+keeping RU/EN/future-language text separate from graph structure. That's
+optional infrastructure specific to how this repo's own maintainers edit
+content; if you fork this project, you don't need any of it and can keep
+editing `graph.json` directly as described above.
 
 Node format (text and option labels are a `{ru, en}` object, not a plain
 string):
