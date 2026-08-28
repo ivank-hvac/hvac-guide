@@ -11,6 +11,8 @@ const I18N = {
   ru: {
     back: "← Назад",
     restart: "⟲ Начать сначала",
+    nodeLoadError: "Не удалось загрузить следующий шаг. Проверьте соединение и попробуйте ещё раз.",
+    nodeLoadRetryBtn: "Повторить",
     badge: { info: "Инфо", warning: "Внимание", critical: "Критично" },
     relatedChecksTitle: "Также стоит проверить",
     safetyBannerText: "⚠️ Перед вскрытием панелей или работой с контуром под давлением — LOTO/дисконнектор выполнен?",
@@ -95,6 +97,8 @@ const I18N = {
   en: {
     back: "← Back",
     restart: "⟲ Start Over",
+    nodeLoadError: "Couldn't load the next step. Check your connection and try again.",
+    nodeLoadRetryBtn: "Retry",
     badge: { info: "Info", warning: "Warning", critical: "Critical" },
     relatedChecksTitle: "Also worth checking",
     safetyBannerText: "⚠️ Before opening panels or working on a pressurized circuit — is LOTO/disconnect done?",
@@ -435,7 +439,7 @@ function saturationPressure(points, tempF, curve) {
 function findAnswerByRole(role) {
   for (let i = state.answers.length - 1; i >= 0; i--) {
     const entry = state.answers[i];
-    const node = GRAPH.nodes[entry.nodeId];
+    const node = NODE_CACHE[entry.nodeId];
     if (node && node.role === role && entry.value != null) return entry.value;
   }
   return null;
@@ -546,7 +550,7 @@ function answerLabel(entry) {
     // chip, which never repeats the question text either.
     return entry.value;
   }
-  const node = GRAPH.nodes[entry.nodeId];
+  const node = NODE_CACHE[entry.nodeId];
   if (!node) return "";
   if (entry.optionIndex != null) {
     const opt = node.options?.[entry.optionIndex];
@@ -599,7 +603,20 @@ const INTAKE_STEP_ID = "__intake__";
 // graph.json node — same reasoning as MANUFACTURER_STEP_ID.
 const COMPONENT_CHECK_STEP_ID = "__component_check__";
 
+// GRAPH holds everything EXCEPT individual node bodies (start id,
+// intake_checklist, component_checks — see /api/graph/meta). Node bodies
+// live in NODE_CACHE, populated lazily by fetchNode() as the tech actually
+// navigates to them — see CLAUDE.md "Server-driven graph delivery" for
+// why (anti-scraping: no single request can download the whole tree).
+// Every node ever fetched this page-load stays cached for the session's
+// lifetime, which is also what makes back-navigation and breadcrumb/
+// summary rendering (answerLabel, currentAnswers, checklistAnswers,
+// findAnswerByRole below) safe to read synchronously from NODE_CACHE
+// without re-fetching: they only ever look up nodes already recorded in
+// state.answers/state.history/state.checklist, which by construction were
+// already visited (and therefore already cached) before this point.
 let GRAPH = null;
+let NODE_CACHE = {};
 let MANUFACTURERS = null;
 let REFRIGERANTS = null;
 let LANG = localStorage.getItem("hvac_lang");
@@ -689,13 +706,52 @@ function attachCharCounter(el, limit) {
   return counter;
 }
 
+// Fetches one node's body from /api/graph/node/<id>, populating NODE_CACHE
+// — or returns the cached copy instantly if this session already fetched
+// it (the common case for anything reachable via back-navigation). `from`/
+// `equipment` are only consulted server-side when the node isn't already
+// reachable some other way (its own start/universal-entry status, or
+// state.sessionId's own saved history) — see main.py _validate_node_edge.
+// Throws on a genuine 401/403/404/network failure; callers decide how to
+// degrade (goTo below surfaces it as a lightweight in-card error rather
+// than leaving the UI stuck on a spinner forever).
+async function fetchNode(nodeId, { from = null, equipment = null } = {}) {
+  if (NODE_CACHE[nodeId]) return NODE_CACHE[nodeId];
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (equipment) params.set("equipment", equipment);
+  if (state.sessionId) params.set("session_id", state.sessionId);
+  const qs = params.toString();
+  const res = await fetch(`./api/graph/node/${encodeURIComponent(nodeId)}${qs ? "?" + qs : ""}`);
+  if (!res.ok) {
+    throw new Error(`fetchNode(${nodeId}) failed: HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  NODE_CACHE[nodeId] = data.node;
+  return data.node;
+}
+
+// Batch-populates NODE_CACHE for every node id a restored/resumed session
+// might reference — see resumeSession below. Best-effort per node: one
+// stale/unreachable id (there shouldn't be any, but this is restoring
+// data the server saved earlier under a debounced, not perfectly atomic,
+// write) shouldn't take down the whole resume flow — it just means that
+// one breadcrumb/summary entry renders blank instead of the session
+// failing to resume at all.
+async function prefetchNodesFor(ids) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  await Promise.all(
+    unique.map((id) => fetchNode(id, {}).catch(() => {}))
+  );
+}
+
 async function loadGraph() {
-  const [graphRes] = await Promise.all([
-    fetch("./graph.json"),
+  const [metaRes] = await Promise.all([
+    fetch("./api/graph/meta"),
     loadManufacturers(),
     loadRefrigerants(),
   ]);
-  GRAPH = await graphRes.json();
+  GRAPH = await metaRes.json();
 
   const resumable = await checkResumableSession();
   if (resumable) {
@@ -706,7 +762,7 @@ async function loadGraph() {
     state.pendingResume = resumable;
     renderResumePrompt(resumable);
   } else {
-    goTo(GRAPH.start, { pushHistory: false });
+    await goTo(GRAPH.start, { pushHistory: false });
   }
 }
 
@@ -817,7 +873,7 @@ function equipmentLabel() {
 function equipmentKey() {
   const first = state.answers[0];
   if (!first || first.nodeId !== GRAPH.start || first.optionIndex == null) return null;
-  const startNode = GRAPH.nodes[GRAPH.start];
+  const startNode = NODE_CACHE[GRAPH.start];
   const opt = startNode && startNode.options && startNode.options[first.optionIndex];
   return (opt && opt.equipment) || null;
 }
@@ -917,7 +973,7 @@ function renderResumePrompt(data) {
   cardEl.appendChild(opts);
 }
 
-function resumeSession(data) {
+async function resumeSession(data) {
   state.pendingResume = null;
   const np = data.node_path || {};
   state = {
@@ -937,6 +993,21 @@ function resumeSession(data) {
     componentCheck: np.componentCheck || null,
     graphLaunchReturn: np.graphLaunchReturn || null,
   };
+  // Populate NODE_CACHE with every node this restored state might
+  // reference before the first (still-synchronous) render() call —
+  // render/breadcrumb/summary rendering all assume a cache hit, not a
+  // fetch. state.sessionId is already set above, so each of these
+  // validates via the session's own saved node_path server-side (see
+  // main.py _validate_node_edge) rather than needing an edge/`from` for
+  // each one individually.
+  const idsToPrefetch = [
+    state.currentId,
+    ...state.history,
+    state.finishNodeId,
+    ...state.answers.map((a) => a.nodeId),
+    ...Object.keys(state.checklist),
+  ].filter(isRealGraphNode);
+  await prefetchNodesFor(idsToPrefetch);
   render();
 }
 
@@ -1681,7 +1752,58 @@ function renderComponentCheck() {
   cardEl.appendChild(saveBtn);
 }
 
-function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
+// The four JS-only screen ids (MANUFACTURER_STEP_ID etc.) are never real
+// graph.json nodes — see each constant's own comment — so fetchNode must
+// never be called for them at all, not even speculatively.
+function isRealGraphNode(id) {
+  return (
+    id !== MANUFACTURER_STEP_ID &&
+    id !== INTAKE_STEP_ID &&
+    id !== COMPONENT_CHECK_STEP_ID &&
+    id !== FINISH_STEP_ID
+  );
+}
+
+// Minimal in-card failure state for a node fetch that didn't come back —
+// network hiccup, an expired session, whatever. Doesn't touch state at
+// all (the failed transition never happened), so Retry just replays the
+// exact same goTo call. This failure mode didn't exist before per-node
+// delivery: the whole graph used to load once, up front, so a mid-session
+// fetch failure was never possible.
+function renderLoadError(retry) {
+  const strings = ui();
+  cardEl.innerHTML = "";
+  const msg = document.createElement("div");
+  msg.className = "q-text";
+  msg.textContent = strings.nodeLoadError;
+  cardEl.appendChild(msg);
+  const retryBtn = document.createElement("button");
+  retryBtn.className = "btn input-action";
+  retryBtn.textContent = strings.nodeLoadRetryBtn;
+  retryBtn.onclick = retry;
+  cardEl.appendChild(retryBtn);
+}
+
+// `from`/`equipment` default to the natural case (navigating off the node
+// the tech is currently looking at) but can be overridden — needed for
+// the couple of places where the real graph-structure edge that justifies
+// the target isn't the screen being left (the manufacturer step and the
+// universal power/thermostat gates all sit in front of the actual symptom
+// entry point — see the "__pending__" handling in renderQuestion and the
+// manufacturer-step submit handler for the two call sites that pass an
+// explicit `from`).
+async function goTo(nodeId, { pushHistory = true, prevId = null, from = null, equipment = null } = {}) {
+  if (isRealGraphNode(nodeId)) {
+    try {
+      await fetchNode(nodeId, {
+        from: from || prevId || state.currentId,
+        equipment: equipment || equipmentKey(),
+      });
+    } catch (err) {
+      renderLoadError(() => goTo(nodeId, { pushHistory, prevId, from, equipment }));
+      return;
+    }
+  }
   if (pushHistory && prevId) {
     state.history.push(prevId);
   }
@@ -1689,7 +1811,7 @@ function goTo(nodeId, { pushHistory = true, prevId = null } = {}) {
   render();
 }
 
-function goBack() {
+async function goBack() {
   if (state.history.length === 0) return;
   // The intake checklist screen is pure UI navigation (see INTAKE_STEP_ID) —
   // entering it never added an answer entry, so leaving it must not pop one
@@ -1697,7 +1819,21 @@ function goBack() {
   // renderReportSection — but it's no longer a navigable screen at all, so
   // goBack can never be called while "on" it.)
   const leavingIntakeScreen = state.currentId === INTAKE_STEP_ID;
-  const prev = state.history.pop();
+  const prev = state.history[state.history.length - 1];
+  // Anything in state.history was, by construction, already visited and
+  // therefore already in NODE_CACHE — this fetchNode call is a no-op cache
+  // hit in the overwhelming common case. It only does real work for a
+  // freak edge case (cache somehow missing an already-visited real node),
+  // and is skipped entirely for the JS-only screen ids.
+  if (isRealGraphNode(prev)) {
+    try {
+      await fetchNode(prev, {});
+    } catch (err) {
+      renderLoadError(() => goBack());
+      return;
+    }
+  }
+  state.history.pop();
   if (prev === MANUFACTURER_STEP_ID) {
     // The manufacturer step can add 0, 1, or 2 answer entries (manufacturer
     // and/or model, both optional) instead of the usual one — undo all of
@@ -1825,7 +1961,17 @@ function render() {
     return;
   }
 
-  const node = GRAPH.nodes[state.currentId];
+  const node = NODE_CACHE[state.currentId];
+  if (!node) {
+    // Defensive fallback, not the normal path — every state.currentId
+    // transition (goTo/goBack/resumeSession's batch prefetch) is supposed
+    // to guarantee a cache hit before calling render(). If something ever
+    // slips through, fetch it now instead of crashing on node.type below.
+    fetchNode(state.currentId, { equipment: equipmentKey() })
+      .then(render)
+      .catch(() => renderLoadError(() => render()));
+    return;
+  }
 
   if (node.type === "question") {
     renderQuestion(node);
@@ -1892,7 +2038,12 @@ function renderQuestion(node) {
         render();
         return;
       }
-      goTo(resolveOptionNext(opt), { prevId: state.currentId });
+      // "__pending__" resolves to state.pendingNodeId — a real edge from
+      // GRAPH.start (see line ~2010 above), not from the node being left
+      // (thermostat_check), which has no such edge in the actual graph
+      // structure. Everything else is a normal edge from state.currentId.
+      const from = opt.next === "__pending__" ? GRAPH.start : state.currentId;
+      goTo(resolveOptionNext(opt), { prevId: state.currentId, from, equipment: equipmentKey() });
     };
     opts.appendChild(b);
   });
@@ -2033,7 +2184,7 @@ function renderManufacturerStep() {
   nextBtn.textContent = strings.nextBtn;
   cardEl.appendChild(nextBtn);
 
-  nextBtn.onclick = () => {
+  nextBtn.onclick = async () => {
     let manufacturer = null;
     if (select.value === "other") {
       const customName = otherInput.value.trim();
@@ -2060,12 +2211,22 @@ function renderManufacturerStep() {
     // (see renderQuestion) back to whatever symptom node this equipment
     // type would have led to — pendingNodeId is deliberately NOT cleared
     // here so that resolution can happen later, once both gates pass.
-    if (GRAPH.nodes["power_check"]) {
+    // power_check is on the server's small universal-entry whitelist (see
+    // main.py _UNIVERSAL_ENTRY_WHITELIST) since it's spliced in here
+    // rather than reachable via any real graph edge — a 404 means this
+    // graph.json (e.g. a self-hoster's own content) doesn't define it at
+    // all, same fallback as before per-node delivery.
+    try {
+      await fetchNode("power_check", {});
       goTo("power_check", { prevId: MANUFACTURER_STEP_ID });
-    } else {
+    } catch {
       const target = state.pendingNodeId;
       state.pendingNodeId = null;
-      goTo(target, { prevId: MANUFACTURER_STEP_ID });
+      // from: GRAPH.start, not MANUFACTURER_STEP_ID — target is whatever
+      // start's own equipment option pointed at (see line ~1889), a real
+      // edge from start, just resolved later than the literal graph
+      // position.
+      goTo(target, { prevId: MANUFACTURER_STEP_ID, from: GRAPH.start, equipment: equipmentKey() });
     }
   };
 }
@@ -2839,11 +3000,11 @@ function currentAnswers() {
       return { question: ui().ptCalcResultQuestion, answer: answerLabel(entry) };
     }
     if (entry.field === "dual_block") {
-      const node = GRAPH.nodes[entry.nodeId];
+      const node = NODE_CACHE[entry.nodeId];
       const block = node.blocks.find((b) => b.id === entry.block);
       return { question: t(block.label), answer: answerLabel(entry) };
     }
-    const node = GRAPH.nodes[entry.nodeId];
+    const node = NODE_CACHE[entry.nodeId];
     return { question: t(node.text), answer: answerLabel(entry) };
   });
 }
@@ -2854,7 +3015,7 @@ function currentAnswers() {
 function checklistAnswers() {
   const rows = [];
   Object.keys(state.checklist).forEach((nodeId) => {
-    const node = GRAPH.nodes[nodeId];
+    const node = NODE_CACHE[nodeId];
     if (!node || !node.checklist) return;
     const values = state.checklist[nodeId];
     node.checklist.forEach((item) => {
