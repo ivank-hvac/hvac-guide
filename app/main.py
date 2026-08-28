@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Literal, Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -88,6 +88,11 @@ AI_DAILY_LIMIT_GLOBAL = int(os.getenv("AI_DAILY_LIMIT_GLOBAL", "400"))
 # completed checklist, this one fires on every debounced save while a
 # checklist is in progress, so it needs more headroom.
 SESSION_RATE_LIMIT = os.getenv("SESSION_RATE_LIMIT", "20/minute")
+
+# How many /api/graph/node fetches a single IP may make per minute — see
+# _validate_node_edge below. A real diagnostic session visits maybe a dozen
+# nodes; this is generous headroom for normal use, not a budget.
+GRAPH_NODE_RATE_LIMIT = os.getenv("GRAPH_NODE_RATE_LIMIT", "30/minute")
 
 # An "active" session (in-progress checklist, resumable via the "Continue?"
 # prompt) that hasn't been touched in this long is reclassified as
@@ -1601,6 +1606,96 @@ def _load_intake_phases() -> List[Dict[str, Any]]:
     ]
 
 
+def _load_graph() -> Dict[str, Any]:
+    # Same read-fresh-each-time pattern as _load_intake_phases above — the
+    # file is small (~125KB) and request volume is low enough that this
+    # isn't worth a startup-time cache with invalidation logic. Missing/
+    # unreadable file surfaces as a 404 from the route below, not a crash.
+    with open(os.path.join("static", "graph.json"), "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _node_edges(node: Dict[str, Any], equipment: Optional[str]) -> List[str]:
+    """All node ids a single hop reachable from this node, given an
+    equipment context (for nextByEquipment options) — mirrors the
+    reachability walk used for the graph audit (see CLAUDE.md 27 Aug)."""
+    targets: List[str] = []
+
+    def walk(obj: Any) -> None:
+        if isinstance(obj, dict):
+            if "nextByEquipment" in obj:
+                nbe = obj["nextByEquipment"]
+                target = nbe.get(equipment) if equipment else None
+                target = target or nbe.get("default")
+                if target:
+                    targets.append(target)
+            elif isinstance(obj.get("next"), str):
+                targets.append(obj["next"])
+            for v in obj.values():
+                walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(node)
+    return targets
+
+
+def _node_path_contains(node_path: Optional[Dict[str, Any]], node_id: str) -> bool:
+    if not node_path:
+        return False
+    if node_path.get("currentId") == node_id:
+        return True
+    history = node_path.get("history")
+    return isinstance(history, list) and node_id in history
+
+
+def _validate_node_edge(
+    graph: Dict[str, Any],
+    node_id: str,
+    from_id: Optional[str],
+    equipment: Optional[str],
+    session_id: Optional[str],
+) -> bool:
+    """Anti-scraping check: a node is only servable if it's the graph's
+    start node, a genuine single-hop edge from a node the caller says
+    they're coming from, or a node this exact session has already reached
+    (covers resuming a saved session straight to a deep node). Structural
+    (edge-based), not a database lookup, except for the resume case — see
+    CLAUDE.md "Server-driven graph delivery" for why this doesn't need to
+    consult sessions.node_path for ordinary forward navigation: the
+    debounced session save can lag behind the client's actual position by
+    seconds, and gating on stale server state would produce false
+    rejections for a real user clicking normally.
+    """
+    if node_id == graph.get("start"):
+        return True
+    if from_id:
+        from_node = graph.get("nodes", {}).get(from_id)
+        if from_node and node_id in _node_edges(from_node, equipment):
+            return True
+    if session_id:
+        session = _get_session(session_id)
+        if session and _node_path_contains(session.get("node_path"), node_id):
+            return True
+    return False
+
+
+def _extract_node_lang(node: Any, lang: str) -> Any:
+    """Replace every {"ru": ..., "en": ...} text leaf in a node with just
+    the requested language's string — same text-leaf convention as
+    tools/split_graph_content.py. Unknown lang keys just pass the dict
+    through unresolved rather than raising, so a typo'd ?lang= degrades to
+    "no translation" instead of a 500."""
+    if isinstance(node, dict):
+        if node.keys() <= {"ru", "en"} and node.get("ru") and node.get("en"):
+            return node.get(lang, node)
+        return {k: _extract_node_lang(v, lang) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_extract_node_lang(v, lang) for v in node]
+    return node
+
+
 def _gather_panel_stats() -> Dict[str, Any]:
     with _db_connect() as conn:
         conn.row_factory = sqlite3.Row
@@ -2239,6 +2334,55 @@ async def graph_json(request: Request):
     if AUTH_ENABLED:
         _set_session_cookie(response, raw_cookie)
     return response
+
+
+# Per-node alternative to /graph.json above — same gating, but serves one
+# node at a time instead of the whole tree in one response, so a script
+# can't download the entire graph in a single request the way a real
+# session (which only ever sees nodes it actually navigates to) never
+# would. NOT YET USED by the frontend (app.js still fetches /graph.json
+# whole) — see CLAUDE.md "Server-driven graph delivery": switching app.js
+# over requires making its render()/goTo() call chain async-aware, staged
+# as a separate, reviewed step given this is a live app with real users.
+# This route exists and is tested ahead of that so the backend contract is
+# settled before the frontend rewrite starts.
+@app.get("/api/graph/node/{node_id}", include_in_schema=False)
+@limiter.limit(GRAPH_NODE_RATE_LIMIT)
+async def graph_node(
+    request: Request,
+    node_id: str,
+    lang: str = "en",
+    from_: Optional[str] = Query(default=None, alias="from"),
+    equipment: Optional[str] = None,
+    session_id: Optional[str] = None,
+):
+    raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
+    if AUTH_ENABLED:
+        user = await run_in_threadpool(_get_user_by_session_cookie, raw_cookie)
+        if user is None:
+            raise HTTPException(status_code=401)
+
+    try:
+        graph = await run_in_threadpool(_load_graph)
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404)
+
+    node = graph.get("nodes", {}).get(node_id)
+    if node is None:
+        raise HTTPException(status_code=404)
+
+    valid = await run_in_threadpool(
+        _validate_node_edge, graph, node_id, from_, equipment, session_id
+    )
+    if not valid:
+        raise HTTPException(status_code=403, detail="not a reachable node from the given context")
+
+    response = {"node": _extract_node_lang(node, lang)}
+    resp = Response(content=json.dumps(response, ensure_ascii=False), media_type="application/json")
+    resp.headers["Cache-Control"] = "no-cache"
+    if AUTH_ENABLED:
+        _set_session_cookie(resp, raw_cookie)
+    return resp
 
 
 app.mount("/", NoCacheStaticFiles(directory="static", html=True), name="static")
