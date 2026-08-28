@@ -1714,21 +1714,6 @@ def _validate_node_edge(
     return False
 
 
-def _extract_node_lang(node: Any, lang: str) -> Any:
-    """Replace every {"ru": ..., "en": ...} text leaf in a node with just
-    the requested language's string — same text-leaf convention as
-    tools/split_graph_content.py. Unknown lang keys just pass the dict
-    through unresolved rather than raising, so a typo'd ?lang= degrades to
-    "no translation" instead of a 500."""
-    if isinstance(node, dict):
-        if node.keys() <= {"ru", "en"} and node.get("ru") and node.get("en"):
-            return node.get(lang, node)
-        return {k: _extract_node_lang(v, lang) for k, v in node.items()}
-    if isinstance(node, list):
-        return [_extract_node_lang(v, lang) for v in node]
-    return node
-
-
 def _gather_panel_stats() -> Dict[str, Any]:
     with _db_connect() as conn:
         conn.row_factory = sqlite3.Row
@@ -2384,11 +2369,21 @@ async def graph_json(request: Request):
 async def graph_node(
     request: Request,
     node_id: str,
-    lang: str = "en",
     from_: Optional[str] = Query(default=None, alias="from"),
     equipment: Optional[str] = None,
     session_id: Optional[str] = None,
 ):
+    # Deliberately returns BOTH languages (the node exactly as it sits in
+    # graph.json, {ru,en} pairs intact) rather than filtering by a ?lang=
+    # param picked in an earlier draft. Two reasons: (1) it means app.js's
+    # existing t()/renderX() functions need zero changes — they already
+    # pick a language out of a {ru,en} object at render time, so only the
+    # navigation layer (goTo/render's node lookup) needs to become
+    # cache-aware, not the rendering functions too; (2) it keeps today's
+    # instant language-switch UX for anything already visited, instead of
+    # needing a re-fetch per switch. The anti-scraping goal (can't
+    # download the whole tree in one request) doesn't need per-language
+    # filtering to hold — one node at a time is the actual point.
     raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
     if AUTH_ENABLED:
         user = await run_in_threadpool(_get_user_by_session_cookie, raw_cookie)
@@ -2410,7 +2405,7 @@ async def graph_node(
     if not valid:
         raise HTTPException(status_code=403, detail="not a reachable node from the given context")
 
-    response = {"node": _extract_node_lang(node, lang)}
+    response = {"node": node}
     resp = Response(content=json.dumps(response, ensure_ascii=False), media_type="application/json")
     resp.headers["Cache-Control"] = "no-cache"
     if AUTH_ENABLED:
