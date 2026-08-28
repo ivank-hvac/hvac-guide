@@ -1649,11 +1649,14 @@ def _node_edges(node: Dict[str, Any], equipment: Optional[str]) -> List[str]:
 #     equipment type — see app.js renderManufacturerStep. Nothing in
 #     graph-structure.json points to it (thermostat_check IS a normal edge
 #     FROM power_check, so it doesn't need its own entry here).
-#   - Any node.js listed as a `graph_launch` intake item's `root` — same
-#     pattern, launched straight from the INTAKE_STEP_ID screen (not a real
-#     graph node) via its own button, not a graph edge. Currently just
-#     "pt_suction_pressure" (the precise SH/SC calc chain), but read from
-#     the graph itself rather than hardcoded, since content can add more.
+#   - Any node listed as a `graph_launch` intake item's `root` OR
+#     `refrigerantRoot` — same pattern, launched straight from the
+#     INTAKE_STEP_ID screen (not a real graph node) via its own button, not
+#     a graph edge. Currently "pt_suction_pressure" and
+#     "precise_sh_sc_refrigerant" (the two possible entries into the
+#     precise SH/SC calc chain, depending on whether the refrigerant is
+#     already known this session), but read from the graph itself rather
+#     than hardcoded, since content can add more.
 # The "__pending__" sentinel (resolves back to whichever node start's
 # equipment option pointed at) does NOT need an entry here — the frontend
 # resolves it by re-validating with from=<graph start>, which is already a
@@ -1665,8 +1668,17 @@ def _universal_entry_nodes(graph: Dict[str, Any]) -> set:
     nodes = set(_UNIVERSAL_ENTRY_WHITELIST)
     for phase in graph.get("intake_checklist", []):
         for item in phase.get("items", []):
-            if item.get("type") == "graph_launch" and item.get("root"):
-                nodes.add(item["root"])
+            if item.get("type") != "graph_launch":
+                continue
+            # Both possible launch targets — see app.js's graph_launch
+            # handling: `root` is used when the refrigerant is already
+            # known this session, `refrigerantRoot` when it isn't (e.g.
+            # precise_sh_sc's refrigerantRoot: "precise_sh_sc_refrigerant").
+            # Missing this second field was a real gap found live-testing
+            # the frontend integration — root alone isn't the whole story.
+            for key in ("root", "refrigerantRoot"):
+                if item.get(key):
+                    nodes.add(item[key])
     return nodes
 
 
