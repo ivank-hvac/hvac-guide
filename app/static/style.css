@@ -39,6 +39,18 @@ body {
   padding: 7px 16px;
 }
 
+.offline-banner {
+  width: 100%;
+  box-sizing: border-box;
+  background: #3a2f10;
+  color: var(--warn);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 10px 16px;
+}
+
 .wrap {
   width: 100%;
   max-width: 720px;
