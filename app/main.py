@@ -137,6 +137,15 @@ LOGIN_SESSION_TTL_DAYS = int(os.getenv("LOGIN_SESSION_TTL_DAYS", "30"))
 # renewal above has already granted server-side.
 LOGIN_SESSION_RENEW_THRESHOLD = timedelta(days=LOGIN_SESSION_TTL_DAYS / 2)
 LOGIN_COOKIE_NAME = "hvac_auth"
+
+# One active login_sessions row per account at a time. Consuming a magic-link
+# token while a *different* session for the same user is still live doesn't
+# silently spawn a second row — it redirects to a short confirm screen
+# instead, so a stolen/shared cookie or a second device shows up as a visible
+# event, not a quiet duplicate. This token is that screen's own short-lived
+# credential (separate from LOGIN_TOKEN_TTL_MINUTES's login token, which is
+# already consumed by the time this one is minted).
+SESSION_TAKEOVER_TOKEN_TTL_MINUTES = int(os.getenv("SESSION_TAKEOVER_TOKEN_TTL_MINUTES", "10"))
 # Secure cookies require HTTPS, which the app itself never sees directly —
 # TLS is terminated at the edge (prod) or not present at all (dev's plain
 # :8080 mirror), and the internal Caddy always hands this process plain
@@ -440,6 +449,17 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS session_takeover_tokens (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT
             )
             """
         )
@@ -916,6 +936,10 @@ class LoginRequest(BaseModel):
         return v
 
 
+class TakeoverRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=128)
+
+
 def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -1032,6 +1056,55 @@ def _get_user_by_session_cookie(raw: Optional[str]) -> Optional[Dict[str, Any]]:
                 ((now_dt + timedelta(days=LOGIN_SESSION_TTL_DAYS)).isoformat(), token_hash),
             )
     return user
+
+
+def _has_active_session(user_id: int) -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM login_sessions WHERE user_id = ? AND expires_at > ? LIMIT 1",
+            (user_id, now),
+        ).fetchone()
+    return row is not None
+
+
+def _invalidate_all_sessions(user_id: int) -> None:
+    with _db_connect() as conn:
+        conn.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
+
+
+def _create_session_takeover_token(user_id: int) -> str:
+    raw = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(minutes=SESSION_TAKEOVER_TOKEN_TTL_MINUTES)).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT INTO session_takeover_tokens (token_hash, user_id, created_at, expires_at) "
+            "VALUES (?, ?, ?, ?)",
+            (_hash_token(raw), user_id, now.isoformat(), expires_at),
+        )
+    return raw
+
+
+def _consume_session_takeover_token(raw: str) -> Optional[int]:
+    """Same one-shot-under-race pattern as _consume_login_token."""
+    token_hash = _hash_token(raw)
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        row = conn.execute(
+            "SELECT user_id, expires_at, used_at FROM session_takeover_tokens WHERE token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+        if row is None:
+            return None
+        user_id, expires_at, used_at = row
+        if used_at is not None or expires_at < now:
+            return None
+        conn.execute(
+            "UPDATE session_takeover_tokens SET used_at = ? WHERE token_hash = ?",
+            (now, token_hash),
+        )
+    return user_id
 
 
 def _set_session_cookie(response: Response, raw_token: str) -> None:
@@ -1509,7 +1582,7 @@ async def request_login(request: Request, req: LoginRequest):
 
 
 @app.get("/login/{token}", include_in_schema=False)
-async def consume_login_token(token: str):
+async def consume_login_token(token: str, request: Request):
     if not AUTH_ENABLED:
         raise HTTPException(status_code=404)
     if len(token) > 128:
@@ -1517,10 +1590,55 @@ async def consume_login_token(token: str):
     user_id = await run_in_threadpool(_consume_login_token, token)
     if user_id is None:
         return RedirectResponse(url="/login?expired=1", status_code=303)
+
+    # Fast path: this browser already holds a valid cookie for this exact
+    # account (re-clicking an old email, a double tab, etc) — nothing to
+    # negotiate, just land them on /diagnose. _get_user_by_session_cookie's
+    # own sliding-renewal already keeps that cookie fresh.
+    raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
+    current_user = (
+        await run_in_threadpool(_get_user_by_session_cookie, raw_cookie) if raw_cookie else None
+    )
+    if current_user and current_user["id"] == user_id:
+        return RedirectResponse(url="/diagnose", status_code=303)
+
+    # One active login_sessions row per account (see SESSION_TAKEOVER_TOKEN_TTL_MINUTES
+    # above): a live session elsewhere doesn't get silently duplicated — this
+    # device gets sent to a confirm screen instead of a fresh cookie.
+    if await run_in_threadpool(_has_active_session, user_id):
+        takeover_token = await run_in_threadpool(_create_session_takeover_token, user_id)
+        return RedirectResponse(url=f"/session-conflict?token={takeover_token}", status_code=303)
+
     session_token = await run_in_threadpool(_create_login_session, user_id)
     response = RedirectResponse(url="/diagnose", status_code=303)
     _set_session_cookie(response, session_token)
     return response
+
+
+@app.get("/session-conflict", include_in_schema=False)
+async def session_conflict_page():
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        os.path.join("static", "session-conflict.html"), headers={"Cache-Control": "no-cache"}
+    )
+
+
+@app.post("/api/session-takeover")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def session_takeover(request: Request, req: TakeoverRequest):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    user_id = await run_in_threadpool(_consume_session_takeover_token, req.token)
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="expired")
+    await run_in_threadpool(_invalidate_all_sessions, user_id)
+    session_token = await run_in_threadpool(_create_login_session, user_id)
+    resp = Response(
+        content=json.dumps({"status": "ok"}), media_type="application/json"
+    )
+    _set_session_cookie(resp, session_token)
+    return resp
 
 
 @app.get("/manage-invites", include_in_schema=False)
