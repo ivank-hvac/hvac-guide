@@ -88,27 +88,40 @@ error — that's the only part that requires an API key.
 
 ```
 hvac-guide/
-├── docker-compose.yml       # local/dev: no Caddy, no TLS/auth, port 8080
-├── docker-compose.prod.yml # prod: adds the Caddy reverse-proxy service + SQLite volume
-├── Caddyfile                # reverse proxy: basic auth (Phase 1), upstream via CADDY_UPSTREAM
+├── docker-compose.yml        # local/dev: no Caddy, no TLS/auth, port 8080
+├── docker-compose.prod.yml   # prod: adds the Caddy reverse-proxy service + SQLite volume
+├── docker-compose.bitwarden.yml   # optional override: secrets via Bitwarden Secrets Manager
+│                                  # instead of plain .env — see SECRETS.md
+├── Caddyfile                 # reverse proxy for docker-compose.prod.yml: basic auth (commented
+│                              # out by default, see the file), upstream via CADDY_UPSTREAM
 ├── Dockerfile
 ├── requirements.txt
 ├── .env.example
-├── .githooks/               # post-commit/post-checkout/post-merge — keep GIT_COMMIT in .env current
+├── .githooks/                # post-commit/post-checkout/post-merge — keep GIT_COMMIT in .env current
 ├── tools/
-│   └── visualize_graph.py  # dev-only: renders graph.json as a Mermaid flowchart, excluded from the image
-├── README.md / README.ru.md, ROADMAP.md, DEPLOY.md, commands.md, CHANGELOG.md
+│   └── visualize_graph.py   # dev-only: renders graph.json as a Mermaid flowchart, excluded from the image
+├── README.md / README.ru.md, ROADMAP.md, DEPLOY.md, commands.md, CHANGELOG.md, ...
 └── app/
-    ├── main.py            # FastAPI: /api/ai-assist (proxy to the Anthropic API),
-    │                      # /api/log-session (checklist history), /api/version + serves static files
+    ├── main.py             # FastAPI: /api/ai-assist (proxy to the Anthropic API), checklist
+    │                       # history (/api/session), /api/version, optional passwordless auth
+    │                       # (magic-link + invites, only active if AUTH_ENABLED — see below),
+    │                       # and serves everything under static/
+    ├── graph_src/          # optional authoring split for graph.json (structure vs. RU/EN text)
+    │   ├── graph-structure.json
+    │   └── content/{ru,en}.json  # see "Editing the question graph" below
     └── static/
-        ├── index.html
+        ├── index.html          # public landing page, served at "/"
+        ├── tool.html           # the diagnostic tool itself, served at "/diagnose"
         ├── style.css
         ├── app.js                # graph logic, unit conversion, AI calls, P-T calculator math
         ├── graph.json            # the decision graph itself (editable without rebuilding the container)
         ├── manufacturers.json    # manufacturer list for the step after equipment-type selection
         ├── refrigerants.json     # manifest of refrigerants for the P-T calculator (id/name/file)
-        └── refrigerants/*.json   # per-refrigerant P-T tables, one file per refrigerant
+        ├── refrigerants/*.json   # per-refrigerant P-T tables, one file per refrigerant
+        ├── sw.js                 # service worker: caches the app shell, resumes the last
+        │                         # position offline if a fresh load can't reach the server
+        └── login.html, invite.html, manage-invites.html, legal.html, session-conflict.html
+                                   # passwordless-auth screens, only reachable if AUTH_ENABLED
 ```
 
 One container, port 8000 inside / 8080 outside in dev (`docker-compose.yml`);
@@ -117,6 +130,16 @@ The API key never reaches the frontend — every request to Anthropic goes
 through the backend `/api/ai-assist`. Completed checklist history is stored in
 SQLite on a mounted volume `hvac_data:/app/data` — see "Checklist history"
 below.
+
+**Optional passwordless auth** (`AUTH_ENABLED`, on `main.py` startup): active
+only when `RESEND_API_KEY` is set in `.env` — magic-link login gated by
+invite codes, with its own `users`/`invites`/`login_sessions` tables in the
+same SQLite file. Off by default: without a Resend key, `/diagnose` and the
+graph stay open exactly as in Quick start, and none of the auth routes exist.
+The frontend fetches the graph one node at a time through a couple of small
+API endpoints rather than the whole `graph.json` in one request — self-hosters
+still just edit `graph.json` directly, as described below; this only changes
+how the shipped frontend reads it, not the authoring workflow.
 
 ## Editing the question graph
 

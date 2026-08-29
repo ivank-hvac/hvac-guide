@@ -10,7 +10,7 @@
 	auto_https off
 
 	servers {
-		trusted_proxies static 10.0.1.1
+		trusted_proxies static {$CADDY_TRUSTED_PROXY}
 		client_ip_headers X-Forwarded-For
 	}
 }

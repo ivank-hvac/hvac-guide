@@ -56,6 +56,5 @@ opened.
 ## Scope
 
 The project covers troubleshooting — finding and confirming the fault. It
-deliberately stops short of repair procedures, and of ultra-low-temperature
-refrigeration. Proposals that extend it in those directions are a
-conversation to have in an issue first.
+deliberately stops short of repair procedures. Proposals that extend it in
+that direction are a conversation to have in an issue first.
