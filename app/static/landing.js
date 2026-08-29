@@ -31,4 +31,23 @@
   document.querySelectorAll("[data-set-lang]").forEach(function (b) {
     b.onclick = function () { apply(b.getAttribute("data-set-lang")); };
   });
+
+  // Built at render time rather than written as a plain "mailto:" string in
+  // the HTML -- this is the one page that's intentionally public/unauthed
+  // (has to be readable before anyone has an invite), so it's the one place
+  // a plain-text address would actually get scraped. Not real security, just
+  // raises the bar against the dumb regex-over-raw-HTML harvesters, which is
+  // most of them; a bot running a full JS-executing browser would still find
+  // it. The /diagnose footer's contact link (app.js) doesn't need this --
+  // that page is behind the login gate, so an anonymous bot never even
+  // fetches its HTML.
+  var user = "hvacdiagtree";
+  var domain = "gmail.com";
+  var address = user + "@" + domain;
+  ["contactLinkEn", "contactLinkRu"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.href = "mailto:" + address;
+    el.textContent = address;
+  });
 })();

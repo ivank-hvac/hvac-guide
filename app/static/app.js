@@ -30,6 +30,7 @@ const I18N = {
     disclaimer: "Этот инструмент даёт вспомогательные диагностические предположения на основе ИИ и не заменяет суждение квалифицированного специалиста. Перед любыми работами с электричеством, хладагентом или под давлением всегда соблюдайте LOTO и применимые нормы безопасности (OSHA/CSA/местные). Используется на свой риск. Всё, что вы вводите в форму, — на вашей ответственности; содержимое, указывающее на противоправную деятельность, может быть передано соответствующим органам.",
     footerDisclaimer: "Независимый личный проект, предоставляется как есть, без гарантий. Не заменяет документацию производителя, местные нормы или суждение квалифицированного специалиста.",
     sourceLink: "исходный код",
+    contactLabel: "обратная связь",
     nextBtn: "Далее",
     numericRangeLabel: "Диапазон:",
     measuredLabel: "Измеренное значение",
@@ -119,6 +120,7 @@ const I18N = {
     disclaimer: "This tool provides AI-assisted diagnostic suggestions only — it doesn't replace the judgment of a qualified technician. Always follow LOTO and applicable safety codes (OSHA/CSA/local) before working on live electrical, refrigerant, or pressurized components. Use at your own risk. Everything you enter is your own responsibility; content indicating unlawful activity may be disclosed to the appropriate authorities.",
     footerDisclaimer: "Independent personal project, provided as-is, with no warranty. Doesn't replace manufacturer documentation, local codes, or the judgment of a qualified technician.",
     sourceLink: "source code",
+    contactLabel: "feedback",
     nextBtn: "Next",
     numericRangeLabel: "Range:",
     measuredLabel: "Measured value",
@@ -954,6 +956,14 @@ function renderFooterInfo() {
   link.rel = "noopener noreferrer";
   link.textContent = ui().sourceLink;
   versionInfoEl.append(" · ", link);
+
+  // Only here, not on the public landing page: this page is behind
+  // AUTH_ENABLED's login gate, so an anonymous address-harvesting bot never
+  // sees this HTML at all -- a real filter, not just obfuscation.
+  const contactLink = document.createElement("a");
+  contactLink.href = "mailto:hvacdiagtree@gmail.com";
+  contactLink.textContent = ui().contactLabel;
+  versionInfoEl.append(" · ", contactLink);
 }
 
 // ---- Session persistence (resume across page reloads/lost signal) -------
