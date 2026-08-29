@@ -37,6 +37,26 @@ plus its own additions; same for Tier 3 on top of Tier 2). A component
 that only ever shows up at Tier 2+ is exactly the kind of thing the
 existing graph/checklist should stop assuming universally present.
 
+## Known gap: heat pumps (flagged by Ivan, 28 Aug 2026)
+
+Heat pumps don't have their own profile file yet, and Ivan flagged this as
+a real gap, not a minor omission — "heat pumps у нас незаслужено забыт, а
+это очень большой пласт оборудования" (heat pumps are undeservedly
+forgotten here, and it's a very large slice of the equipment population).
+Not building the file now — recording the taxonomy he gave so it isn't
+lost before that profile gets written:
+
+**Media-combination taxonomy for chillers and heat pumps** (source/sink
+pairs, not just "air-cooled vs water-cooled" — the two sides can differ):
+- **Chillers**: water-to-water, air-to-water (at minimum)
+- **Heat pumps**: water-to-water, air-to-water, water-to-air, air-to-air
+
+Ivan's own framing: commercial heat pumps commonly show up as
+water-to-water or water-to-air; residential as air-to-air. EEV diagnosis
+(see `graph-tiering-concept.md`) comes up often specifically when
+diagnosing residential heat pumps, chillers, and VRF/VRV — heat pumps
+aren't a fringe case for that content, they're a primary one.
+
 ## How this could eventually connect to the app (not decided, not built)
 
 The idea Ivan described: the graph/intake-checklist walks only Tier-1

@@ -3,8 +3,22 @@
 Scratch design doc, same spirit as the other files in this directory: not
 wired into the app. Written 28 Aug 2026 at Ivan's request ("разметка графа,
 можно начинать. сначала концепт, потом деплой") — this is the concept half;
-nothing in `graph-structure.json` has been touched yet. Waiting on Ivan's
-read of this before doing the actual tagging pass.
+nothing in `graph-structure.json` has been touched yet.
+
+**Revised same day** after Ivan reviewed the first draft in detail
+("действительно серьезный вопрос" — a genuinely serious question) and gave
+real domain answers to all four open questions, which changed the shape of
+the design (see "First-pass candidate list" and "Tier-1 fallback / stub
+content" below) — most importantly: (1) two
+of the three tagging candidates turned out messier than a flat tier number
+can capture (hot gas bypass is manufacturer/order-dependent even on RTU,
+not clean chiller-only; EEV is capacity- and equipment-dependent in a way
+that argues for leaving it untagged, see below), and (2) the eventual
+free/pro UX isn't "hide the node" at all — it's "Tier 1 always gets a
+generic-but-usable answer, Tier 2+ adds equipment-specific depth behind a
+stub." That's new mechanism, not just new tag values, and it's explicitly
+**not being built now** — see "What happens after this doc is approved."
+Still waiting on Ivan before any `graph-structure.json` edit.
 
 ## What this is for
 
@@ -24,6 +38,13 @@ any user. Purely descriptive metadata that a future gating pass would read.
 Same relationship `equipment` tags on `start`'s options had to
 `nextByEquipment` before that mechanism existed — the tag can sit there
 unused for a while without doing anything.
+
+**Confirmed explicitly by Ivan on revision**: this holds for the whole
+beta, not just this first pass — "во время бета-теста, все должно быть
+открыто" (everything stays open during the beta). Even once tags exist in
+`graph-structure.json`, nothing gets gated behind them until there's a
+separate, later, explicit decision to turn enforcement on — likely well
+after billing exists, not alongside this.
 
 ## Mechanism
 
@@ -79,46 +100,71 @@ Reachable only via `lp_stable_check`'s `nextByEquipment` for
 `chiller`/`refrigeration`; its RTU sibling, `lp_rapid_trip_result_rtu`,
 already stays separate (RTU has no receiver at all — that's the original 9
 Aug bugfix this split came from, see CLAUDE.md "Баг-фикс: тупиковый путь в
-lp_start"). **Caveat**: `chiller.md` doesn't actually mention receivers or
-king/queen valves by name anywhere — I don't have a clean tier citation for
-this one from the profile doc itself, only the general "industrial/
-receiver-based, not present on RTU" framing from the original bugfix. Best
-guess is Tier 2 or 3 by that framing, but this is a judgment call, not
-something I can point at a specific line for.
+lp_start"). **Still open** — Ivan's revision answered the hot-gas-bypass
+and EEV questions in detail but didn't address this one directly.
+`chiller.md` doesn't mention receivers or king/queen valves by name
+anywhere, so there's still no citation to point at, only the general
+"industrial/receiver-based, not present on RTU" framing from the original
+bugfix. Carrying this forward as unresolved rather than guessing a number.
 
 **Hot gas bypass — `hgbp_lowload`, `hgbp_mechanical`, `hgbp_tuning`
 (results; `hgbp_start`/`hgbp_erratic` are questions, not tagged).**
-Reachable only via `chiller_symptom` — structurally chiller-only already,
-so a legitimate tagging candidate on that basis alone. **Caveat, same as
-above**: `chiller.md` doesn't mention hot gas bypass at all. Tier 3 lists
-"screw compressor(s)... sometimes VFD-driven for true capacity modulation"
-as the mechanism that competes with HGBP for exactly this purpose (false-
-loading/capacity control at low load), which points toward Tier 2-3, but
-I'm not confident enough to assign a number without Ivan's read — this is
-squarely his domain knowledge, not something derivable from what's written.
+**Revised per Ivan's direct answer (28 Aug)**: HGBP is common on chillers
+("часто"), which supports **Tier 2** for the three result nodes above —
+but it is genuinely *not* clean chiller-only in the field, which the
+current graph structure (`hgbp_start` reachable only from
+`chiller_symptom`) doesn't reflect:
 
-**EEV — NOT proposed for tagging, and here's why this candidate breaks the
-whole flat-tier-field idea.** Checked all four metering-device profiles
-that mention EEV, expecting a consistent "EEV = advanced" story. It isn't
-one:
-- `rtu.md`: EEV "rare at this tier" (Tier 1) → implies RTU Tier 2+.
-- `split.md`: EEV listed explicitly under **Tier 2**.
-- `chiller.md`: EEV "less common at this tier, but present" *at Tier 1* —
-  not cleanly gated by tier at all for chillers.
-- `vrf.md`: EEV listed under **Tier 1** — "universal at this category,
-  unlike split" — i.e. EEV is completely baseline/expected content for
-  VRF, not an advanced feature.
+> В RTU, некоторые модели, трудно классифицировать в каких конкретно, т.к.
+> зависит от производителя и конкретного экземпляра/заказа. В condenser
+> unit для сплит систем, чиллеров, холодильных камер, фризеров, но
+> правильнее сказать — это модели большой мощности. В простых
+> residential/commercial этого обычно нет.
 
-  The `eev_*` nodes live inside `component_checks.metering_device`, which
-  is **one shared mini-graph reachable from any equipment type** — it has
-  no idea whether the tech arrived there via RTU, split, or VRF. A flat
-  per-node `tier` field can't express "this content is Tier 2 for a split
-  tech but Tier 1/baseline for a VRF tech" — tagging `eev_*` as Tier 2
-  would incorrectly paywall completely standard content for every VRF
-  user, which directly violates "basic tier always free." Tagging it Tier
-  1 would under-gate it for RTU. There's no single correct answer with the
-  mechanism this doc proposes. Left untagged (Tier 1 by default) for this
-  pass — see open question 2 below.
+So HGBP also turns up on some RTUs (unpredictably, by manufacturer/order —
+not classifiable into "which models" in general), and on higher-capacity
+condenser units for split systems, chillers, and refrigeration/freezers.
+Simple residential/commercial equipment usually doesn't have it at all.
+**Two separate conclusions follow**:
+1. **Tagging**: `hgbp_lowload`/`hgbp_mechanical`/`hgbp_tuning` → **Tier 2**
+   (not 3 — "часто" in chillers generally, not just top-end screw/
+   centrifugal units, matches Tier 2's tandem/staging-scroll chillers as
+   much as Tier 3's).
+2. **Separate from tiering — a real graph-coverage gap, not proposed to
+   fix now**: the graph currently has no path to HGBP content for anyone
+   who picked RTU, split, or refrigeration as their equipment type, even
+   though HGBP genuinely exists on some higher-capacity units in exactly
+   those categories. Worth a future content pass (a gated/optional path
+   into the existing `hgbp_*` nodes from those equipment types, framed
+   as "if your unit has hot gas bypass" the same way the intake checklist
+   already asks about other optional components) — not something this
+   tiering doc is scoped to build.
+
+**EEV — still NOT proposed for tagging; Ivan's answer made the case for
+leaving it alone stronger, not weaker.** Original finding (VRF=Tier 1
+baseline, split=Tier 2, RTU implied Tier 2+, chiller ungated by tier) held
+up, and Ivan's revision adds the real-world texture behind it:
+
+> Никогда в дешевых и небольших системах до 5 тонн, часто в более крупных
+> и дорогих, 100% в conversion kit для VRF/VRV установок. Достаточно часто
+> в heat pump ... EEV диагностика это часто происходит при диагностике
+> residential heat pump, chillers, VRF/VRV.
+
+So the real driver is closer to **capacity/price tier than a clean
+equipment-type or Tier-1/2/3 line** — absent under 5 tons, common above
+that, and unconditionally present the moment a VRF/VRV conversion kit is
+involved. It also comes up constantly for **heat pumps specifically** —
+which Ivan flagged in the same message as a large, currently-missing
+equipment category in this project (see `README.md`'s new "Known gap:
+heat pumps" section). That reinforces the original conclusion for a new
+reason: gating EEV diagnosis would land hardest on exactly the equipment
+category (residential heat pumps) this project is weakest on right now,
+which cuts against gating it even harder than the pure VRF-baseline
+argument alone did. **Left untagged.** A capacity-based approach (tie the
+gate to system tonnage rather than equipment type) is a plausible future
+direction if EEV ever does get tiered, but the graph doesn't collect
+capacity/tonnage anywhere today — a bigger, separate design question, not
+attempted here.
 
 **Checked and confirmed NOT tagging:**
 - Furnace (`gas_*`, 12 nodes) — checked against `furnace.md`'s actual Tier
@@ -132,43 +178,69 @@ one:
 - All 35 result nodes the 27 Aug audit found genuinely universal (reachable
   from 2+ equipment types) — Tier 1 by the reasoning above, left untagged.
 
-## Open questions for Ivan (not decided here)
+## Tier-1 fallback / stub content — new design item from Ivan's revision, NOT built
 
-1. **Tier numbers for the two chiller-only candidates above** (hot gas
-   bypass, receiver/king-queen valve) — `chiller.md` doesn't cover either
-   by name, so I don't have a citation to point at, only a guess. Worth
-   either Ivan assigning a number directly, or adding a line to
-   `chiller.md` about where HGBP/receivers fall so future tiering has
-   something to check against instead of relying on a guess again.
-2. **The EEV problem is the one that actually matters most here**: does
-   this mean tiering eventually needs to be equipment-aware (a node's
-   effective tier depends on which equipment type the session declared,
-   not just the node itself) rather than a flat field? That's real added
-   design/implementation complexity beyond what this doc scoped. Or is it
-   acceptable to just leave EEV diagnosis untiered/free for everyone for
-   now, accepting that RTU/split users get a bit of free Tier-2-equivalent
-   content, since the alternative (wrongly gating it for VRF users) is
-   worse? I'd lean toward the second option for a first pass — simpler,
-   and errs toward giving away a little too much rather than incorrectly
-   paywalling baseline VRF content — but this is Ivan's call, not mine.
-3. **Does choosing VRF/chiller as the equipment type alone imply a tier
-   floor**, independent of which specific result node is reached — i.e. is
-   a "basic" VRF troubleshoot (single outdoor/indoor pair, no branch
-   controller) still Tier 1 in spirit even though VRF as a category is
-   inherently more complex hardware than a single-stage RTU? This doc
-   assumes **no** — tiering follows node content, not equipment-type
-   choice — but that's a judgment call, not a settled fact. (The EEV case
-   above is really a special case of this same question.)
-4. Is the candidate list above complete, or did this pass miss something
-   Ivan would tier that isn't yet isolated to one equipment type at the
-   structural level (which would mean the *audit*, not just the tiering,
-   needs revisiting first)?
+This answers what was originally "open question 3" (does choosing VRF/
+chiller as equipment type alone imply a tier floor), and the answer turned
+out to reshape the whole free/pro UX model, not just settle a tagging
+detail:
+
+> должны присутствовать, но для Tier 1 должна быть заглушка "Смотри
+> Tier 2..." (во время бета-теста, все должно быть открыто, условно
+> базовые рекомендации для диагностики как для любой холодильной машины,
+> т.е. даже в базовом варианте можно приблизительно продиагностировать)
+
+So the eventual model (again: **not built now**, beta stays fully open
+regardless) is not a binary "Tier 1 sees nothing, Tier 2 sees the answer."
+It's: **Tier 1 always gets a generic, still-genuinely-useful baseline
+answer** — good enough to approximately diagnose "as for any refrigeration
+machine" — and Tier 2+ adds the equipment-specific depth on top, with Tier
+1 seeing a visible stub/pointer ("See Tier 2...") rather than nothing.
+Practically, this means a future Tier-2/3-tagged result node would need
+**two content variants authored, not one node hidden**: the generic
+fallback (works acceptably for any equipment) and the specific deep
+version. That's real future content-authoring work per tagged node, well
+beyond what the `tier` field alone can carry — flagging it here so it
+isn't lost, not scoping or estimating it.
+
+**VRF/VRV specifically, same conversation**: Ivan wants VRF/VRV kept
+selectable as an equipment type (not removed or hidden), but with an
+explicit **"To be continued"** placeholder wherever this stub mechanism
+would apply to it — an acknowledgment that VRF/VRV-specific content in
+this graph isn't fully built out yet, rather than pretending it's
+complete. Same non-decision as everything else here: recorded, not
+implemented — there's no stub mechanism to attach "To be continued" to
+yet.
+
+## Open questions for Ivan (status after 28 Aug revision)
+
+1. **Receiver/king-queen valve tier number** — still open, not addressed
+   in the revision (Ivan answered hot-gas-bypass and EEV directly, this
+   one wasn't part of that answer). `chiller.md` still doesn't mention it
+   by name.
+2. **EEV** — resolved for this pass: stays untagged/free, see above. The
+   capacity-based-gate idea is noted as a possible future direction, not
+   decided.
+3. **Tier-1-floor / stub content** — answered, but the answer turns out to
+   require new mechanism (generic-fallback + specific-depth content pairs)
+   that this doc doesn't design or build — see the section above.
+4. Is the candidate list complete, or did this pass miss something not yet
+   isolated to one equipment type at the structural level (which would
+   mean the *audit*, not just the tiering, needs revisiting first)? Still
+   open — unaffected by this revision.
 
 ## What happens after this doc is approved
 
-Just the tagging: edit `graph-structure.json`, rebuild, deploy — additive,
-invisible to every current user, no code changes. The actual
-free/pro *enforcement* (checking a `tier` field before serving a node via
-`GET /api/graph/node/<id>`, an upsell screen, account-level pro flag,
-billing) is separate, larger, later work — not scoped by this doc and not
-started.
+Two genuinely different pieces of future work now, not one:
+- **The tagging itself**: `hgbp_lowload`/`hgbp_mechanical`/`hgbp_tuning` →
+  Tier 2 is resolved and ready to apply whenever Ivan says go.
+  `lp_rapid_trip_result_receiver` waits on question 1. Either way: edit
+  `graph-structure.json`, rebuild, deploy — additive, invisible to every
+  current user, no code changes needed for the field to exist.
+- **The stub-content mechanism** (generic Tier-1 fallback text + "See
+  Tier 2..." pointer, "To be continued" for VRF/VRV) — separate, larger,
+  needs actual content authored per Tier 2/3 node, not scoped here.
+
+Either way, **enforcement stays off through the whole beta** regardless of
+what's tagged or what stub text exists — that's a separate, later,
+explicit decision, likely tied to billing existing at all.
