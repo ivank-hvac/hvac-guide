@@ -53,8 +53,8 @@ In the Bitwarden web vault, under Secrets Manager, create a project per
 environment rather than a single shared one:
 
 ```
-hvac-guide-dev-01     # the dev/test machine
-hvac-guide-prod-01    # production
+hvac-guide-dev      # the dev/test machine
+hvac-guide-prod     # production
 ```
 
 Then create a **machine account for each project**, and grant each one

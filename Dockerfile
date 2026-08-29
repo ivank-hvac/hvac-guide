@@ -8,12 +8,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Bitwarden Secrets Manager CLI — lets docker-compose wrap the start command
 # with `bws run` to inject secrets as env vars at container start, instead
 # of baking them into the image or passing them via compose `environment:`/
-# .env (see CLAUDE.md "Секреты: переход на Bitwarden Secrets Manager").
-# Only ANTHROPIC_API_KEY has migrated so far (docker-compose.yml, dev/test)
-# — docker-compose.prod.yml is unchanged for now and never invokes `bws`,
-# so this addition has no effect there yet. Picks the right release archive
-# for whichever architecture the image is actually built on (aarch64 on
-# pinas01, x86_64 wherever prod builds).
+# .env (see docker-compose.bitwarden.yml, and SECRETS.md for the self-host
+# path). Only used when that override is applied — installed unconditionally
+# here so it doesn't matter which architecture the image happens to be built
+# on (this step just picks the matching release archive at build time).
 ARG BWS_VERSION=2.1.0
 RUN set -eux; \
     apt-get update; \

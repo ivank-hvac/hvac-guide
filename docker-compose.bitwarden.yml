@@ -1,6 +1,7 @@
-# Optional override — personal ops choice for pinas01/prod, NOT part of the
-# documented self-host path (see README "Quick start", which stays plain
-# .env). Requires bws set up on the host (~/.bws_token) and the Dockerfile's
+# Optional override — personal ops choice for this project's own dev/prod
+# hosts, NOT part of the documented self-host path (see README "Quick
+# start", which stays plain .env). Requires bws set up on the host
+# (~/.bws_token) and the Dockerfile's
 # bws install (already baked in unconditionally — harmless/unused otherwise).
 #
 # Usage:

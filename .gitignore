@@ -9,14 +9,17 @@ CLAUDE.md
 
 # Bitwarden Secrets Manager topology (project ids, machine-account names,
 # key names) - infra detail, same reasoning as CLAUDE.md above, never the
-# public repo. Synced to pinas01 separately, not via git.
+# public repo. Synced to a private backup host separately, not via git.
 BITWARDEN.md
 
-# Same reasoning as CLAUDE.md above - hardcodes pinas01's IP/hostnames/user
+# Same reasoning as CLAUDE.md above - hardcodes real hosts/IPs/user
 # choices, not app logic. Lives in the encrypted CLAUDE.md/memory backup
 # pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
+# The wildcard below (rather than the literal filename) is deliberate: the
+# real script's name embeds an internal hostname, and this pattern still
+# needs to match it on disk without spelling that name out in a public file.
 /tools/bootstrap-dev-vm.sh
-/tools/backup-to-pinas01.sh
+/tools/backup-to-*.sh
 /tools/deploy-prod.sh
 /tools/prod-status.sh
 /tools/drive-notes.sh
