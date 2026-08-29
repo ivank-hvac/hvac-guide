@@ -212,6 +212,14 @@ header h1 {
   overflow-wrap: anywhere;
 }
 
+.result-disclaimer {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
 .badge {
   align-self: flex-start;
   font-family: var(--mono);

@@ -15,6 +15,7 @@ const I18N = {
     nodeLoadRetryBtn: "Повторить",
     offlineBanner: "⚠️ Нет связи с сервером — показан ваш последний сохранённый прогресс на этом устройстве. Уже пройденные шаги доступны, новые появятся при восстановлении связи.",
     badge: { info: "Инфо", warning: "Внимание", critical: "Критично" },
+    resultDisclaimer: "Это диагностическое предположение инструмента, не окончательный вердикт — решение остаётся за квалифицированным специалистом.",
     relatedChecksTitle: "Также стоит проверить",
     safetyBannerText: "⚠️ Перед вскрытием панелей или работой с контуром под давлением — LOTO/дисконнектор выполнен?",
     aiLabel: "AI-анализ",
@@ -103,6 +104,7 @@ const I18N = {
     nodeLoadRetryBtn: "Retry",
     offlineBanner: "⚠️ Can't reach the server — showing your last saved progress on this device. Already-visited steps still work; new ones will load once you're back online.",
     badge: { info: "Info", warning: "Warning", critical: "Critical" },
+    resultDisclaimer: "This is the tool's diagnostic suggestion, not a final verdict — the decision remains with a qualified technician.",
     relatedChecksTitle: "Also worth checking",
     safetyBannerText: "⚠️ Before opening panels or working on a pressurized circuit — is LOTO/disconnect done?",
     aiLabel: "AI Analysis",
@@ -3040,6 +3042,18 @@ function renderResult(node) {
   tEl.className = "result-text";
   tEl.textContent = t(node.text);
   cardEl.appendChild(tEl);
+
+  // Deliberately co-located right under the diagnosis text itself, not just
+  // in the page-level banner/footer (see .disclaimer/.footer-disclaimer) —
+  // those persist across every screen but a tight screenshot of just "the
+  // diagnosis" could crop them out. AI responses already carry their own
+  // mandatory closing line inside the message body (see LEGAL_DISCLAIMER in
+  // main.py); this is the same protection for a result reached without ever
+  // asking the AI.
+  const resultDisclaimerEl = document.createElement("div");
+  resultDisclaimerEl.className = "result-disclaimer";
+  resultDisclaimerEl.textContent = strings.resultDisclaimer;
+  cardEl.appendChild(resultDisclaimerEl);
 
   if (node.related_checks && node.related_checks.length) {
     const relatedBox = document.createElement("div");
