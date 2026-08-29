@@ -1,24 +1,22 @@
-# Graph tiering — concept (not implemented)
+# Graph tiering — concept, partially implemented
 
 Scratch design doc, same spirit as the other files in this directory: not
-wired into the app. Written 28 Aug 2026 at Ivan's request ("разметка графа,
-можно начинать. сначала концепт, потом деплой") — this is the concept half;
-nothing in `graph-structure.json` has been touched yet.
+wired into the app (the two small `graph-structure.json` edits described
+below are content/structure changes, not app code — the `tier` field
+itself is still unread by anything). Written 28 Aug 2026 at Ivan's request
+("разметка графа, можно начинать. сначала концепт, потом деплой").
 
-**Revised same day** after Ivan reviewed the first draft in detail
-("действительно серьезный вопрос" — a genuinely serious question) and gave
-real domain answers to all four open questions, which changed the shape of
-the design (see "First-pass candidate list" and "Tier-1 fallback / stub
-content" below) — most importantly: (1) two
-of the three tagging candidates turned out messier than a flat tier number
-can capture (hot gas bypass is manufacturer/order-dependent even on RTU,
-not clean chiller-only; EEV is capacity- and equipment-dependent in a way
-that argues for leaving it untagged, see below), and (2) the eventual
-free/pro UX isn't "hide the node" at all — it's "Tier 1 always gets a
-generic-but-usable answer, Tier 2+ adds equipment-specific depth behind a
-stub." That's new mechanism, not just new tag values, and it's explicitly
-**not being built now** — see "What happens after this doc is approved."
-Still waiting on Ivan before any `graph-structure.json` edit.
+**Revised twice the same day** as Ivan reviewed and answered in detail
+("действительно серьезный вопрос" — a genuinely serious question), which
+changed the shape of the design and led to two concrete, already-shipped
+changes: **HGBP is now tagged `"tier": 2`**, and **the receiver/king-queen
+valve question was resolved by retiring equipment-based routing entirely**
+(a real `graph-structure.json` edit — a new universal yes/no question
+node, not a tag) rather than assigning it a tier number. Both verified
+live, both deployed. What's still concept-only: the "Tier-1 fallback /
+stub content" idea below (new UX mechanism, not built), and the EEV
+question (resolved to "leave untagged," nothing to implement there by
+design).
 
 ## What this is for
 
@@ -95,21 +93,35 @@ relevant profile file (`grep -n "^## Tier"` plus reading the surrounding
 text) rather than assuming — two of my first guesses turned out to be
 unfounded once checked, see below.
 
-**Receiver / king-queen valve — `lp_rapid_trip_result_receiver` (result).**
-Reachable only via `lp_stable_check`'s `nextByEquipment` for
-`chiller`/`refrigeration`; its RTU sibling, `lp_rapid_trip_result_rtu`,
-already stays separate (RTU has no receiver at all — that's the original 9
-Aug bugfix this split came from, see CLAUDE.md "Баг-фикс: тупиковый путь в
-lp_start"). **Still open** — Ivan's revision answered the hot-gas-bypass
-and EEV questions in detail but didn't address this one directly.
-`chiller.md` doesn't mention receivers or king/queen valves by name
-anywhere, so there's still no citation to point at, only the general
-"industrial/receiver-based, not present on RTU" framing from the original
-bugfix. Carrying this forward as unresolved rather than guessing a number.
+**Receiver / king-queen valve — `lp_rapid_trip_result_receiver` (result).
+✅ RESOLVED, and NOT by tagging.** Ivan's answer on this: "оставь во всех
+типах оборудования как вопрос есть/нет, king-queen valve и так будут если
+есть ресивер" — don't gate this by equipment type at all, ask directly.
+**Implemented 28 Aug**: `lp_stable_check`'s equipment-based
+`nextByEquipment` routing (chiller/refrigeration → receiver content,
+everything else → RTU content) is retired. In its place, a new question
+node `lp_receiver_check` ("Does this system have a receiver, with a
+king/queen valve?") sits between them — any equipment type can now reach
+either result depending on the actual answer, not a pre-baked assumption
+based on what was picked on the `start` screen. `lp_rapid_trip_result_rtu`'s
+text was reworded to drop the "on an RTU/split" framing (it's reachable
+from any equipment type's "no receiver" answer now, so "unlike an RTU"-
+style language no longer fits). This was the only `nextByEquipment` usage
+in the whole graph — the mechanism itself is untouched in `main.py`/
+`app.js` (still supported, just currently unused), no code changes needed.
+Verified live via curl: `lp_rapid_trip_result_receiver` is now reachable
+with `equipment=rtu`, `lp_rapid_trip_result_rtu` reachable with
+`equipment=chiller`, and the old direct equipment-routed edge now
+correctly 403s (retired). **No `tier` tag applied to either result node**
+— this fix makes the receiver/no-receiver split a genuine, equally-
+accessible diagnostic question for everyone, same "universal discipline
+stays free" principle as everything else, not something to gate.
 
 **Hot gas bypass — `hgbp_lowload`, `hgbp_mechanical`, `hgbp_tuning`
-(results; `hgbp_start`/`hgbp_erratic` are questions, not tagged).**
-**Revised per Ivan's direct answer (28 Aug)**: HGBP is common on chillers
+(results; `hgbp_start`/`hgbp_erratic` are questions, not tagged).
+✅ TAGGED (28 Aug 2026).** All three now carry `"tier": 2` in
+`graph-structure.json`, rebuilt into `graph.json`, verified live via curl
+that the API actually serves the field. HGBP is common on chillers
 ("часто"), which supports **Tier 2** for the three result nodes above —
 but it is genuinely *not* clean chiller-only in the field, which the
 current graph structure (`hgbp_start` reachable only from
@@ -212,35 +224,52 @@ complete. Same non-decision as everything else here: recorded, not
 implemented — there's no stub mechanism to attach "To be continued" to
 yet.
 
-## Open questions for Ivan (status after 28 Aug revision)
+## Open questions for Ivan (status after 28 Aug, second round)
 
-1. **Receiver/king-queen valve tier number** — still open, not addressed
-   in the revision (Ivan answered hot-gas-bypass and EEV directly, this
-   one wasn't part of that answer). `chiller.md` still doesn't mention it
-   by name.
-2. **EEV** — resolved for this pass: stays untagged/free, see above. The
-   capacity-based-gate idea is noted as a possible future direction, not
-   decided.
-3. **Tier-1-floor / stub content** — answered, but the answer turns out to
-   require new mechanism (generic-fallback + specific-depth content pairs)
-   that this doc doesn't design or build — see the section above.
+1. ✅ **Receiver/king-queen valve** — resolved, and resolved differently
+   than expected: not a tier number at all, a structural graph fix
+   instead (see above). Closed.
+2. ✅ **EEV** — resolved: stays untagged/free. The capacity-based-gate
+   idea is noted as a possible future direction, not decided.
+3. **Tier-1-floor / stub content** — answered in principle, but the
+   answer requires new mechanism (generic-fallback + specific-depth
+   content pairs, "To be continued" placeholders) that this doc doesn't
+   design or build — see the section above. Still open as an
+   implementation question, just not as a design question.
 4. Is the candidate list complete, or did this pass miss something not yet
    isolated to one equipment type at the structural level (which would
    mean the *audit*, not just the tiering, needs revisiting first)? Still
    open — unaffected by this revision.
 
-## What happens after this doc is approved
+**New, related but separate**: the same 28 Aug conversation also produced
+a substantial rework of `chiller.md` itself (compressor-type-driven tiers
+— scroll = Tier 1/2, screw and centrifugal marked TBC, both air-to-water
+and water-to-water made Tier 1) — see that file directly, not duplicated
+here since it's equipment-profile content, not a tiering-mechanism
+question.
 
-Two genuinely different pieces of future work now, not one:
-- **The tagging itself**: `hgbp_lowload`/`hgbp_mechanical`/`hgbp_tuning` →
-  Tier 2 is resolved and ready to apply whenever Ivan says go.
-  `lp_rapid_trip_result_receiver` waits on question 1. Either way: edit
-  `graph-structure.json`, rebuild, deploy — additive, invisible to every
-  current user, no code changes needed for the field to exist.
+## What happened / what's still ahead
+
+**Done, 28 Aug**:
+- `hgbp_lowload`/`hgbp_mechanical`/`hgbp_tuning` tagged `"tier": 2` in
+  `graph-structure.json`, rebuilt, verified live via curl that the API
+  serves the field.
+- `lp_receiver_check` question node added, retiring the equipment-based
+  receiver routing entirely (see above) — a structural graph change, not
+  a tag, verified live.
+- `chiller.md` reworked for compressor type (separate file, see there).
+
+**Still ahead, not started**:
 - **The stub-content mechanism** (generic Tier-1 fallback text + "See
   Tier 2..." pointer, "To be continued" for VRF/VRV) — separate, larger,
   needs actual content authored per Tier 2/3 node, not scoped here.
+- Deciding whether the same "ask directly instead of gating by equipment
+  type" fix that resolved the receiver question should also apply to hot
+  gas bypass (`hgbp_start` is currently reachable only from
+  `chiller_symptom`, but Ivan's own answer said HGBP also turns up on
+  some RTU/split/refrigeration condenser units) — flagged as a graph-
+  coverage gap in the HGBP section above, not decided or built.
 
-Either way, **enforcement stays off through the whole beta** regardless of
-what's tagged or what stub text exists — that's a separate, later,
-explicit decision, likely tied to billing existing at all.
+**Confirmed and unaffected by any of the above**: enforcement stays off
+through the whole beta regardless of what's tagged — that's a separate,
+later, explicit decision, likely tied to billing existing at all.
