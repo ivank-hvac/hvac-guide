@@ -1,6 +1,6 @@
 {
 	# TLS is already terminated further up the chain (an external edge Caddy
-	# on Linode) — this, internal Caddy gets already-decrypted HTTP over a
+	# on a public host) — this, internal Caddy gets already-decrypted HTTP over a
 	# WireGuard tunnel. The site below is addressed with a bare ":80" (not a
 	# domain) specifically for that reason — Caddy doesn't trigger automatic
 	# HTTPS for a plain port address. auto_https off is an extra safety net
@@ -19,8 +19,20 @@
 	# Only the tunnel peer is trusted. X-Forwarded-For is attacker-controlled
 	# up to the point it enters infrastructure we run, so the address is taken
 	# from the trusted end of the chain, not from whatever the client sent.
+	#
+	# The actual address goes in CADDY_TRUSTED_PROXY (.env), not here — this
+	# file is public. The fallback lives in docker-compose.prod.yml's env
+	# substitution, not here — Caddyfile's {$VAR} placeholder has no inline
+	# default syntax (that's compose's ${VAR:-default}, not Caddy's), so a
+	# {$VAR:default} written directly in this file silently resolves to an
+	# empty string instead of the default when the env var is unset. The
+	# compose-level fallback is 127.0.0.1, which means "trust nothing" for a
+	# plain self-host with no tunnel: no real client's proxy is ever loopback,
+	# so trusted_proxies simply never matches and Caddy falls back to the
+	# direct TCP peer, which for a self-hoster with nothing in front IS the
+	# real client — same behavior as not having this block at all.
 	servers {
-		trusted_proxies static 10.0.1.1
+		trusted_proxies static {$CADDY_TRUSTED_PROXY}
 		client_ip_headers X-Forwarded-For
 	}
 }
