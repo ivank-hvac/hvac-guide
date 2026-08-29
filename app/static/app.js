@@ -13,6 +13,7 @@ const I18N = {
     restart: "⟲ Начать сначала",
     nodeLoadError: "Не удалось загрузить следующий шаг. Проверьте соединение и попробуйте ещё раз.",
     nodeLoadRetryBtn: "Повторить",
+    offlineBanner: "⚠️ Нет связи с сервером — показан ваш последний сохранённый прогресс на этом устройстве. Уже пройденные шаги доступны, новые появятся при восстановлении связи.",
     badge: { info: "Инфо", warning: "Внимание", critical: "Критично" },
     relatedChecksTitle: "Также стоит проверить",
     safetyBannerText: "⚠️ Перед вскрытием панелей или работой с контуром под давлением — LOTO/дисконнектор выполнен?",
@@ -99,6 +100,7 @@ const I18N = {
     restart: "⟲ Start Over",
     nodeLoadError: "Couldn't load the next step. Check your connection and try again.",
     nodeLoadRetryBtn: "Retry",
+    offlineBanner: "⚠️ Can't reach the server — showing your last saved progress on this device. Already-visited steps still work; new ones will load once you're back online.",
     badge: { info: "Info", warning: "Warning", critical: "Critical" },
     relatedChecksTitle: "Also worth checking",
     safetyBannerText: "⚠️ Before opening panels or working on a pressurized circuit — is LOTO/disconnect done?",
@@ -617,6 +619,114 @@ const COMPONENT_CHECK_STEP_ID = "__component_check__";
 // already visited (and therefore already cached) before this point.
 let GRAPH = null;
 let NODE_CACHE = {};
+
+// Offline resume: mirrors every node this session has already fetched (see
+// fetchNode) and the last-saved node_path/checklist (see saveSession) into
+// localStorage, so a page reload with no connectivity — dead zone, dropped
+// wifi mid-truck — can still land back on the exact step the tech was on,
+// with everything already visited still working. This is deliberately NOT
+// a general offline-start-from-scratch/PWA cache: a node never fetched this
+// session still requires the network the first time, by design (see
+// CLAUDE.md "Server-driven graph delivery" — the whole graph is never
+// shipped to the client at once). Two separate keys rather than one shared
+// object: fetchNode writes the (small, frequent) node-cache one on every new
+// node, saveSession writes the (already-debounced) position/checklist one —
+// keeping them independent avoids a read-modify-write race between the two.
+const OFFLINE_NODECACHE_KEY = "hvac_offline_nodecache_v1";
+const OFFLINE_SNAPSHOT_KEY = "hvac_offline_snapshot_v1";
+
+function persistOfflineNodeCache() {
+  try {
+    localStorage.setItem(
+      OFFLINE_NODECACHE_KEY,
+      JSON.stringify({ sessionId: state.sessionId, nodes: NODE_CACHE })
+    );
+  } catch {
+    // Private browsing / quota exceeded / storage disabled — offline resume
+    // just won't be available for this session; nothing else depends on it.
+  }
+}
+
+function persistOfflineSnapshot() {
+  try {
+    localStorage.setItem(
+      OFFLINE_SNAPSHOT_KEY,
+      JSON.stringify({
+        sessionId: state.sessionId,
+        graphMeta: GRAPH,
+        nodePath: serializeNodePath(),
+        checklistState: state.checklist,
+      })
+    );
+  } catch {
+    // see persistOfflineNodeCache
+  }
+}
+
+// Reads both keys back and cross-checks their sessionId against each other
+// (not against the fresh id `state` was seeded with at this page load —
+// there's no network yet to know if that id is even still valid server-side;
+// trusting whatever internally-consistent pair localStorage last held is the
+// correct fallback here, same principle checkResumableSession already uses
+// for the online path). Returns null if either piece is missing, malformed,
+// or the two don't agree — a partial/mismatched snapshot is worse than none.
+function loadOfflineSnapshot() {
+  try {
+    const rawCache = localStorage.getItem(OFFLINE_NODECACHE_KEY);
+    const rawSnap = localStorage.getItem(OFFLINE_SNAPSHOT_KEY);
+    if (!rawCache || !rawSnap) return null;
+    const cache = JSON.parse(rawCache);
+    const snap = JSON.parse(rawSnap);
+    if (!cache.sessionId || cache.sessionId !== snap.sessionId) return null;
+    if (!snap.graphMeta || !snap.graphMeta.start) return null;
+    return { sessionId: snap.sessionId, nodes: cache.nodes || {}, graphMeta: snap.graphMeta,
+      nodePath: snap.nodePath || {}, checklistState: snap.checklistState || {} };
+  } catch {
+    return null;
+  }
+}
+
+function renderOfflineBanner() {
+  if (document.getElementById("offlineBanner")) return;
+  const banner = document.createElement("div");
+  banner.id = "offlineBanner";
+  banner.className = "offline-banner";
+  banner.textContent = ui().offlineBanner;
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
+// Boot-time fallback for loadGraph() when the initial /api/graph/meta fetch
+// can't reach the server at all. Populates GRAPH/NODE_CACHE/state purely
+// from the localStorage snapshot above — no network calls, so it works with
+// zero connectivity — and lands the tech back on their last node instead of
+// a stuck error screen. Returns false (caller falls through to the normal
+// error+retry UI) if there's nothing usable to restore.
+function tryBootOffline() {
+  const snap = loadOfflineSnapshot();
+  const currentId = snap && snap.nodePath && snap.nodePath.currentId;
+  if (!snap || !currentId || !snap.nodes[currentId]) return false;
+  GRAPH = snap.graphMeta;
+  NODE_CACHE = snap.nodes;
+  const np = snap.nodePath;
+  state.sessionId = snap.sessionId;
+  state.currentId = currentId;
+  state.history = np.history || [];
+  state.answers = np.answers || [];
+  state.manufacturer = np.manufacturer || null;
+  state.manufacturerAsked = !!np.manufacturerAsked;
+  state.pendingNodeId = np.pendingNodeId || null;
+  state.refrigerant = np.refrigerant || null;
+  state.checklist = snap.checklistState;
+  state.finishNodeId = np.finishNodeId || null;
+  state.intake = np.intake || {};
+  state.intakeAsked = !!np.intakeAsked;
+  state.intakePhaseIndex = np.intakePhaseIndex || 0;
+  state.componentCheck = np.componentCheck || null;
+  state.graphLaunchReturn = np.graphLaunchReturn || null;
+  renderOfflineBanner();
+  render();
+  return true;
+}
 let MANUFACTURERS = null;
 let REFRIGERANTS = null;
 let LANG = localStorage.getItem("hvac_lang");
@@ -728,6 +838,7 @@ async function fetchNode(nodeId, { from = null, equipment = null } = {}) {
   }
   const data = await res.json();
   NODE_CACHE[nodeId] = data.node;
+  persistOfflineNodeCache();
   return data.node;
 }
 
@@ -746,11 +857,23 @@ async function prefetchNodesFor(ids) {
 }
 
 async function loadGraph() {
-  const [metaRes] = await Promise.all([
-    fetch("./api/graph/meta"),
-    loadManufacturers(),
-    loadRefrigerants(),
-  ]);
+  let metaRes;
+  try {
+    [metaRes] = await Promise.all([
+      fetch("./api/graph/meta"),
+      loadManufacturers(),
+      loadRefrigerants(),
+    ]);
+    if (!metaRes.ok) throw new Error(`meta HTTP ${metaRes.status}`);
+  } catch (err) {
+    // No network reaches the server at all (or it's erroring) right at
+    // boot — before giving up, see if there's a locally-saved snapshot of
+    // where this device last was. See tryBootOffline for what that can and
+    // can't recover.
+    if (tryBootOffline()) return;
+    renderLoadError(() => loadGraph());
+    return;
+  }
   GRAPH = await metaRes.json();
 
   const resumable = await checkResumableSession();
@@ -900,6 +1023,7 @@ function resolveOptionNext(opt) {
 
 function saveSession(status = "active") {
   localStorage.setItem("hvac_session_id", state.sessionId);
+  persistOfflineSnapshot();
   fetch("./api/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -3179,4 +3303,12 @@ langButtons.forEach((b) => {
 document.documentElement.lang = LANG;
 updateStaticUi();
 loadGraph();
+
+// App-shell precache for offline reload — see sw.js for exactly what this
+// does and doesn't cache. Fire-and-forget: a registration failure (browser
+// without SW support, sandboxed context, etc.) just means offline reload
+// isn't available, nothing here depends on it succeeding.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 loadVersionInfo();
