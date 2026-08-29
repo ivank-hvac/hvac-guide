@@ -81,6 +81,7 @@ const I18N = {
     intakeNoLabel: "Нет",
     intakeNotSureLabel: "Не уверен",
     intakeLockedHint: "Заблокировано — уже выбрано: {item}",
+    intakeSyncedHint: "Уже подтверждено в начале сессии: {answer}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
@@ -168,6 +169,7 @@ const I18N = {
     intakeNoLabel: "No",
     intakeNotSureLabel: "Not sure",
     intakeLockedHint: "Locked — already selected: {item}",
+    intakeSyncedHint: "Already confirmed at the start of the session: {answer}",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
@@ -1385,6 +1387,24 @@ function exclusiveGroupWinner(phase, item, values) {
   );
 }
 
+// An intake checkbox item can name a main-graph question node via
+// `syncFromAnswer` (e.g. thermostat_call_ok -> "thermostat_check") when the
+// same fact gets asked twice — once as a universal gate early in the main
+// flow, again as an intake-checklist item. Without this, the two could be
+// answered inconsistently (the exact bug Ivan hit: "Yes, it's calling" at
+// the gate, then "No" on the equivalent checklist item during a later
+// Deeper Diagnosis pass) and both facts land in the AI context at once,
+// contradicting each other. Mirrors the main answer instead of asking
+// again: index 0 is always this project's "Yes" option by convention (see
+// thermostat_check/power_check), matching the intake checkbox's own
+// Yes/No shape. Returns null if that main-graph question hasn't been
+// answered this session (item behaves exactly as before in that case).
+function syncedIntakeValue(nodeId) {
+  const entry = state.answers.find((a) => a.nodeId === nodeId);
+  if (!entry || entry.optionIndex == null) return null;
+  return { value: entry.optionIndex === 0 ? "Yes" : "No", label: answerLabel(entry) };
+}
+
 // Entry point for the "Deeper diagnosis" button on a result/ai_prompt
 // screen (see buildAiBox usage in renderResult/renderAiPrompt) — always
 // restarts at phase 0 so re-reviewing an already-completed checklist walks
@@ -1477,6 +1497,23 @@ function renderIntakeChecklist() {
       entry.lockedByGroup = false;
     }
 
+    // See syncedIntakeValue above — mirrors an already-answered main-graph
+    // gate instead of letting this item be re-answered (possibly
+    // contradictorily). Independent of the exclusiveGroup lock above (an
+    // item is never both), same "force + mark + show a hint" shape.
+    const syncedFromMain = item.syncFromAnswer ? syncedIntakeValue(item.syncFromAnswer) : null;
+    if (syncedFromMain) {
+      entry.value = syncedFromMain.value;
+      entry.skipped = false;
+      entry.syncedFromMain = true;
+    } else if (entry.syncedFromMain) {
+      // The main-graph answer this was mirroring is no longer there
+      // (shouldn't normally happen this session) — clear the forced state
+      // rather than leave a stale mirrored value the tech never chose.
+      entry.value = "";
+      entry.syncedFromMain = false;
+    }
+
     const resolved = intakeItemResolved(entry, item.type);
     const isCurrent = !resolved && !firstUnresolvedFound;
     if (isCurrent) firstUnresolvedFound = true;
@@ -1494,6 +1531,12 @@ function renderIntakeChecklist() {
       lockHint.className = "numeric-hint";
       lockHint.textContent = strings.intakeLockedHint.replace("{item}", t(lockedBy.label));
       row.appendChild(lockHint);
+    }
+    if (syncedFromMain) {
+      const syncHint = document.createElement("div");
+      syncHint.className = "numeric-hint";
+      syncHint.textContent = strings.intakeSyncedHint.replace("{answer}", syncedFromMain.label);
+      row.appendChild(syncHint);
     }
 
     // Every item gets its N/A as a large tappable button, not a small
@@ -1681,11 +1724,15 @@ function renderIntakeChecklist() {
       // the separate alertValues design (see CLAUDE.md).
       const group = document.createElement("div");
       group.className = "intake-toggle-group";
+      // syncedFromMain locks the same way lockedBy does (see the hint
+      // block above) — mirroring an already-answered main-graph gate, not
+      // letting it be re-answered into a contradiction.
+      const checkboxLocked = !!lockedBy || !!syncedFromMain;
       const yesBtn = document.createElement("button");
       yesBtn.type = "button";
       yesBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "Yes" ? " active" : "");
       yesBtn.textContent = strings.intakeYesLabel;
-      yesBtn.disabled = !!lockedBy;
+      yesBtn.disabled = checkboxLocked;
       // A full render() here (not just updateGateState()) is deliberate: a
       // checkbox can be a showIf trigger for a later phase's item, so
       // toggling one may need to reveal/hide other items, not just flip
@@ -1700,7 +1747,7 @@ function renderIntakeChecklist() {
       noBtn.type = "button";
       noBtn.className = "intake-toggle-btn" + (!entry.skipped && entry.value === "No" ? " active" : "");
       noBtn.textContent = strings.intakeNoLabel;
-      noBtn.disabled = !!lockedBy;
+      noBtn.disabled = checkboxLocked;
       noBtn.onclick = () => {
         entry.value = "No";
         entry.skipped = false;
@@ -1708,7 +1755,7 @@ function renderIntakeChecklist() {
         render();
       };
       naBtn.textContent = strings.intakeNotSureLabel;
-      naBtn.disabled = !!lockedBy;
+      naBtn.disabled = checkboxLocked;
       naBtn.onclick = () => {
         entry.value = "";
         entry.skipped = true;
