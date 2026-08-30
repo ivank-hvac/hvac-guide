@@ -323,6 +323,13 @@ def init_db() -> None:
         existing_session_cols = {row[1] for row in conn.execute("PRAGMA table_info(sessions)")}
         if "ip" not in existing_session_cols:
             conn.execute("ALTER TABLE sessions ADD COLUMN ip TEXT")
+        # Same PRAGMA-guarded pattern as ip above. Nullable and only ever
+        # populated when AUTH_ENABLED: self-host without auth, and every
+        # session saved before invite-gate login existed, just come back
+        # NULL here — same "nothing to attribute yet" meaning as ip on a
+        # pre-migration row, not a stand-in identity.
+        if "user_id" not in existing_session_cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN user_id INTEGER")
         # One row per /api/ai-assist invocation (success or 429), for the
         # dev-only /panel dashboard — see README "Dev monitoring panel".
         # Deliberately no session_id: this is aggregate usage/cost tracking,
@@ -793,7 +800,7 @@ class SessionUpsertRequest(BaseModel):
         return v
 
 
-def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
+def _upsert_session(req: SessionUpsertRequest, ip: Optional[str], user_id: Optional[int]) -> None:
     now = datetime.now(timezone.utc).isoformat()
     node_path_json = json.dumps(req.node_path, ensure_ascii=False)
     checklist_state_json = json.dumps(req.checklist_state, ensure_ascii=False)
@@ -808,9 +815,9 @@ def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
             """
             INSERT INTO sessions
                 (session_id, equipment, node_path, checklist_state, status,
-                 created_at, updated_at, completed_at, ip)
+                 created_at, updated_at, completed_at, ip, user_id)
             VALUES (:session_id, :equipment, :node_path, :checklist_state, :status,
-                    :now, :now, :completed_at_if_new, :ip)
+                    :now, :now, :completed_at_if_new, :ip, :user_id)
             ON CONFLICT(session_id) DO UPDATE SET
                 equipment = :equipment,
                 node_path = :node_path,
@@ -818,7 +825,8 @@ def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
                 status = :status,
                 updated_at = :now,
                 completed_at = COALESCE(completed_at, :completed_at_if_new),
-                ip = :ip
+                ip = :ip,
+                user_id = :user_id
             """,
             {
                 "session_id": req.session_id,
@@ -829,6 +837,7 @@ def _upsert_session(req: SessionUpsertRequest, ip: Optional[str]) -> None:
                 "now": now,
                 "completed_at_if_new": completed_at_if_new,
                 "ip": ip,
+                "user_id": user_id,
             },
         )
 
@@ -1122,7 +1131,7 @@ def _set_session_cookie(response: Response, raw_token: str) -> None:
     )
 
 
-async def _require_login(request: Request, response: Response) -> None:
+async def _require_login(request: Request, response: Response) -> Optional[Dict[str, Any]]:
     """Gate the app-data API surface on a real login session, not just on
     /diagnose having served the page that calls it.
 
@@ -1137,14 +1146,19 @@ async def _require_login(request: Request, response: Response) -> None:
     real account," not just "bothered to fake a plausible session first."
     No-op entirely when AUTH_ENABLED is false, so the plain self-host path
     (no RESEND_API_KEY configured) is untouched.
+
+    Returns the resolved user dict (for callers that want to attribute the
+    request to an account, e.g. sessions.user_id) — None when AUTH_ENABLED
+    is false, never None otherwise (raises 401 first).
     """
     if not AUTH_ENABLED:
-        return
+        return None
     raw = request.cookies.get(LOGIN_COOKIE_NAME)
     user = await run_in_threadpool(_get_user_by_session_cookie, raw)
     if user is None:
         raise HTTPException(status_code=401)
     _set_session_cookie(response, raw)
+    return user
 
 
 async def _send_login_email(email: str, login_url: str, lang: str) -> bool:
@@ -1493,8 +1507,9 @@ async def log_session(request: Request, response: Response, req: LogSessionReque
 @app.post("/api/session")
 @limiter.limit(SESSION_RATE_LIMIT)
 async def save_session(request: Request, response: Response, req: SessionUpsertRequest):
-    await _require_login(request, response)
-    await run_in_threadpool(_upsert_session, req, client_key(request))
+    user = await _require_login(request, response)
+    user_id = user["id"] if user else None
+    await run_in_threadpool(_upsert_session, req, client_key(request), user_id)
     return {"status": "ok"}
 
 
@@ -1971,6 +1986,23 @@ def _gather_panel_stats() -> Dict[str, Any]:
             )
         ]
 
+        # Same reasoning/pattern as top_ips above, keyed by account instead
+        # of address — sessions.user_id only exists from the point
+        # invite-gate login started attaching it (see init_db migration),
+        # so a session saved by an anonymous self-host visitor, or before
+        # this column existed, just has no vote here rather than a
+        # misleading bucket.
+        top_users = [
+            (row["email"], row["n"])
+            for row in conn.execute(
+                """
+                SELECT u.email AS email, COUNT(*) AS n FROM sessions s
+                JOIN users u ON u.id = s.user_id
+                GROUP BY s.user_id ORDER BY n DESC LIMIT 10
+                """
+            )
+        ]
+
         # Invite-gate accounts, newest first. Small table (beta-scale), so a
         # plain unpaginated list is fine — this is where can_invite gets
         # toggled from (see the panel's users section + /panel/toggle-invite).
@@ -2083,6 +2115,7 @@ def _gather_panel_stats() -> Dict[str, Any]:
         "phase_ids": [p["id"] for p in phases],
         "hour_counts": hour_counts,
         "top_ips": top_ips,
+        "top_users": top_users,
         "flagged_sessions": flagged_sessions,
         "banned_ips": banned_ips,
         "users": users,
@@ -2340,6 +2373,8 @@ def _render_panel_html(token: str) -> str:
   {_vertical_bar_chart(stats['hour_counts'], "no data")}
   <h2 style="font-size:.85rem;color:#8b93a1">Top IPs</h2>
   {_bar_chart(stats['top_ips'], "no IPs recorded yet (only sessions saved after this column was added)")}
+  <h2 style="font-size:.85rem;color:#8b93a1">Top users</h2>
+  {_bar_chart(stats['top_users'], "no sessions attributed to an account yet (only sessions saved after login while user_id existed)")}
 </section>
 
 <section>
