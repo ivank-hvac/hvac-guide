@@ -26,6 +26,8 @@ BITWARDEN.md
 /tools/backup-watchdog.sh
 /tools/backup-prod-db-snapshot.sh
 /tools/backup-prod-db-pull.sh
+/tools/backup-prod-tree-snapshot.sh
+/tools/backup-prod-tree-pull.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
