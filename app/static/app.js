@@ -1003,32 +1003,30 @@ function serializeNodePath() {
 // backward so the most recent override wins; every flow that never hits
 // such an override still resolves to exactly the start-node answer, since
 // nothing else in graph.json sets `equipment` on its options today.
-function equipmentAnswerEntry() {
+function equipmentKey() {
   for (let i = state.answers.length - 1; i >= 0; i--) {
     const a = state.answers[i];
     if (a.optionIndex == null) continue;
     const node = NODE_CACHE[a.nodeId];
     const opt = node && node.options && node.options[a.optionIndex];
-    if (opt && opt.equipment) return { entry: a, opt };
+    if (opt && opt.equipment) return opt.equipment;
   }
   return null;
 }
 
 // Same convention as the equipment_type column in checklist_sessions (see
-// main.py _save_session) — reflects whichever answer equipmentKey() below
-// is currently keying off, not always the literal first answer.
+// main.py _save_session). Deliberately NOT the label of whatever answer
+// equipmentKey() picked up an override from (e.g. heat_pump_intro's
+// "It's a ductless mini-split..." button text, which reads fine as a
+// button but is meaningless as a stored equipment classification) --
+// always resolved back to the matching option on the START node itself,
+// the one place equipment-type display names actually live.
 function equipmentLabel() {
-  const found = equipmentAnswerEntry();
-  return found ? answerLabel(found.entry) : null;
-}
-
-// Stable key for the chosen equipment type ("rtu", "chiller", ...), taken
-// from the `equipment` field on the option actually answered rather than
-// from the option's index — the option order in graph.json is content, and
-// content gets reordered.
-function equipmentKey() {
-  const found = equipmentAnswerEntry();
-  return found ? found.opt.equipment : null;
+  const key = equipmentKey();
+  if (!key) return null;
+  const startNode = NODE_CACHE[GRAPH.start];
+  const opt = startNode && startNode.options && startNode.options.find((o) => o.equipment === key);
+  return opt ? t(opt.label) : null;
 }
 
 // Where an answered option leads. Two graph.json conventions on top of a
