@@ -45,6 +45,16 @@ RUN groupadd --system --gid 10001 hvac \
 
 COPY --chown=hvac:hvac app/ .
 
+# app/static/graph.json is no longer tracked in this repo (see CLAUDE.md
+# "Приватный репо для полного графа" / README "Editing the question
+# graph") — a maintainer machine has already built a real one on disk
+# before this runs, so the file is already here via the COPY above and
+# this is a no-op. A fresh self-host clone has no such file at all; fall
+# back to the small trimmed demo graph (app/static/graph.demo.json, IS
+# tracked) so `docker compose up` still works out of the box, no extra
+# manual step. tools/build_demo_graph.py is what produces graph.demo.json.
+RUN [ -f static/graph.json ] || cp static/graph.demo.json static/graph.json
+
 # Populated by docker-compose's build.args (see docker-compose*.yml), which
 # in turn read GIT_COMMIT/GIT_COMMIT_DATE from .env — kept fresh by the
 # post-commit/post-checkout git hooks in .githooks/ (see README "Версия
