@@ -28,6 +28,7 @@ BITWARDEN.md
 /tools/backup-prod-db-pull.sh
 /tools/backup-prod-tree-snapshot.sh
 /tools/backup-prod-tree-pull.sh
+/tools/prod-tunnel-watchdog.sh
 /tools/sync-graph-content.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
