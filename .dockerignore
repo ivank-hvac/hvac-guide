@@ -1,0 +1,8 @@
+# app/graph_src/ is a maintainer-only nested clone of the private graph
+# content repo (structure + RU/EN source text) — the Dockerfile only ever
+# COPYs app/ into the image, and the running app serves the graph from the
+# already-built app/static/graph.json, never from graph_src/ itself. Keep
+# it out of the build context: it doesn't belong in the image (adds no
+# runtime value, just bloats layers and ships a private repo's .git/remote
+# URL into every container).
+app/graph_src/
