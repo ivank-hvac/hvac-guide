@@ -3,6 +3,7 @@ const breadcrumbEl = document.getElementById("breadcrumb");
 const backBtn = document.getElementById("backBtn");
 const restartBtn = document.getElementById("restartBtn");
 const langButtons = document.querySelectorAll(".lang-btn");
+const unitButtons = document.querySelectorAll(".unit-btn");
 const disclaimerEl = document.getElementById("disclaimer");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
@@ -309,6 +310,38 @@ function rawNumericString(value, unit) {
 
 function formatNumericValue(value, unit) {
   return annotateUnits(rawNumericString(value, unit));
+}
+
+// graph.json's numeric_input nodes only ever author these three native
+// (imperial) units — verified against app/graph_src/graph-structure.json.
+// Everything else (Amps, etc.) is untouched by UNIT_PREF.
+function displayUnitFor(nativeUnit) {
+  if (nativeUnit === "psig") return UNIT_PREF.pressure === "kPa" ? "kPa" : "psig";
+  if (nativeUnit === "°F") return UNIT_PREF.temp === "C" ? "°C" : "°F";
+  if (nativeUnit === "Δ°F") return UNIT_PREF.temp === "C" ? "Δ°C" : "Δ°F";
+  return nativeUnit;
+}
+
+// A value the technician typed in `displayUnit` -> the node's native unit,
+// so everything downstream (state.answers, resolveThresholdNext, node.min/
+// max as authored) keeps working in imperial exactly as before and never
+// needs to know the toggle exists.
+function toNativeUnit(value, nativeUnit, displayUnit) {
+  if (displayUnit === nativeUnit) return value;
+  if (nativeUnit === "psig") return convertPressure(value, "kpa").value;
+  if (nativeUnit === "°F") return convertTemperature(value, "c").value;
+  if (nativeUnit === "Δ°F") return convertTemperatureDelta(value, "c").value;
+  return value;
+}
+
+// The inverse — a native (imperial) value, e.g. node.min/max as authored,
+// converted to whatever unit is currently on display.
+function fromNativeUnit(value, nativeUnit, displayUnit) {
+  if (displayUnit === nativeUnit) return value;
+  if (nativeUnit === "psig") return convertPressure(value, "psig").value;
+  if (nativeUnit === "°F") return convertTemperature(value, "f").value;
+  if (nativeUnit === "Δ°F") return convertTemperatureDelta(value, "f").value;
+  return value;
 }
 
 // Strips everything that isn't a valid "in-progress" number as the user
@@ -739,6 +772,26 @@ let LANG = localStorage.getItem("hvac_lang");
 if (!SUPPORTED_LANGS.includes(LANG)) {
   const browserLang = (navigator.language || "").slice(0, 2);
   LANG = SUPPORTED_LANGS.includes(browserLang) ? browserLang : DEFAULT_LANG;
+}
+
+// Session-only display-unit preference for numeric_input entry (what unit a
+// technician types their gauge reading in) — separate from LANG on purpose,
+// same reasoning: a client-side habit, not an account setting, so it lives
+// in localStorage and is read once at boot. graph.json always authors
+// numeric_input in imperial ("psig", "°F", "Δ°F" — see annotateUnits above),
+// so "native" here always means imperial; the default below is exactly
+// today's behavior for anyone who has never touched the toggle.
+let UNIT_PREF = { pressure: "psig", temp: "F" };
+try {
+  const saved = JSON.parse(localStorage.getItem("hvac_unit_pref") || "null");
+  if (saved && (saved.pressure === "kPa" || saved.pressure === "psig")) {
+    UNIT_PREF.pressure = saved.pressure;
+  }
+  if (saved && (saved.temp === "C" || saved.temp === "F")) {
+    UNIT_PREF.temp = saved.temp;
+  }
+} catch {
+  // Corrupt localStorage value — fall back to the imperial default above.
 }
 
 function generateSessionId() {
@@ -2105,6 +2158,23 @@ function updateStaticUi() {
   disclaimerEl.textContent = strings.disclaimer;
   footerDisclaimerEl.textContent = strings.footerDisclaimer;
   langButtons.forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
+  unitButtons.forEach((b) => b.classList.toggle("active", UNIT_PREF[b.dataset.unit] === b.dataset.value));
+}
+
+function setUnitPref(family, value) {
+  if (UNIT_PREF[family] === value) return;
+  UNIT_PREF[family] = value;
+  localStorage.setItem("hvac_unit_pref", JSON.stringify(UNIT_PREF));
+  updateStaticUi();
+  // Same reasoning as setLang above: the resume prompt isn't a graph node,
+  // and a numeric_input currently on screen needs to redraw with the new
+  // unit label/range/allowNegative — both paths already know how to do
+  // that safely, nothing new needed here.
+  if (state.pendingResume) {
+    renderResumePrompt(state.pendingResume);
+  } else if (GRAPH) {
+    render();
+  }
 }
 
 // Plain small text in the footer, not styled as buttons — this is a passive
@@ -2462,7 +2532,21 @@ function buildIntakeTriggerButton(returnNodeId) {
 function renderNumericInput(node) {
   const strings = ui();
   const nodeId = state.currentId;
-  const allowNegative = typeof node.min === "number" && node.min < 0;
+  // The technician types in whatever unit UNIT_PREF currently selects
+  // (displayUnit) — node.min/max/thresholds stay authored in imperial
+  // (nativeUnit) and are converted only for display/validation here, so
+  // resolveThresholdNext and state.answers never see anything but the
+  // native value, unchanged from before this toggle existed.
+  const nativeUnit = node.unit;
+  const displayUnit = nativeUnit ? displayUnitFor(nativeUnit) : null;
+  const dispMin =
+    typeof node.min === "number" ? fromNativeUnit(node.min, nativeUnit, displayUnit) : null;
+  const dispMax =
+    typeof node.max === "number" ? fromNativeUnit(node.max, nativeUnit, displayUnit) : null;
+  // Recomputed against the DISPLAY unit, not node.min directly: an imperial
+  // min of 0°F is still -17.8°C, so a °C-entering technician legitimately
+  // needs the "-" key even when the native range never goes negative.
+  const allowNegative = dispMin != null && dispMin < 0;
 
   const q = document.createElement("div");
   q.className = "q-text";
@@ -2481,10 +2565,10 @@ function renderNumericInput(node) {
   input.placeholder = "0";
   row.appendChild(input);
 
-  if (node.unit) {
+  if (displayUnit) {
     const unitEl = document.createElement("span");
     unitEl.className = "numeric-unit";
-    unitEl.textContent = node.unit;
+    unitEl.textContent = displayUnit;
     row.appendChild(unitEl);
   }
   cardEl.appendChild(row);
@@ -2500,12 +2584,11 @@ function renderNumericInput(node) {
   cardEl.appendChild(nextBtn);
 
   function rangeText() {
-    const hasMin = typeof node.min === "number";
-    const hasMax = typeof node.max === "number";
-    const unitSuffix = node.unit ? ` ${node.unit}` : "";
-    if (hasMin && hasMax) return `${strings.numericRangeLabel} ${node.min}–${node.max}${unitSuffix}`;
-    if (hasMax) return `${strings.numericRangeLabel} ≤ ${node.max}${unitSuffix}`;
-    if (hasMin) return `${strings.numericRangeLabel} ≥ ${node.min}${unitSuffix}`;
+    const unitSuffix = displayUnit ? ` ${displayUnit}` : "";
+    if (dispMin != null && dispMax != null)
+      return `${strings.numericRangeLabel} ${formatNum(dispMin)}–${formatNum(dispMax)}${unitSuffix}`;
+    if (dispMax != null) return `${strings.numericRangeLabel} ≤ ${formatNum(dispMax)}${unitSuffix}`;
+    if (dispMin != null) return `${strings.numericRangeLabel} ≥ ${formatNum(dispMin)}${unitSuffix}`;
     return "";
   }
 
@@ -2515,8 +2598,12 @@ function renderNumericInput(node) {
     return Number.isNaN(v) ? null : v;
   }
 
+  // Returns the value in NATIVE units (ready for state.answers/
+  // resolveThresholdNext) — validation itself also happens in native units
+  // so node.min/max in graph.json never need to change.
   function validate() {
-    const val = parsedValue();
+    const typedVal = parsedValue();
+    const val = typedVal != null && nativeUnit ? toNativeUnit(typedVal, nativeUnit, displayUnit) : typedVal;
     let valid = val != null;
     if (valid && typeof node.min === "number" && val < node.min) valid = false;
     if (valid && typeof node.max === "number" && val > node.max) valid = false;
@@ -2524,8 +2611,8 @@ function renderNumericInput(node) {
     nextBtn.disabled = !valid;
 
     let showConverted = "";
-    if (val != null && node.unit) {
-      const raw = rawNumericString(val, node.unit);
+    if (typedVal != null && displayUnit) {
+      const raw = rawNumericString(typedVal, displayUnit);
       const annotated = annotateUnits(raw);
       if (annotated !== raw) showConverted = annotated;
     }
@@ -3383,6 +3470,9 @@ backBtn.onclick = goBack;
 restartBtn.onclick = restart;
 langButtons.forEach((b) => {
   b.onclick = () => setLang(b.dataset.lang);
+});
+unitButtons.forEach((b) => {
+  b.onclick = () => setUnitPref(b.dataset.unit, b.dataset.value);
 });
 
 document.documentElement.lang = LANG;
