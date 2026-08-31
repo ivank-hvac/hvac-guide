@@ -994,25 +994,41 @@ function serializeNodePath() {
   };
 }
 
-// The first answer is always the equipment-type choice from the graph's
-// start node — same convention as the equipment_type column in
-// checklist_sessions (see main.py _save_session).
+// Normally the equipment-type choice is the very first answer, from the
+// graph's start node. But a later option can ALSO carry an `equipment`
+// field to override it — used by heat_pump_intro's "actually it's a
+// ductless mini-split" redirect (a tech who picked Heat Pump at start but
+// is really on a split gets reclassified as "split" from that point on:
+// analytics, HGBP-option gating, nextByEquipment all read this). Scans
+// backward so the most recent override wins; every flow that never hits
+// such an override still resolves to exactly the start-node answer, since
+// nothing else in graph.json sets `equipment` on its options today.
+function equipmentAnswerEntry() {
+  for (let i = state.answers.length - 1; i >= 0; i--) {
+    const a = state.answers[i];
+    if (a.optionIndex == null) continue;
+    const node = NODE_CACHE[a.nodeId];
+    const opt = node && node.options && node.options[a.optionIndex];
+    if (opt && opt.equipment) return { entry: a, opt };
+  }
+  return null;
+}
+
+// Same convention as the equipment_type column in checklist_sessions (see
+// main.py _save_session) — reflects whichever answer equipmentKey() below
+// is currently keying off, not always the literal first answer.
 function equipmentLabel() {
-  const first = state.answers[0];
-  if (!first || first.nodeId !== GRAPH.start || first.optionIndex == null) return null;
-  return answerLabel(first);
+  const found = equipmentAnswerEntry();
+  return found ? answerLabel(found.entry) : null;
 }
 
 // Stable key for the chosen equipment type ("rtu", "chiller", ...), taken
-// from the `equipment` field on the start node's options rather than from
-// the option's index — the option order in graph.json is content, and
+// from the `equipment` field on the option actually answered rather than
+// from the option's index — the option order in graph.json is content, and
 // content gets reordered.
 function equipmentKey() {
-  const first = state.answers[0];
-  if (!first || first.nodeId !== GRAPH.start || first.optionIndex == null) return null;
-  const startNode = NODE_CACHE[GRAPH.start];
-  const opt = startNode && startNode.options && startNode.options[first.optionIndex];
-  return (opt && opt.equipment) || null;
+  const found = equipmentAnswerEntry();
+  return found ? found.opt.equipment : null;
 }
 
 // Where an answered option leads. Two graph.json conventions on top of a
