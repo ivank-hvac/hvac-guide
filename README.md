@@ -106,14 +106,20 @@ hvac-guide/
     │                       # history (/api/session), /api/version, optional passwordless auth
     │                       # (magic-link + invites, only active if AUTH_ENABLED — see below),
     │                       # and serves everything under static/
+    ├── graph_demo_src/     # source for static/graph.demo.json below (structure + RU/EN text,
+    │                       # same split shape as the private graph_src/ maintainers use — see
+    │                       # tools/build_demo_graph.py), tracked here, not gitignored
     └── static/
         ├── index.html          # public landing page, served at "/"
         ├── tool.html           # the diagnostic tool itself, served at "/diagnose"
         ├── style.css
         ├── app.js                # graph logic, unit conversion, AI calls, P-T calculator math
-        ├── graph.json            # the decision graph itself — NOT shipped in this public repo
-        │                         # (see "Editing the question graph" below), but this is where
-        │                         # the app expects it and edits it without rebuilding the container
+        ├── graph.json            # the decision graph itself — not a tracked file in this repo
+        │                         # (see "Editing the question graph" below); this is where the
+        │                         # app expects it and edits it without rebuilding the container
+        ├── graph.demo.json       # trimmed demo graph (RTU + Split + Chiller, entry-level content
+        │                         # only), tracked — the Dockerfile copies this to graph.json at
+        │                         # image-build time when a fresh clone has no graph.json yet
         ├── manufacturers.json    # manufacturer list for the step after equipment-type selection
         ├── refrigerants.json     # manifest of refrigerants for the P-T calculator (id/name/file)
         ├── refrigerants/*.json   # per-refrigerant P-T tables, one file per refrigerant
@@ -147,17 +153,26 @@ how the shipped frontend reads it, not the authoring workflow.
 container after changes). Just edit it directly — that's the whole
 workflow.
 
-**This repo does not currently ship a `graph.json`.** The full diagnostic
-graph (every equipment type, every result node) used to be a tracked file
-here, which meant anyone cloning this repo got the entire product's
-accumulated field knowledge for free — that content now lives in a private
-repo instead, and the maintainer's deploy pipeline delivers a built
-`graph.json` straight to the running server, bypassing this repo's git
-history entirely. A trimmed, freely-licensable demo graph (a couple of
-equipment types, entry-level content only) is planned as a replacement for
-self-hosters, but isn't built yet — until then, self-hosting this repo as-is
-means writing your own `app/static/graph.json` from scratch, following the
-node format below.
+**`graph.json` itself isn't a tracked file in this repo anymore.** The full
+diagnostic graph (every equipment type, every result node) used to be a
+plain committed file here, which meant anyone cloning this repo got the
+entire product's accumulated field knowledge for free — that content now
+lives in a private repo instead, and the maintainer's deploy pipeline
+delivers a built `graph.json` straight to the running server, bypassing
+this repo's git history entirely.
+
+**Self-host still just works, though, with a smaller graph.** `app/
+static/graph.demo.json` — RTU, Split, and Chiller, entry-level content
+only — *is* tracked here, and the Dockerfile copies it to `graph.json` at
+image-build time whenever that file doesn't already exist (i.e. on any
+fresh clone). `docker compose up` remains exactly the 3-command self-host
+story from Quick start; you just start from the trimmed demo content
+instead of the full graph, and grow it however you like from there by
+editing `app/static/graph.json` directly, same workflow as always.
+(`app/graph_demo_src/` and `tools/build_demo_graph.py` are how *this
+repo's* maintainer regenerates the demo subset from the private full
+graph — not something a fork/self-host needs to run, since it depends on
+content you don't have; just edit the plain JSON.)
 
 Node format (text and option labels are a `{ru, en}` object, not a plain
 string):

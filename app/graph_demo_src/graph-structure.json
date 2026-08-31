@@ -1,0 +1,2355 @@
+{
+ "start": "start",
+ "intake_checklist": [
+  {
+   "id": "visual",
+   "label": {
+    "$text": "intake_checklist[0].label"
+   },
+   "items": [
+    {
+     "id": "metering_txv",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[0].label"
+     },
+     "exclusiveGroup": "metering_type"
+    },
+    {
+     "id": "metering_captube",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[1].label"
+     },
+     "exclusiveGroup": "metering_type"
+    },
+    {
+     "id": "metering_eev",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[2].label"
+     },
+     "exclusiveGroup": "metering_type"
+    },
+    {
+     "id": "metering_other",
+     "type": "field",
+     "label": {
+      "$text": "intake_checklist[0].items[3].label"
+     },
+     "exclusiveGroup": "metering_type"
+    },
+    {
+     "id": "split_config_ductless",
+     "type": "select",
+     "label": {
+      "$text": "intake_checklist[0].items[4].label"
+     },
+     "options": [
+      "Ductless",
+      "Ducted"
+     ]
+    },
+    {
+     "id": "split_cooling_only",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[5].label"
+     }
+    },
+    {
+     "id": "split_low_ambient_kit",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[6].label"
+     },
+     "showIf": {
+      "phase": "visual",
+      "item": "split_cooling_only",
+      "equals": true
+     }
+    },
+    {
+     "id": "split_config_drive",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[7].label"
+     }
+    },
+    {
+     "id": "filter_drier",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[8].label"
+     }
+    },
+    {
+     "id": "moisture_indicator",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[9].label"
+     }
+    },
+    {
+     "id": "liquid_solenoid",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[10].label"
+     }
+    },
+    {
+     "id": "hot_gas_bypass",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[11].label"
+     }
+    },
+    {
+     "id": "economizer_present",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[12].label"
+     }
+    },
+    {
+     "id": "economizer_damper_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[13].label"
+     },
+     "showIf": {
+      "phase": "visual",
+      "item": "economizer_present",
+      "equals": true
+     }
+    },
+    {
+     "id": "unusual",
+     "type": "field",
+     "label": {
+      "$text": "intake_checklist[0].items[14].label"
+     }
+    }
+   ]
+  },
+  {
+   "id": "electrical",
+   "label": {
+    "$text": "intake_checklist[1].label"
+   },
+   "items": [
+    {
+     "id": "breaker_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[1].items[0].label"
+     }
+    },
+    {
+     "id": "contactor_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[1].items[1].label"
+     }
+    },
+    {
+     "id": "relays_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[1].items[2].label"
+     }
+    }
+   ]
+  },
+  {
+   "id": "controls",
+   "label": {
+    "$text": "intake_checklist[2].label"
+   },
+   "items": [
+    {
+     "id": "safeties_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[2].items[0].label"
+     }
+    },
+    {
+     "id": "thermostat_call_ok",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[2].items[1].label"
+     },
+     "syncFromAnswer": "thermostat_check"
+    },
+    {
+     "id": "fault_code_present",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[2].items[2].label"
+     }
+    },
+    {
+     "id": "fault_code_detail",
+     "type": "field",
+     "label": {
+      "$text": "intake_checklist[2].items[3].label"
+     },
+     "showIf": {
+      "phase": "controls",
+      "item": "fault_code_present",
+      "equals": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "refrigeration",
+   "label": {
+    "$text": "intake_checklist[3].label"
+   },
+   "items": [
+    {
+     "id": "txv_bulb_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[3].items[0].label"
+     },
+     "showIf": {
+      "phase": "visual",
+      "item": "metering_txv",
+      "equals": true
+     }
+    },
+    {
+     "id": "moisture_reading",
+     "type": "select",
+     "label": {
+      "$text": "intake_checklist[3].items[1].label"
+     },
+     "options": [
+      "Dry",
+      "Wet"
+     ],
+     "normal": "Dry",
+     "showIf": {
+      "phase": "visual",
+      "item": "moisture_indicator",
+      "equals": true
+     }
+    },
+    {
+     "id": "solenoid_energizes",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[3].items[2].label"
+     },
+     "showIf": {
+      "phase": "visual",
+      "item": "liquid_solenoid",
+      "equals": true
+     }
+    },
+    {
+     "id": "metering_device_check",
+     "type": "component_check",
+     "label": {
+      "$text": "intake_checklist[3].items[3].label"
+     },
+     "checkId": "metering_device"
+    },
+    {
+     "id": "precise_sh_sc",
+     "type": "graph_launch",
+     "label": {
+      "$text": "intake_checklist[3].items[4].label"
+     },
+     "root": "pt_suction_pressure",
+     "refrigerantRoot": "precise_sh_sc_refrigerant"
+    }
+   ]
+  }
+ ],
+ "component_checks": {
+  "metering_device": {
+   "root": "start",
+   "entryFrom": [
+    {
+     "phase": "visual",
+     "item": "metering_txv",
+     "equals": true,
+     "node": "txv_status"
+    },
+    {
+     "phase": "visual",
+     "item": "metering_captube",
+     "equals": true,
+     "node": "captube_status"
+    },
+    {
+     "phase": "visual",
+     "item": "metering_eev",
+     "equals": true,
+     "node": "eev_status"
+    }
+   ],
+   "nodes": {
+    "start": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.start.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.start.options[0].label"
+       },
+       "next": "type"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.start.options[1].label"
+       },
+       "next": "not_present"
+      }
+     ]
+    },
+    "not_present": {
+     "type": "result",
+     "severity": "info",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.not_present.text"
+     }
+    },
+    "type": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.type.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.type.options[0].label"
+       },
+       "next": "captube_status"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.type.options[1].label"
+       },
+       "next": "orifice_status"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.type.options[2].label"
+       },
+       "next": "txv_status"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.type.options[3].label"
+       },
+       "next": "eev_status"
+      }
+     ]
+    },
+    "captube_status": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_status.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_status.options[0].label"
+       },
+       "next": "captube_ok"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_status.options[1].label"
+       },
+       "next": "captube_nok"
+      }
+     ]
+    },
+    "captube_ok": {
+     "type": "result",
+     "severity": "info",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_ok.text"
+     }
+    },
+    "captube_nok": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_nok.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_nok.options[0].label"
+       },
+       "next": "captube_kinked"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_nok.options[1].label"
+       },
+       "next": "captube_restricted"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_nok.options[2].label"
+       },
+       "next": "captube_broken"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_nok.options[3].label"
+       },
+       "next": "captube_wrong_size"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.captube_nok.options[4].label"
+       },
+       "next": "captube_oil_residue"
+      }
+     ]
+    },
+    "captube_kinked": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_kinked.text"
+     }
+    },
+    "captube_restricted": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_restricted.text"
+     }
+    },
+    "captube_broken": {
+     "type": "result",
+     "severity": "critical",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_broken.text"
+     }
+    },
+    "captube_wrong_size": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_wrong_size.text"
+     }
+    },
+    "captube_oil_residue": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.captube_oil_residue.text"
+     }
+    },
+    "orifice_status": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_status.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_status.options[0].label"
+       },
+       "next": "orifice_ok"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_status.options[1].label"
+       },
+       "next": "orifice_nok"
+      }
+     ]
+    },
+    "orifice_ok": {
+     "type": "result",
+     "severity": "info",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_ok.text"
+     }
+    },
+    "orifice_nok": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_nok.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_nok.options[0].label"
+       },
+       "next": "orifice_clogged"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_nok.options[1].label"
+       },
+       "next": "orifice_wrong_size"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_nok.options[2].label"
+       },
+       "next": "orifice_eroded"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.orifice_nok.options[3].label"
+       },
+       "next": "orifice_oil_residue"
+      }
+     ]
+    },
+    "orifice_clogged": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_clogged.text"
+     }
+    },
+    "orifice_wrong_size": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_wrong_size.text"
+     }
+    },
+    "orifice_eroded": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_eroded.text"
+     }
+    },
+    "orifice_oil_residue": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.orifice_oil_residue.text"
+     }
+    },
+    "txv_status": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_status.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_status.options[0].label"
+       },
+       "next": "txv_ok"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_status.options[1].label"
+       },
+       "next": "txv_nok"
+      }
+     ]
+    },
+    "txv_ok": {
+     "type": "result",
+     "severity": "info",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_ok.text"
+     }
+    },
+    "txv_nok": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_nok.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[0].label"
+       },
+       "next": "txv_bulb_lost_charge"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[1].label"
+       },
+       "next": "txv_bulb_poor_contact"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[2].label"
+       },
+       "next": "txv_oil_logged"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[3].label"
+       },
+       "next": "txv_leaking"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[4].label"
+       },
+       "next": "txv_diaphragm"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.txv_nok.options[5].label"
+       },
+       "next": "txv_oil_residue"
+      }
+     ]
+    },
+    "txv_bulb_lost_charge": {
+     "type": "result",
+     "severity": "critical",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_bulb_lost_charge.text"
+     }
+    },
+    "txv_bulb_poor_contact": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_bulb_poor_contact.text"
+     }
+    },
+    "txv_oil_logged": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_oil_logged.text"
+     }
+    },
+    "txv_leaking": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_leaking.text"
+     }
+    },
+    "txv_diaphragm": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_diaphragm.text"
+     }
+    },
+    "txv_oil_residue": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.txv_oil_residue.text"
+     }
+    },
+    "eev_status": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_status.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_status.options[0].label"
+       },
+       "next": "eev_ok"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_status.options[1].label"
+       },
+       "next": "eev_nok"
+      }
+     ]
+    },
+    "eev_ok": {
+     "type": "result",
+     "severity": "info",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_ok.text"
+     }
+    },
+    "eev_nok": {
+     "type": "question",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_nok.text"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_nok.options[0].label"
+       },
+       "next": "eev_stepper_stuck"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_nok.options[1].label"
+       },
+       "next": "eev_lost_calibration"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_nok.options[2].label"
+       },
+       "next": "eev_bad_signal"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_nok.options[3].label"
+       },
+       "next": "eev_mechanical_jam"
+      },
+      {
+       "label": {
+        "$text": "component_checks.metering_device.nodes.eev_nok.options[4].label"
+       },
+       "next": "eev_oil_residue"
+      }
+     ]
+    },
+    "eev_stepper_stuck": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_stepper_stuck.text"
+     }
+    },
+    "eev_lost_calibration": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_lost_calibration.text"
+     }
+    },
+    "eev_bad_signal": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_bad_signal.text"
+     }
+    },
+    "eev_mechanical_jam": {
+     "type": "result",
+     "severity": "critical",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_mechanical_jam.text"
+     }
+    },
+    "eev_oil_residue": {
+     "type": "result",
+     "severity": "warning",
+     "text": {
+      "$text": "component_checks.metering_device.nodes.eev_oil_residue.text"
+     }
+    }
+   }
+  }
+ },
+ "nodes": {
+  "start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.start.options[0].label"
+     },
+     "next": "rtu_symptom",
+     "equipment": "rtu"
+    },
+    {
+     "label": {
+      "$text": "nodes.start.options[1].label"
+     },
+     "next": "split_symptom",
+     "equipment": "split"
+    },
+    {
+     "label": {
+      "$text": "nodes.start.options[3].label"
+     },
+     "next": "chiller_symptom",
+     "equipment": "chiller"
+    }
+   ]
+  },
+  "rtu_symptom": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.rtu_symptom.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[0].label"
+     },
+     "next": "nc_refrigerant"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[1].label"
+     },
+     "next": "nh_type"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[2].label"
+     },
+     "next": "ws_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[3].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[4].label"
+     },
+     "next": "lp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[5].label"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[6].label"
+     },
+     "next": "leak_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[7].label"
+     },
+     "next": "noise_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[8].label"
+     },
+     "next": "ai_freeform"
+    }
+   ]
+  },
+  "split_symptom": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.split_symptom.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[0].label"
+     },
+     "next": "nc_refrigerant"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[1].label"
+     },
+     "next": "nh_type"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[2].label"
+     },
+     "next": "ws_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[3].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[4].label"
+     },
+     "next": "lp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[5].label"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[6].label"
+     },
+     "next": "leak_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[7].label"
+     },
+     "next": "noise_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[8].label"
+     },
+     "next": "ai_freeform"
+    }
+   ]
+  },
+  "chiller_symptom": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.chiller_symptom.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[0].label"
+     },
+     "next": "nc_refrigerant"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[1].label"
+     },
+     "next": "ws_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[2].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[3].label"
+     },
+     "next": "lp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[4].label"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[5].label"
+     },
+     "next": "leak_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[6].label"
+     },
+     "next": "noise_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[8].label"
+     },
+     "next": "ai_freeform"
+    }
+   ]
+  },
+  "nc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "$text": "nodes.nc_refrigerant.text"
+   },
+   "next": "nc_start"
+  },
+  "nh_type": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_type.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[0].label"
+     },
+     "next": "nh_hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[1].label"
+     },
+     "next": "gas_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[2].label"
+     },
+     "next": "nh_electric_result"
+    }
+   ]
+  },
+  "ws_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.ws_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.ws_start.options[0].label"
+     },
+     "next": "ws_power_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_start.options[1].label"
+     },
+     "next": "ws_no_power"
+    }
+   ]
+  },
+  "hp_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.hp_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.hp_start.options[0].label"
+     },
+     "next": "hp_dirty_cond"
+    },
+    {
+     "label": {
+      "$text": "nodes.hp_start.options[1].label"
+     },
+     "next": "hp_cond_clear"
+    }
+   ]
+  },
+  "lp_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.lp_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.lp_start.options[0].label"
+     },
+     "next": "lp_stable_check"
+    },
+    {
+     "label": {
+      "$text": "nodes.lp_start.options[1].label"
+     },
+     "next": "lp_airflow_bad"
+    }
+   ]
+  },
+  "ice_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.ice_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.ice_start.options[0].label"
+     },
+     "next": "ice_overcool"
+    },
+    {
+     "label": {
+      "$text": "nodes.ice_start.options[1].label"
+     },
+     "next": "ice_undercool"
+    }
+   ]
+  },
+  "leak_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.leak_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.leak_start.options[0].label"
+     },
+     "next": "leak_condensate"
+    },
+    {
+     "label": {
+      "$text": "nodes.leak_start.options[1].label"
+     },
+     "next": "leak_refrig"
+    },
+    {
+     "label": {
+      "$text": "nodes.leak_start.options[2].label"
+     },
+     "next": "ai_freeform"
+    }
+   ]
+  },
+  "noise_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.noise_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.noise_start.options[0].label"
+     },
+     "next": "noise_compressor"
+    },
+    {
+     "label": {
+      "$text": "nodes.noise_start.options[1].label"
+     },
+     "next": "noise_fan"
+    },
+    {
+     "label": {
+      "$text": "nodes.noise_start.options[2].label"
+     },
+     "next": "noise_vibration"
+    }
+   ]
+  },
+  "ai_freeform": {
+   "type": "ai_prompt",
+   "text": {
+    "$text": "nodes.ai_freeform.text"
+   }
+  },
+  "nc_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nc_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nc_start.options[0].label"
+     },
+     "next": "nc_running"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_start.options[1].label"
+     },
+     "next": "ws_start"
+    }
+   ]
+  },
+  "nh_hp_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_hp_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_hp_start.options[0].label"
+     },
+     "next": "nh_hp_2"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_start.options[1].label"
+     },
+     "next": "nh_hp_novalve"
+    }
+   ]
+  },
+  "gas_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.gas_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.gas_start.options[0].label"
+     },
+     "next": "gas_lights_no_heat"
+    },
+    {
+     "label": {
+      "$text": "nodes.gas_start.options[1].label"
+     },
+     "next": "gas_ignition"
+    }
+   ]
+  },
+  "nh_electric_result": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nh_electric_result.text"
+   }
+  },
+  "ws_power_ok": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.ws_power_ok.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.ws_power_ok.options[0].label"
+     },
+     "next": "ws_contactor_pulls"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_power_ok.options[1].label"
+     },
+     "next": "ws_contactor_no"
+    }
+   ]
+  },
+  "ws_no_power": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_no_power.text"
+   }
+  },
+  "hp_dirty_cond": {
+   "type": "result",
+   "severity": "warning",
+   "ai": false,
+   "text": {
+    "$text": "nodes.hp_dirty_cond.text"
+   }
+  },
+  "hp_cond_clear": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.hp_cond_clear.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.hp_cond_clear.options[0].label"
+     },
+     "next": "hp_fans_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.hp_cond_clear.options[1].label"
+     },
+     "next": "hp_fan_issue"
+    }
+   ]
+  },
+  "lp_stable_check": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.lp_stable_check.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.lp_stable_check.options[0].label"
+     },
+     "next": "lp_airflow_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.lp_stable_check.options[1].label"
+     },
+     "next": "lp_receiver_check"
+    }
+   ]
+  },
+  "lp_airflow_bad": {
+   "type": "result",
+   "severity": "warning",
+   "ai": false,
+   "text": {
+    "$text": "nodes.lp_airflow_bad.text"
+   }
+  },
+  "ice_overcool": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ice_overcool.text"
+   }
+  },
+  "ice_undercool": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ice_undercool.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.ice_undercool.related_checks[0]"
+    },
+    {
+     "$text": "nodes.ice_undercool.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "airflow_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ice_undercool.checklist[0].label"
+     }
+    },
+    {
+     "id": "charge_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ice_undercool.checklist[1].label"
+     }
+    },
+    {
+     "id": "defrost_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ice_undercool.checklist[2].label"
+     }
+    },
+    {
+     "id": "condensate_heater_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ice_undercool.checklist[3].label"
+     }
+    },
+    {
+     "id": "solenoid_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ice_undercool.checklist[4].label"
+     }
+    }
+   ]
+  },
+  "leak_condensate": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.leak_condensate.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.leak_condensate.options[0].label"
+     },
+     "next": "leak_condensate_clear"
+    },
+    {
+     "label": {
+      "$text": "nodes.leak_condensate.options[1].label"
+     },
+     "next": "leak_condensate_clog"
+    }
+   ]
+  },
+  "leak_refrig": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.leak_refrig.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.leak_refrig.related_checks[0]"
+    },
+    {
+     "$text": "nodes.leak_refrig.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "leak_located",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.leak_refrig.checklist[0].label"
+     }
+    },
+    {
+     "id": "leak_location",
+     "type": "field",
+     "label": {
+      "$text": "nodes.leak_refrig.checklist[1].label"
+     }
+    },
+    {
+     "id": "leak_repaired",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.leak_refrig.checklist[2].label"
+     }
+    },
+    {
+     "id": "full_recharge_done",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.leak_refrig.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "noise_compressor": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.noise_compressor.text"
+   }
+  },
+  "noise_fan": {
+   "type": "result",
+   "severity": "info",
+   "ai": false,
+   "text": {
+    "$text": "nodes.noise_fan.text"
+   }
+  },
+  "noise_vibration": {
+   "type": "result",
+   "severity": "info",
+   "ai": false,
+   "text": {
+    "$text": "nodes.noise_vibration.text"
+   }
+  },
+  "nc_running": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nc_running.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nc_running.options[0].label"
+     },
+     "next": "nc_fans_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_running.options[1].label"
+     },
+     "next": "nc_no_condfan"
+    }
+   ]
+  },
+  "nh_hp_2": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_hp_2.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[0].label"
+     },
+     "next": "nh_hp_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[1].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[2].label"
+     },
+     "next": "lp_start"
+    }
+   ]
+  },
+  "nh_hp_novalve": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nh_hp_novalve.text"
+   }
+  },
+  "gas_lights_no_heat": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.gas_lights_no_heat.text"
+   }
+  },
+  "gas_ignition": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.gas_ignition.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.gas_ignition.options[0].label"
+     },
+     "next": "gas_no_power"
+    },
+    {
+     "label": {
+      "$text": "nodes.gas_ignition.options[1].label"
+     },
+     "next": "gas_flame_sensor"
+    },
+    {
+     "label": {
+      "$text": "nodes.gas_ignition.options[2].label"
+     },
+     "next": "gas_fault_code"
+    }
+   ]
+  },
+  "ws_contactor_pulls": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.ws_contactor_pulls.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_pulls.options[0].label"
+     },
+     "next": "ws_locked_rotor"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_pulls.options[1].label"
+     },
+     "next": "ws_no_load"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_pulls.options[2].label"
+     },
+     "next": "ws_started_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_pulls.options[3].label"
+     },
+     "next": "ws_amp_measurement"
+    }
+   ]
+  },
+  "ws_contactor_no": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.ws_contactor_no.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_no.options[0].label"
+     },
+     "next": "ws_contactor_bad"
+    },
+    {
+     "label": {
+      "$text": "nodes.ws_contactor_no.options[1].label"
+     },
+     "next": "ws_control_circuit"
+    }
+   ]
+  },
+  "hp_fans_ok": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.hp_fans_ok.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.hp_fans_ok.options[0].label"
+     },
+     "next": "hp_overcharge"
+    },
+    {
+     "label": {
+      "$text": "nodes.hp_fans_ok.options[1].label"
+     },
+     "next": "hp_noncond_refrigerant"
+    }
+   ]
+  },
+  "hp_fan_issue": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.hp_fan_issue.text"
+   }
+  },
+  "lp_airflow_ok": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.lp_airflow_ok.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.lp_airflow_ok.options[0].label"
+     },
+     "next": "nc_sc_low"
+    },
+    {
+     "label": {
+      "$text": "nodes.lp_airflow_ok.options[1].label"
+     },
+     "next": "lp_metering"
+    }
+   ]
+  },
+  "lp_receiver_check": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.lp_receiver_check.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.lp_receiver_check.options[0].label"
+     },
+     "next": "lp_rapid_trip_result_receiver"
+    },
+    {
+     "label": {
+      "$text": "nodes.lp_receiver_check.options[1].label"
+     },
+     "next": "lp_rapid_trip_result_rtu"
+    }
+   ]
+  },
+  "leak_condensate_clear": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.leak_condensate_clear.text"
+   }
+  },
+  "leak_condensate_clog": {
+   "type": "result",
+   "severity": "warning",
+   "ai": false,
+   "text": {
+    "$text": "nodes.leak_condensate_clog.text"
+   }
+  },
+  "nc_fans_ok": {
+   "type": "dual_pressure_check",
+   "text": {
+    "$text": "nodes.nc_fans_ok.text"
+   },
+   "showRefrigerant": true,
+   "blocks": [
+    {
+     "id": "suction",
+     "label": {
+      "$text": "nodes.nc_fans_ok.blocks[0].label"
+     },
+     "drivesNavigation": true,
+     "options": [
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[0].options[0].label"
+       },
+       "next": "nc_suction_high"
+      },
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[0].options[1].label"
+       },
+       "next": "nc_pressures_ok"
+      },
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[0].options[2].label"
+       },
+       "next": "nc_suction_low"
+      }
+     ]
+    },
+    {
+     "id": "head",
+     "label": {
+      "$text": "nodes.nc_fans_ok.blocks[1].label"
+     },
+     "options": [
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[1].options[0].label"
+       }
+      },
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[1].options[1].label"
+       }
+      },
+      {
+       "label": {
+        "$text": "nodes.nc_fans_ok.blocks[1].options[2].label"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "nc_no_condfan": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_no_condfan.text"
+   }
+  },
+  "nh_hp_ok": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nh_hp_ok.text"
+   }
+  },
+  "gas_no_power": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.gas_no_power.text"
+   }
+  },
+  "gas_flame_sensor": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.gas_flame_sensor.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.gas_flame_sensor.related_checks[0]"
+    },
+    {
+     "$text": "nodes.gas_flame_sensor.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "sensor_cleaned",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.gas_flame_sensor.checklist[0].label"
+     }
+    },
+    {
+     "id": "grounding_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.gas_flame_sensor.checklist[1].label"
+     }
+    },
+    {
+     "id": "polarity_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.gas_flame_sensor.checklist[2].label"
+     }
+    },
+    {
+     "id": "gas_pressure",
+     "type": "field",
+     "unit": "in. w.c.",
+     "label": {
+      "$text": "nodes.gas_flame_sensor.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "gas_fault_code": {
+   "type": "ai_prompt",
+   "text": {
+    "$text": "nodes.gas_fault_code.text"
+   }
+  },
+  "ws_locked_rotor": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_locked_rotor.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.ws_locked_rotor.related_checks[0]"
+    },
+    {
+     "$text": "nodes.ws_locked_rotor.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "capacitor_tested",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ws_locked_rotor.checklist[0].label"
+     }
+    },
+    {
+     "id": "winding_resistance",
+     "type": "field",
+     "unit": "MΩ",
+     "label": {
+      "$text": "nodes.ws_locked_rotor.checklist[1].label"
+     }
+    },
+    {
+     "id": "voltage_sag_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.ws_locked_rotor.checklist[2].label"
+     }
+    },
+    {
+     "id": "replacement_scheduled",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.ws_locked_rotor.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "ws_no_load": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_no_load.text"
+   }
+  },
+  "ws_started_ok": {
+   "type": "result",
+   "severity": "info",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_started_ok.text"
+   }
+  },
+  "ws_amp_measurement": {
+   "type": "measurement",
+   "text": {
+    "$text": "nodes.ws_amp_measurement.text"
+   },
+   "unit": "A",
+   "min": 0,
+   "max": 300,
+   "reference": {
+    "mode": "single",
+    "label": {
+     "$text": "nodes.ws_amp_measurement.reference.label"
+    }
+   },
+   "measuredLabel": {
+    "$text": "nodes.ws_amp_measurement.measuredLabel"
+   },
+   "next": "ws_amp_logged"
+  },
+  "ws_contactor_bad": {
+   "type": "result",
+   "severity": "critical",
+   "ai": false,
+   "text": {
+    "$text": "nodes.ws_contactor_bad.text"
+   }
+  },
+  "ws_control_circuit": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_control_circuit.text"
+   }
+  },
+  "hp_overcharge": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.hp_overcharge.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.hp_overcharge.related_checks[0]"
+    },
+    {
+     "$text": "nodes.hp_overcharge.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "history_reviewed",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.hp_overcharge.checklist[0].label"
+     }
+    },
+    {
+     "id": "weight_recalculated",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.hp_overcharge.checklist[1].label"
+     }
+    },
+    {
+     "id": "recovered_weight",
+     "type": "field",
+     "unit": "oz",
+     "label": {
+      "$text": "nodes.hp_overcharge.checklist[2].label"
+     }
+    },
+    {
+     "id": "subcooling_after",
+     "type": "field",
+     "unit": "Δ°F",
+     "label": {
+      "$text": "nodes.hp_overcharge.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "hp_noncond_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "$text": "nodes.hp_noncond_refrigerant.text"
+   },
+   "next": "hp_standing_temp"
+  },
+  "nc_sc_low": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_sc_low.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.nc_sc_low.related_checks[0]"
+    },
+    {
+     "$text": "nodes.nc_sc_low.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "leak_search",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sc_low.checklist[0].label"
+     }
+    },
+    {
+     "id": "leak_location",
+     "type": "field",
+     "label": {
+      "$text": "nodes.nc_sc_low.checklist[1].label"
+     }
+    },
+    {
+     "id": "leak_repaired",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.nc_sc_low.checklist[2].label"
+     }
+    },
+    {
+     "id": "recharge_weight",
+     "type": "field",
+     "unit": "oz",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.nc_sc_low.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "lp_metering": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.lp_metering.text"
+   }
+  },
+  "lp_rapid_trip_result_receiver": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.lp_rapid_trip_result_receiver.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.lp_rapid_trip_result_receiver.related_checks[0]"
+    },
+    {
+     "$text": "nodes.lp_rapid_trip_result_receiver.related_checks[1]"
+    },
+    {
+     "$text": "nodes.lp_rapid_trip_result_receiver.related_checks[2]"
+    }
+   ]
+  },
+  "lp_rapid_trip_result_rtu": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.lp_rapid_trip_result_rtu.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.lp_rapid_trip_result_rtu.related_checks[0]"
+    },
+    {
+     "$text": "nodes.lp_rapid_trip_result_rtu.related_checks[1]"
+    },
+    {
+     "$text": "nodes.lp_rapid_trip_result_rtu.related_checks[2]"
+    }
+   ]
+  },
+  "nc_suction_high": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nc_suction_high.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nc_suction_high.options[0].label"
+     },
+     "next": "nc_sh_high"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_suction_high.options[1].label"
+     },
+     "next": "nc_sh_low_highsuction"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_suction_high.options[2].label"
+     },
+     "next": "nc_sh_exact"
+    }
+   ]
+  },
+  "nc_pressures_ok": {
+   "type": "ai_prompt",
+   "text": {
+    "$text": "nodes.nc_pressures_ok.text"
+   }
+  },
+  "nc_suction_low": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nc_suction_low.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nc_suction_low.options[0].label"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_suction_low.options[1].label"
+     },
+     "next": "nc_suction_low_noice"
+    }
+   ]
+  },
+  "ws_amp_logged": {
+   "type": "result",
+   "severity": "info",
+   "ai": true,
+   "text": {
+    "$text": "nodes.ws_amp_logged.text"
+   }
+  },
+  "hp_standing_temp": {
+   "type": "numeric_input",
+   "role": "standing_temp",
+   "text": {
+    "$text": "nodes.hp_standing_temp.text"
+   },
+   "unit": "°F",
+   "min": -40,
+   "max": 150,
+   "next": "hp_standing_pressure"
+  },
+  "nc_sh_high": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_sh_high.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.nc_sh_high.related_checks[0]"
+    },
+    {
+     "$text": "nodes.nc_sh_high.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "airflow_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_high.checklist[0].label"
+     }
+    },
+    {
+     "id": "txv_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_high.checklist[1].label"
+     }
+    },
+    {
+     "id": "subcooling",
+     "type": "field",
+     "unit": "Δ°F",
+     "label": {
+      "$text": "nodes.nc_sh_high.checklist[2].label"
+     }
+    },
+    {
+     "id": "undercharge_ruled_out",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_high.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "nc_sh_low_highsuction": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_sh_low_highsuction.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.nc_sh_low_highsuction.related_checks[0]"
+    },
+    {
+     "$text": "nodes.nc_sh_low_highsuction.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "txv_stuck_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_low_highsuction.checklist[0].label"
+     }
+    },
+    {
+     "id": "bulb_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_low_highsuction.checklist[1].label"
+     }
+    },
+    {
+     "id": "overcharge_ruled_out",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_low_highsuction.checklist[2].label"
+     }
+    },
+    {
+     "id": "floodback_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sh_low_highsuction.checklist[3].label"
+     }
+    }
+   ]
+  },
+  "nc_sh_exact": {
+   "type": "numeric_input",
+   "text": {
+    "$text": "nodes.nc_sh_exact.text"
+   },
+   "unit": "Δ°F",
+   "min": -20,
+   "max": 100,
+   "thresholds": [
+    {
+     "max": 4,
+     "next": "nc_sh_low_highsuction"
+    },
+    {
+     "next": "nc_sh_high"
+    }
+   ]
+  },
+  "nc_suction_low_noice": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nc_suction_low_noice.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nc_suction_low_noice.options[0].label"
+     },
+     "next": "nc_sc_low"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_suction_low_noice.options[1].label"
+     },
+     "next": "nc_sc_high"
+    },
+    {
+     "label": {
+      "$text": "nodes.nc_suction_low_noice.options[2].label"
+     },
+     "next": "nc_lowsuction_okSC"
+    }
+   ]
+  },
+  "hp_standing_pressure": {
+   "type": "numeric_input",
+   "role": "standing_pressure",
+   "text": {
+    "$text": "nodes.hp_standing_pressure.text"
+   },
+   "unit": "psig",
+   "min": 0,
+   "max": 700,
+   "next": "hp_standing_calc"
+  },
+  "nc_sc_high": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_sc_high.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.nc_sc_high.related_checks[0]"
+    },
+    {
+     "$text": "nodes.nc_sc_high.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "drier_inspected",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sc_high.checklist[0].label"
+     }
+    },
+    {
+     "id": "line_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.nc_sc_high.checklist[1].label"
+     }
+    },
+    {
+     "id": "drier_replaced",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.nc_sc_high.checklist[2].label"
+     }
+    }
+   ]
+  },
+  "nc_lowsuction_okSC": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nc_lowsuction_okSC.text"
+   }
+  },
+  "hp_standing_calc": {
+   "type": "pt_noncondensable_calc",
+   "text": {
+    "$text": "nodes.hp_standing_calc.text"
+   },
+   "next": "hp_noncondensables"
+  },
+  "hp_noncondensables": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.hp_noncondensables.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.hp_noncondensables.related_checks[0]"
+    },
+    {
+     "$text": "nodes.hp_noncondensables.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "recovery_done",
+     "type": "checkbox",
+     "fixing_phase": true,
+     "label": {
+      "$text": "nodes.hp_noncondensables.checklist[0].label"
+     }
+    }
+   ]
+  }
+ }
+}
