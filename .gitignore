@@ -28,11 +28,27 @@ BITWARDEN.md
 /tools/backup-prod-db-pull.sh
 /tools/backup-prod-tree-snapshot.sh
 /tools/backup-prod-tree-pull.sh
+/tools/sync-graph-content.sh
 
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
 # part of the app. Same reasoning as CLAUDE.md above.
 .claude/
+
+# Full diagnostic graph content (structure + RU/EN text + the built
+# graph.json artifact) - this used to be a plain tracked file, which meant
+# `git clone` on this public repo handed out the entire product for free,
+# bypassing all of the per-node auth-gated delivery work (see
+# app/main.py's /api/graph/* routes). The full graph now lives in a
+# separate private repo; app/graph_src/ on a maintainer's machine is a
+# nested clone of that repo (its own .git, ignored here same as any other
+# path under this rule), and app/static/graph.json is a local build
+# artifact regenerated from it via tools/build_graph.py. A self-hoster
+# cloning this repo gets the engine only, no graph.json - see
+# tools/build_graph.py / README "Structure/content split" for what to
+# provide instead (a trimmed demo graph is planned, not built yet).
+/app/graph_src/
+/app/static/graph.json
 
 # Python
 __pycache__/

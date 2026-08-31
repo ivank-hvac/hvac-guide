@@ -106,15 +106,14 @@ hvac-guide/
     │                       # history (/api/session), /api/version, optional passwordless auth
     │                       # (magic-link + invites, only active if AUTH_ENABLED — see below),
     │                       # and serves everything under static/
-    ├── graph_src/          # optional authoring split for graph.json (structure vs. RU/EN text)
-    │   ├── graph-structure.json
-    │   └── content/{ru,en}.json  # see "Editing the question graph" below
     └── static/
         ├── index.html          # public landing page, served at "/"
         ├── tool.html           # the diagnostic tool itself, served at "/diagnose"
         ├── style.css
         ├── app.js                # graph logic, unit conversion, AI calls, P-T calculator math
-        ├── graph.json            # the decision graph itself (editable without rebuilding the container)
+        ├── graph.json            # the decision graph itself — NOT shipped in this public repo
+        │                         # (see "Editing the question graph" below), but this is where
+        │                         # the app expects it and edits it without rebuilding the container
         ├── manufacturers.json    # manufacturer list for the step after equipment-type selection
         ├── refrigerants.json     # manifest of refrigerants for the P-T calculator (id/name/file)
         ├── refrigerants/*.json   # per-refrigerant P-T tables, one file per refrigerant
@@ -146,16 +145,19 @@ how the shipped frontend reads it, not the authoring workflow.
 `app/static/graph.json` is plain JSON, no image rebuild needed (you can mount
 `./app/static:/app/static` in compose for live edits, or just rebuild the
 container after changes). Just edit it directly — that's the whole
-workflow, and it's unaffected by the next paragraph.
+workflow.
 
-This project's own copy of `graph.json` is also generated from
-`app/graph_src/` (`graph-structure.json` + `content/<lang>.json`, plus
-`tools/build_graph.py`/`tools/split_graph_content.py`/
-`tools/validate_content.py`) — an internal authoring convenience for
-keeping RU/EN/future-language text separate from graph structure. That's
-optional infrastructure specific to how this repo's own maintainers edit
-content; if you fork this project, you don't need any of it and can keep
-editing `graph.json` directly as described above.
+**This repo does not currently ship a `graph.json`.** The full diagnostic
+graph (every equipment type, every result node) used to be a tracked file
+here, which meant anyone cloning this repo got the entire product's
+accumulated field knowledge for free — that content now lives in a private
+repo instead, and the maintainer's deploy pipeline delivers a built
+`graph.json` straight to the running server, bypassing this repo's git
+history entirely. A trimmed, freely-licensable demo graph (a couple of
+equipment types, entry-level content only) is planned as a replacement for
+self-hosters, but isn't built yet — until then, self-hosting this repo as-is
+means writing your own `app/static/graph.json` from scratch, following the
+node format below.
 
 Node format (text and option labels are a `{ru, en}` object, not a plain
 string):
