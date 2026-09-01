@@ -122,6 +122,24 @@ header h1 {
   background: #16233a;
 }
 
+/* Session-only unit preference (°F/°C, psig/kPa) — same button look as the
+   language switch, but its own row so it can wrap independently on narrow
+   screens instead of crowding the title. Only affects what a technician
+   types into a numeric_input field and how its range hint reads; the
+   always-on dual-unit annotation elsewhere in the app (annotateUnits) is
+   untouched. See CLAUDE.md "Выбор единиц измерения на сеанс". */
+.unit-switch-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.unit-switch {
+  display: flex;
+  gap: 4px;
+}
+
 .breadcrumb {
   font-size: 0.7rem;
   line-height: 1.6;
