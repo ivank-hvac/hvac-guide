@@ -135,6 +135,16 @@ header h1 {
   margin-bottom: 10px;
 }
 
+/* Orange active state instead of the default .lang-btn.active blue — a
+   technician's unit choice is a "pay attention, this changed the numbers
+   you're reading" signal, not a neutral preference like language, so it
+   gets the same warm accent used for attention states elsewhere (--warn). */
+.unit-btn.active {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: #3a2f10;
+}
+
 .unit-switch {
   display: flex;
   gap: 4px;
