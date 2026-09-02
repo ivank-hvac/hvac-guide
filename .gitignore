@@ -12,6 +12,10 @@ CLAUDE.md
 # public repo. Synced to a private backup host separately, not via git.
 BITWARDEN.md
 
+# Internal status board (open items + their state) - same reasoning as
+# CLAUDE.md above, same sync path (tools/drive-notes.sh).
+ROADMAP-internal.md
+
 # Same reasoning as CLAUDE.md above - hardcodes real hosts/IPs/user
 # choices, not app logic. Lives in the encrypted CLAUDE.md/memory backup
 # pipeline instead (see CLAUDE.md "Component sub-tree" / backup section).
