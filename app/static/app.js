@@ -1000,6 +1000,15 @@ const SOURCE_URL = "https://github.com/ivank-hvac/hvac-guide";
 function renderFooterInfo() {
   const parts = ["IvanK"];
   if (versionData) parts.push(`${versionData.commit} · ${versionData.commit_date}`);
+  // Separate from the app commit above on purpose — the graph content
+  // ("core") is a different private repo with its own history since the
+  // Aug 2026 split, so it can (and does) change independently of the app
+  // code. Omitted entirely on a self-host with no private graph repo
+  // configured (core_commit stays "unknown" there), same convention as
+  // the app commit block above.
+  if (versionData && versionData.core_commit && versionData.core_commit !== "unknown") {
+    parts.push(`core ${versionData.core_commit} · ${versionData.core_commit_date}`);
+  }
   if (state.sessionId) parts.push(`session: ${state.sessionId.slice(0, 8)}`);
   versionInfoEl.textContent = parts.join(" · ");
 

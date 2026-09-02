@@ -10,6 +10,8 @@ services:
       args:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
         GIT_COMMIT_DATE: ${GIT_COMMIT_DATE:-unknown}
+        CORE_COMMIT: ${CORE_COMMIT:-unknown}
+        CORE_COMMIT_DATE: ${CORE_COMMIT_DATE:-unknown}
     container_name: hvac-guide
     # Bounded on purpose: the log is a ring, not an archive. Two rotated
     # files of 10 MB each cap what any traffic spike — a scan, a flood — can
