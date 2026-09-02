@@ -37,6 +37,15 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
 GIT_COMMIT_DATE = os.getenv("GIT_COMMIT_DATE", "unknown")
 
+# Same idea, for the graph content ("core") specifically -- a separate
+# private repo since the Aug 2026 split (app/graph_src), with its own
+# commit history independent of the app code above. Kept fresh by
+# tools/sync-graph-content.sh, not the git hooks (those only see this
+# outer repo). "unknown" on a self-host clone with no private graph repo
+# configured is expected, not an error.
+CORE_COMMIT = os.getenv("CORE_COMMIT", "unknown")
+CORE_COMMIT_DATE = os.getenv("CORE_COMMIT_DATE", "unknown")
+
 # How many AI-assist calls a single IP may make per minute. Tighten this via
 # env when going public (see README "Phase 2: going public").
 AI_ASSIST_RATE_LIMIT = os.getenv("AI_ASSIST_RATE_LIMIT", "8/minute")
@@ -1707,7 +1716,12 @@ async def health():
 
 @app.get("/api/version")
 async def version():
-    return {"commit": GIT_COMMIT, "commit_date": GIT_COMMIT_DATE}
+    return {
+        "commit": GIT_COMMIT,
+        "commit_date": GIT_COMMIT_DATE,
+        "core_commit": CORE_COMMIT,
+        "core_commit_date": CORE_COMMIT_DATE,
+    }
 
 
 @app.get("/api/me")

@@ -66,6 +66,18 @@ LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 ENV GIT_COMMIT=${GIT_COMMIT} \
     GIT_COMMIT_DATE=${GIT_COMMIT_DATE}
 
+# Same idea, but for the graph content ("core") specifically -- it's a
+# separate private repo (app/graph_src) with its own commit history,
+# independent of the app code commit above since the Aug 2026 split (see
+# CLAUDE.md "Приватный репо для полного графа"). Kept fresh by
+# tools/sync-graph-content.sh, not the .githooks/ hooks (those only see
+# this outer repo's own history). "unknown" here just means a self-host
+# clone with no private graph repo configured -- expected, not an error.
+ARG CORE_COMMIT=unknown
+ARG CORE_COMMIT_DATE=unknown
+ENV CORE_COMMIT=${CORE_COMMIT} \
+    CORE_COMMIT_DATE=${CORE_COMMIT_DATE}
+
 EXPOSE 8000
 
 USER hvac
