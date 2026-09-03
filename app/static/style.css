@@ -210,10 +210,33 @@ header h1 {
   }
 }
 
+/* Theme (left) + language/invite (right) share one row, split to opposite
+   edges — same anti-mistap reasoning as the unit/theme split below, applied
+   here between two DIFFERENT kinds of controls that used to sit close
+   together. Only visible together on the very first screen of a session
+   (#langSwitch hides on its own past that point, see
+   updateHeaderControlsVisibility in app.js) — with #langSwitch hidden,
+   justify-content:space-between naturally leaves the theme group alone at
+   the left edge, no extra rule needed for that case. */
+.controls-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .lang-switch {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Extra breathing room before RU/EN — inviting a colleague and switching
+   language are unrelated actions that used to sit at the same 4px as the
+   RU/EN pair itself, making the invite button an easy mistap next to them. */
+.invite-link {
+  margin-right: 14px;
 }
 
 .lang-btn {
@@ -267,23 +290,18 @@ header h1 {
   gap: 4px;
 }
 
-/* Pushed to the far right of the row (or, once it wraps on a narrow screen,
-   to the far right of its own line) via the auto margin — deliberate
-   distance from the temp/pressure buttons on its left, not just visual
-   grouping: with gloves on in the cold, two unrelated toggle groups sitting
-   right next to each other is exactly what makes a mistap likely. */
-.unit-switch-theme {
-  margin-left: auto;
-}
-
-/* Session-only display theme (dark / field) — third .unit-switch group in
-   the same row as the temperature/pressure toggles, at the user's request
-   (originally its own row; folded in here to save a line of persistent
-   header height). Only .lang-btn styling is reused (class="lang-btn
-   theme-btn" in tool.html) — its "active" look already comes from the
-   .lang-btn.active rule above, nothing theme-specific needed here. The
-   actual repaint happens through the CSS variable overrides further up,
-   triggered by the data-theme attribute app.js sets on <html>. */
+/* Session-only display theme (dark / field) — its own .unit-switch group,
+   but living in .controls-row-top (left side, next to language on the
+   right) rather than the temp/pressure row below — moved there at the
+   user's request so theme sits with language, not with units. Only
+   .lang-btn styling is reused (class="lang-btn theme-btn" in tool.html) —
+   its "active" look already comes from the .lang-btn.active rule above,
+   nothing theme-specific needed here. The actual repaint happens through
+   the CSS variable overrides further up, triggered by the data-theme
+   attribute app.js sets on <html>. Unlike #langSwitch, this group is NOT
+   gated by updateHeaderControlsVisibility — a technician needs to be able
+   to flip themes at any point in a session (walking from shade into direct
+   sun), not just on the first screen. */
 
 .breadcrumb {
   font-size: 0.7rem;
