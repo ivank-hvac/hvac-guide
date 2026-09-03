@@ -4,6 +4,7 @@ const backBtn = document.getElementById("backBtn");
 const restartBtn = document.getElementById("restartBtn");
 const langButtons = document.querySelectorAll(".lang-btn");
 const unitButtons = document.querySelectorAll(".unit-btn");
+const themeButtons = document.querySelectorAll(".theme-btn");
 const disclaimerEl = document.getElementById("disclaimer");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
@@ -792,6 +793,22 @@ try {
   }
 } catch {
   // Corrupt localStorage value — fall back to the imperial default above.
+}
+
+// Session-only display theme — "dark" (default, unchanged look) or "field",
+// a high-contrast light palette for reading a phone screen in direct sun or
+// glare (see the :root[data-theme="field"] block in style.css). Same
+// localStorage-preference pattern as LANG/UNIT_PREF above: a client-side
+// habit picked in the field, not an account setting or an OS preference —
+// deliberately not wired to prefers-color-scheme.
+let THEME_PREF = "dark";
+try {
+  const savedTheme = localStorage.getItem("hvac_theme_pref");
+  if (savedTheme === "dark" || savedTheme === "field") {
+    THEME_PREF = savedTheme;
+  }
+} catch {
+  // Corrupt/inaccessible localStorage — fall back to the dark default above.
 }
 
 function generateSessionId() {
@@ -2168,6 +2185,7 @@ function updateStaticUi() {
   footerDisclaimerEl.textContent = strings.footerDisclaimer;
   langButtons.forEach((b) => b.classList.toggle("active", b.dataset.lang === LANG));
   unitButtons.forEach((b) => b.classList.toggle("active", UNIT_PREF[b.dataset.unit] === b.dataset.value));
+  themeButtons.forEach((b) => b.classList.toggle("active", b.dataset.theme === THEME_PREF));
 }
 
 function setUnitPref(family, value) {
@@ -2184,6 +2202,15 @@ function setUnitPref(family, value) {
   } else if (GRAPH) {
     render();
   }
+}
+
+function setThemePref(theme) {
+  if (theme !== "dark" && theme !== "field") return;
+  if (THEME_PREF === theme) return;
+  THEME_PREF = theme;
+  localStorage.setItem("hvac_theme_pref", theme);
+  document.documentElement.setAttribute("data-theme", theme);
+  updateStaticUi();
 }
 
 // Plain small text in the footer, not styled as buttons — this is a passive
@@ -3483,8 +3510,12 @@ langButtons.forEach((b) => {
 unitButtons.forEach((b) => {
   b.onclick = () => setUnitPref(b.dataset.unit, b.dataset.value);
 });
+themeButtons.forEach((b) => {
+  b.onclick = () => setThemePref(b.dataset.theme);
+});
 
 document.documentElement.lang = LANG;
+document.documentElement.setAttribute("data-theme", THEME_PREF);
 updateStaticUi();
 loadGraph();
 
