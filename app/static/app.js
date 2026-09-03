@@ -2244,11 +2244,13 @@ function renderBreadcrumb() {
 }
 
 // Shared by updateDisclaimerVisibility and updateHeaderControlsVisibility
-// below — "early" means the very first screen of a session (equipment
-// select) or the manufacturer step right after it, before anything has
-// actually been diagnosed yet.
+// below — "early" means specifically the very first screen of a session
+// (equipment select), not the manufacturer step right after it either
+// (Ivan caught the disclaimer/header controls still showing there and
+// called it out explicitly — narrower than the original "start or
+// manufacturer" reading).
 function isEarlySessionScreen() {
-  return state.currentId === GRAPH.start || state.currentId === MANUFACTURER_STEP_ID;
+  return state.currentId === GRAPH.start;
 }
 
 // The full legal banner used to sit permanently at the top of every screen
@@ -2271,12 +2273,13 @@ function updateDisclaimerVisibility() {
   disclaimerEl.classList.toggle("hidden", !show);
 }
 
-// Language switch + invite link: useful once, at the very start of a
-// session, and dead weight (plus part of why the title used to wrap to
-// three lines — see header h1) on every screen after that. A technician
-// who wants to switch language mid-session can still do it by going Back
-// to the start or starting over — a narrower affordance than before, but
-// language/invites aren't things anyone reaches for mid-diagnosis.
+// Theme + language switch + invite link (the whole #langSwitch row, despite
+// its name — theme joined it later, see .controls-row-top in tool.html):
+// useful once, at the very start of a session, and just in the way (per
+// Ivan) on every screen after that, theme included. A technician who wants
+// to change theme/language mid-session can still do it by going Back to the
+// start or starting over — a narrower affordance than before, but none of
+// these are things anyone reaches for mid-diagnosis.
 function updateHeaderControlsVisibility() {
   langSwitchEl.classList.toggle("hidden", !isEarlySessionScreen());
 }
