@@ -2244,11 +2244,13 @@ function renderBreadcrumb() {
 }
 
 // Shared by updateDisclaimerVisibility and updateHeaderControlsVisibility
-// below — "early" means the very first screen of a session (equipment
-// select) or the manufacturer step right after it, before anything has
-// actually been diagnosed yet.
+// below — "early" means specifically the very first screen of a session
+// (equipment select), not the manufacturer step right after it either
+// (Ivan caught the disclaimer/header controls still showing there and
+// called it out explicitly — narrower than the original "start or
+// manufacturer" reading).
 function isEarlySessionScreen() {
-  return state.currentId === GRAPH.start || state.currentId === MANUFACTURER_STEP_ID;
+  return state.currentId === GRAPH.start;
 }
 
 // The full legal banner used to sit permanently at the top of every screen
