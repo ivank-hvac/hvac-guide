@@ -133,6 +133,10 @@ body {
   padding: 7px 16px;
 }
 
+.disclaimer.hidden {
+  display: none;
+}
+
 .offline-banner {
   width: 100%;
   box-sizing: border-box;

@@ -2232,7 +2232,31 @@ function renderBreadcrumb() {
   backBtn.style.display = state.history.length ? "inline-block" : "none";
 }
 
+// The full legal banner used to sit permanently at the top of every screen
+// — on mobile, especially under the field theme's larger font, that ran to
+// a quarter of the viewport before a technician saw anything. The AI's own
+// replies already carry the same disclaimer in their own text
+// (LEGAL_DISCLAIMER, main.py) and every result node has its own tight
+// .result-disclaimer line right under the diagnosis (screenshot-crop-proof
+// on its own, see renderResult) — so the banner staying up during ordinary
+// question screens was mostly duplicate weight, not new information.
+// Visible exactly where "always visible" actually matters: the very start
+// of a session (before anything has been diagnosed yet) and any result
+// screen (where there is something to act on). Hidden — via a class, not
+// removed from the DOM — everywhere in between. Defaults to visible in the
+// markup/CSS, so the resume-prompt screen (rendered before this function
+// ever runs) shows it too, without a special case.
+function updateDisclaimerVisibility() {
+  const node = NODE_CACHE[state.currentId];
+  const show =
+    state.currentId === GRAPH.start ||
+    state.currentId === MANUFACTURER_STEP_ID ||
+    (node && node.type === "result");
+  disclaimerEl.classList.toggle("hidden", !show);
+}
+
 function render() {
+  updateDisclaimerVisibility();
   renderBreadcrumb();
   renderFooterInfo();
   cardEl.innerHTML = "";
