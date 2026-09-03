@@ -86,6 +86,7 @@ const I18N = {
     intakeNoLabel: "Нет",
     intakeNotSureLabel: "Не уверен",
     intakeLockedHint: "Заблокировано — уже выбрано: {item}",
+    intakeAtypicalHint: "Нечасто встречается для этого типа оборудования — показано для полноты",
     intakeSyncedHint: "Уже подтверждено в начале сессии: {answer}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
     intakeNextPhaseBtn: "Следующий этап →",
@@ -176,6 +177,7 @@ const I18N = {
     intakeNoLabel: "No",
     intakeNotSureLabel: "Not sure",
     intakeLockedHint: "Locked — already selected: {item}",
+    intakeAtypicalHint: "Uncommon for this equipment type — shown for completeness",
     intakeSyncedHint: "Already confirmed at the start of the session: {answer}",
     intakeGateHint: "Mark every item as done or N/A to move on",
     intakeNextPhaseBtn: "Next phase →",
@@ -1634,8 +1636,16 @@ function renderIntakeChecklist() {
     const isCurrent = !resolved && !firstUnresolvedFound;
     if (isCurrent) firstUnresolvedFound = true;
 
+    // Not a showIf (that hides entirely, see split_config_ductless etc.) —
+    // atypicalFor is for items that ARE genuinely possible on this
+    // equipment, just uncommon (EEV on an RTU: capacity/price-driven, not
+    // impossible — see CLAUDE.md "Разметка графа по тирам" on why EEV
+    // stays ungated). Dimmed and annotated, never disabled: the tech can
+    // still pick it, the shading is a hint, not a rule.
+    const isAtypical = !!(item.atypicalFor && item.atypicalFor.includes(equipmentKey()));
+
     const row = document.createElement("div");
-    row.className = "intake-item" + (isCurrent ? " current" : "");
+    row.className = "intake-item" + (isCurrent ? " current" : "") + (isAtypical ? " atypical" : "");
 
     const labelEl = document.createElement("div");
     labelEl.className = "intake-item-label";
@@ -1647,6 +1657,12 @@ function renderIntakeChecklist() {
       lockHint.className = "numeric-hint";
       lockHint.textContent = strings.intakeLockedHint.replace("{item}", t(lockedBy.label));
       row.appendChild(lockHint);
+    }
+    if (isAtypical) {
+      const atypicalHint = document.createElement("div");
+      atypicalHint.className = "numeric-hint";
+      atypicalHint.textContent = strings.intakeAtypicalHint;
+      row.appendChild(atypicalHint);
     }
     if (syncedFromMain) {
       const syncHint = document.createElement("div");

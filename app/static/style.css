@@ -625,6 +625,15 @@ textarea {
   background: var(--input-tint-bg);
 }
 
+/* Dimmed, not disabled — a tech can still pick this, the fade plus the
+   .numeric-hint line under the label (see intakeAtypicalHint in app.js)
+   just flag it as uncommon for the current equipment type. Opacity, not a
+   muted color swap, so it stays legible against either theme without a
+   second set of shading colors to maintain. */
+.intake-item.atypical {
+  opacity: 0.6;
+}
+
 /* select-type items only — the row border reflects whether the chosen
    reading matches `normal` (green), doesn't (red/amber), or was ruled N/A
    (neutral, no extra class). Checkbox items never get this: there's no
