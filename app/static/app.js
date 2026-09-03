@@ -1451,15 +1451,25 @@ function renderReportSection(resultNodeId, container) {
 // the "current" highlight) since item order there is just a suggestion.
 // showIf lets a later phase's item depend on an earlier phase's answer
 // (e.g. only ask about the TXV bulb if a TXV was actually noted present in
-// the visual/inventory phase).
+// the visual/inventory phase), and/or on the session's equipment type
+// (e.g. ductless/ducted config only makes sense for equipment: "split" —
+// the intake checklist is otherwise one shared structure across all 7
+// equipment types, see CLAUDE.md's "печник видит вопросы про ТРВ" gap).
+// Both conditions are optional and independently gate visibility; if both
+// are present, both must hold (AND) — see split_low_ambient_kit, which
+// needs equipment: split AND cooling_only: true.
 
 function intakeShowIfMet(showIf) {
   if (!showIf) return true;
-  const entry = (state.intake[showIf.phase] || {})[showIf.item];
-  // "Not sure" (entry.skipped) can't satisfy either branch of a showIf —
-  // only a definite Yes/No does, since we don't actually know the answer.
-  if (!entry || entry.skipped) return false;
-  return entry.value === (showIf.equals ? "Yes" : "No");
+  if (showIf.equipment && !showIf.equipment.includes(equipmentKey())) return false;
+  if (showIf.item) {
+    const entry = (state.intake[showIf.phase] || {})[showIf.item];
+    // "Not sure" (entry.skipped) can't satisfy either branch of a showIf —
+    // only a definite Yes/No does, since we don't actually know the answer.
+    if (!entry || entry.skipped) return false;
+    if (entry.value !== (showIf.equals ? "Yes" : "No")) return false;
+  }
+  return true;
 }
 
 // An item satisfies the phase gate once it's either done (see
