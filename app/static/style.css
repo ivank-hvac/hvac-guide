@@ -12,6 +12,100 @@
   --input-accent-bg: #3a2510;
   --step-text: #cf9a68;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* Everything below used to be a literal hex/rgba scattered through the
+     rules further down — pulled into variables so the field theme block
+     near the bottom of this file can override them coherently instead of
+     leaving half the UI (badges, buttons, alert tints) stuck on dark-theme
+     colors no matter what --bg/--text say. Default values here are exactly
+     what those rules always were; nothing changes for the existing dark
+     theme. */
+  --border-width: 1px;
+  --input-bg: #0f1115;
+  --disclaimer-bg: #241c0d;
+  --warn-bg: #3a2f10;
+  --crit-bg: #3a1616;
+  --accent-bg: #16233a;
+  --accent-hover-bg: #1c2e4d;
+  --btn-bg: #1e2330;
+  --btn-hover-bg: #202840;
+  --input-hover-bg: #4a3018;
+  --na-active-bg: #262b36;
+  --ai-border: #23324a;
+  --quota-border: rgba(139, 147, 163, 0.35);
+  --quota-crit-text: #ffd7e4;
+  --quota-crit-bg: rgba(255, 122, 168, 0.14);
+  --quota-crit-border: rgba(255, 122, 168, 0.55);
+  --crit-text: #ffd6d6;
+  --crit-active-text: #ffb3b3;
+  --ok-tint-bg: rgba(62, 207, 142, 0.08);
+  --crit-tint-bg: rgba(255, 93, 93, 0.08);
+  --input-tint-bg: rgba(224, 145, 63, 0.08);
+  --ok-active-bg: rgba(62, 207, 142, 0.18);
+  --crit-active-bg: rgba(255, 93, 93, 0.18);
+}
+
+/* "Field" theme — high-contrast light palette for reading a phone screen in
+   direct sun or glare, toggled per-session the same way as language/units
+   (see .theme-btn wiring in app.js, setThemePref). Deliberately not tied to
+   prefers-color-scheme: a light OS theme doesn't mean bright sunlight, and
+   the choice belongs to the technician, not the OS. Not just an inverted
+   palette — a dim/translucent tint that reads fine on a dark screen indoors
+   can all but disappear under direct sun, so every severity/state color
+   below is a solid, high-contrast fill rather than a low-alpha overlay, and
+   --border-width goes from 1px to 2px so button/card edges stay visible in
+   glare. Known minor gap, not fixed here: the focus-glow box-shadows on
+   .numeric-input are hardcoded to the dark theme's orange rgb() and don't
+   follow --input-accent into this theme — low-priority, since the border
+   color (which does update) already carries the signal. */
+:root[data-theme="field"] {
+  --bg: #f4f5f2;
+  --panel: #ffffff;
+  --panel-border: #1c1c1c;
+  --text: #0a0a0a;
+  --muted: #3f3f3f;
+  --accent: #0055c8;
+  --ok: #146c3f;
+  --warn: #8a5300;
+  --crit: #b3261e;
+  --input-accent: #8a4600;
+  --input-accent-bg: #fdecd9;
+  --step-text: #6b3f14;
+
+  --border-width: 2px;
+  --input-bg: #ffffff;
+  --disclaimer-bg: #fdecd9;
+  --warn-bg: #fdecd9;
+  --crit-bg: #fbdedc;
+  --accent-bg: #dbeafe;
+  --accent-hover-bg: #c6ddfa;
+  --btn-bg: #ffffff;
+  --btn-hover-bg: #eef2f6;
+  --input-hover-bg: #fbdecb;
+  --na-active-bg: #e6e6e6;
+  --ai-border: #0055c8;
+  --quota-border: rgba(0, 0, 0, 0.35);
+  --quota-crit-text: #7a0f2b;
+  --quota-crit-bg: #fbdce6;
+  --quota-crit-border: #c23360;
+  --crit-text: #7a0f0a;
+  --crit-active-text: #7a0f0a;
+  --ok-tint-bg: #dff3e6;
+  --crit-tint-bg: #fbdedc;
+  --input-tint-bg: #fdecd9;
+  --ok-active-bg: #cdeedb;
+  --crit-active-bg: #f7c9c6;
+
+  /* Root font-size bump scales every rem-sized text/spacing in the app at
+     once; explicit padding/min-height bumps below cover the px-sized tap
+     targets that rem alone doesn't reach. */
+  font-size: 106.25%;
+}
+
+:root[data-theme="field"] .btn,
+:root[data-theme="field"] .lang-btn {
+  min-height: 48px;
+  padding: 12px 16px;
 }
 
 * { box-sizing: border-box; }
@@ -30,7 +124,7 @@ body {
 .disclaimer {
   width: 100%;
   box-sizing: border-box;
-  background: #241c0d;
+  background: var(--disclaimer-bg);
   color: var(--muted);
   border-bottom: 1px solid var(--panel-border);
   font-size: 0.72rem;
@@ -42,7 +136,7 @@ body {
 .offline-banner {
   width: 100%;
   box-sizing: border-box;
-  background: #3a2f10;
+  background: var(--warn-bg);
   color: var(--warn);
   border-bottom: 1px solid var(--panel-border);
   font-size: 0.8rem;
@@ -102,7 +196,7 @@ header h1 {
 }
 
 .lang-btn {
-  border: 1px solid var(--panel-border);
+  border: var(--border-width) solid var(--panel-border);
   background: transparent;
   color: var(--muted);
   padding: 5px 10px;
@@ -119,7 +213,7 @@ header h1 {
 .lang-btn.active {
   color: var(--accent);
   border-color: var(--accent);
-  background: #16233a;
+  background: var(--accent-bg);
 }
 
 /* Session-only unit preference (°F/°C, psig/kPa) — same button look as the
@@ -142,12 +236,31 @@ header h1 {
 .unit-btn.active {
   color: var(--warn);
   border-color: var(--warn);
-  background: #3a2f10;
+  background: var(--warn-bg);
 }
 
 .unit-switch {
   display: flex;
   gap: 4px;
+}
+
+/* Session-only display theme (dark / field) — same button look and same
+   localStorage-preference pattern as language/units above, its own row so
+   it doesn't crowd either on narrow screens. Only .lang-btn styling is
+   reused (class="lang-btn theme-btn" in tool.html); the actual repaint
+   happens through the CSS variable overrides above, triggered by the
+   data-theme attribute app.js sets on <html>. See CLAUDE.md "Поле:
+   солнце/мороз — высококонтрастная тема". */
+.theme-switch-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.theme-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .breadcrumb {
@@ -165,7 +278,7 @@ header h1 {
 
 .card {
   background: var(--panel);
-  border: 1px solid var(--panel-border);
+  border: var(--border-width) solid var(--panel-border);
   border-radius: 14px;
   padding: 22px 20px;
   display: flex;
@@ -200,8 +313,8 @@ header h1 {
 }
 
 .btn {
-  border: 1px solid var(--panel-border);
-  background: #1e2330;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
   color: var(--text);
   padding: 12px 14px;
   border-radius: 10px;
@@ -211,14 +324,14 @@ header h1 {
   transition: border-color .15s, background .15s;
 }
 
-.btn:hover { border-color: var(--accent); background: #202840; }
+.btn:hover { border-color: var(--accent); background: var(--btn-hover-bg); }
 
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.btn:disabled:hover { border-color: var(--panel-border); background: #1e2330; }
+.btn:disabled:hover { border-color: var(--panel-border); background: var(--btn-bg); }
 
 .btn.ghost {
   background: transparent;
@@ -232,10 +345,10 @@ header h1 {
 .btn.ai {
   border-color: var(--accent);
   color: var(--accent);
-  background: #16233a;
+  background: var(--accent-bg);
 }
 
-.btn.ai:hover { background: #1c2e4d; }
+.btn.ai:hover { background: var(--accent-hover-bg); }
 
 .btn.input-action {
   border-color: var(--input-accent);
@@ -243,7 +356,7 @@ header h1 {
   background: var(--input-accent-bg);
 }
 
-.btn.input-action:hover { background: #4a3018; }
+.btn.input-action:hover { background: var(--input-hover-bg); }
 
 .result-text {
   font-size: 0.98rem;
@@ -270,12 +383,12 @@ header h1 {
   border-radius: 6px;
 }
 
-.badge.info { background: #16233a; color: var(--accent); }
-.badge.warning { background: #3a2f10; color: var(--warn); }
-.badge.critical { background: #3a1616; color: var(--crit); }
+.badge.info { background: var(--accent-bg); color: var(--accent); }
+.badge.warning { background: var(--warn-bg); color: var(--warn); }
+.badge.critical { background: var(--crit-bg); color: var(--crit); }
 
 .safety-banner {
-  background: #3a1616;
+  background: var(--crit-bg);
   color: var(--crit);
   border: 1px solid var(--crit);
   border-radius: 10px;
@@ -310,9 +423,9 @@ textarea {
   width: 100%;
   min-height: 90px;
   resize: vertical;
-  background: #0f1115;
+  background: var(--input-bg);
   color: var(--text);
-  border: 1px solid var(--panel-border);
+  border: var(--border-width) solid var(--panel-border);
   border-radius: 10px;
   padding: 10px;
   font-family: inherit;
@@ -332,9 +445,9 @@ textarea {
      See .numeric-input.narrow below for the fields that actually are one. */
   flex: 1;
   min-width: 0;
-  background: #0f1115;
+  background: var(--input-bg);
   color: var(--text);
-  border: 1px solid var(--input-accent);
+  border: var(--border-width) solid var(--input-accent);
   border-radius: 10px;
   padding: 12px 14px;
   font-family: inherit;
@@ -391,13 +504,13 @@ textarea {
   border-radius: 8px;
   font-size: 0.8rem;
   color: var(--muted);
-  border: 1px solid rgba(139, 147, 163, 0.35);
+  border: 1px solid var(--quota-border);
 }
 
 .quota-notice.critical {
-  color: #ffd7e4;
-  background: rgba(255, 122, 168, 0.14);
-  border-color: rgba(255, 122, 168, 0.55);
+  color: var(--quota-crit-text);
+  background: var(--quota-crit-bg);
+  border-color: var(--quota-crit-border);
 }
 
 .char-counter {
@@ -428,8 +541,8 @@ textarea {
   align-items: flex-start;
   gap: 10px;
   border: 2px solid var(--crit);
-  background: #3a1616;
-  color: #ffd6d6;
+  background: var(--crit-bg);
+  color: var(--crit-text);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 0.88rem;
@@ -469,7 +582,7 @@ textarea {
 
 .intake-item.current {
   border-color: var(--input-accent);
-  background: rgba(224, 145, 63, 0.08);
+  background: var(--input-tint-bg);
 }
 
 /* select-type items only — the row border reflects whether the chosen
@@ -478,12 +591,12 @@ textarea {
    "bad" outcome for them, only done/not-applicable. */
 .intake-item.intake-select-normal {
   border-color: var(--ok);
-  background: rgba(62, 207, 142, 0.08);
+  background: var(--ok-tint-bg);
 }
 
 .intake-item.intake-select-abnormal {
   border-color: var(--crit);
-  background: rgba(255, 93, 93, 0.08);
+  background: var(--crit-tint-bg);
 }
 
 .intake-item-label {
@@ -514,8 +627,8 @@ textarea {
   flex: 1;
   min-width: 64px;
   min-height: 52px;
-  border: 1px solid var(--panel-border);
-  background: #1e2330;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
   color: var(--muted);
   border-radius: 10px;
   font-size: 0.92rem;
@@ -531,29 +644,31 @@ textarea {
   cursor: not-allowed;
 }
 
+.intake-toggle-btn:disabled:hover { border-color: var(--panel-border); color: var(--muted); }
+
 /* Generic "selected" fill — used as-is for checkbox's Done button (no
    good/bad judgment, just an explicit confirmation) and as the base for
    select's normal/abnormal variants below. */
 .intake-toggle-btn.active {
-  background: #16233a;
+  background: var(--accent-bg);
   border-color: var(--accent);
   color: var(--text);
 }
 
 .intake-toggle-btn.active.normal {
-  background: rgba(62, 207, 142, 0.18);
+  background: var(--ok-active-bg);
   border-color: var(--ok);
   color: var(--ok);
 }
 
 .intake-toggle-btn.active.abnormal {
-  background: rgba(255, 93, 93, 0.18);
+  background: var(--crit-active-bg);
   border-color: var(--crit);
-  color: #ffb3b3;
+  color: var(--crit-active-text);
 }
 
 .intake-toggle-btn.intake-na-btn.active {
-  background: #262b36;
+  background: var(--na-active-bg);
   border-color: var(--muted);
   color: var(--text);
 }
@@ -591,9 +706,9 @@ textarea {
 .checklist-field-input {
   flex: 1;
   min-width: 0;
-  background: #0f1115;
+  background: var(--input-bg);
   color: var(--text);
-  border: 1px solid var(--panel-border);
+  border: var(--border-width) solid var(--panel-border);
   border-radius: 8px;
   padding: 8px 10px;
   font-family: inherit;
@@ -625,8 +740,8 @@ textarea {
   min-height: 52px;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid var(--panel-border);
-  background: #1e2330;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
   color: var(--text);
   font-size: 0.88rem;
   text-align: left;
@@ -637,12 +752,12 @@ textarea {
 
 .report-intake-row.done {
   border-color: var(--ok);
-  background: rgba(62, 207, 142, 0.08);
+  background: var(--ok-tint-bg);
 }
 
 .report-intake-row.pending {
   border-color: var(--input-accent);
-  background: rgba(224, 145, 63, 0.08);
+  background: var(--input-tint-bg);
 }
 
 .report-intake-icon {
@@ -667,8 +782,8 @@ textarea {
 }
 
 .ai-response {
-  background: #0f1115;
-  border: 1px solid #23324a;
+  background: var(--input-bg);
+  border: var(--border-width) solid var(--ai-border);
   border-radius: 10px;
   padding: 14px;
   font-size: 0.92rem;
