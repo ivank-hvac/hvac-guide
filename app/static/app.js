@@ -2404,7 +2404,17 @@ function renderQuestion(node) {
       // Right after the very first choice (equipment type, on the graph's
       // start node) — and only once per session — detour through the
       // manufacturer/model step before continuing to the chosen branch.
+      // VRF/VRV is a deliberate exception: it routes straight to a stub
+      // (see vrf_symptom) with no diagnosis to feed manufacturer/power/
+      // thermostat context into, so walking the tech through three screens
+      // before telling them "not built yet" is just friction. Checked here
+      // by equipment key, not node id, so it stays correct if the target
+      // node is ever renamed.
       if (state.currentId === GRAPH.start && !state.manufacturerAsked) {
+        if (opt.equipment === "vrf") {
+          goTo(opt.next, { prevId: state.currentId, from: GRAPH.start, equipment: opt.equipment });
+          return;
+        }
         state.pendingNodeId = opt.next;
         state.history.push(state.currentId);
         state.currentId = MANUFACTURER_STEP_ID;
