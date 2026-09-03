@@ -6,6 +6,7 @@ const langButtons = document.querySelectorAll(".lang-btn");
 const unitButtons = document.querySelectorAll(".unit-btn");
 const themeButtons = document.querySelectorAll(".theme-btn");
 const disclaimerEl = document.getElementById("disclaimer");
+const langSwitchEl = document.getElementById("langSwitch");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
 
@@ -2232,6 +2233,14 @@ function renderBreadcrumb() {
   backBtn.style.display = state.history.length ? "inline-block" : "none";
 }
 
+// Shared by updateDisclaimerVisibility and updateHeaderControlsVisibility
+// below — "early" means the very first screen of a session (equipment
+// select) or the manufacturer step right after it, before anything has
+// actually been diagnosed yet.
+function isEarlySessionScreen() {
+  return state.currentId === GRAPH.start || state.currentId === MANUFACTURER_STEP_ID;
+}
+
 // The full legal banner used to sit permanently at the top of every screen
 // — on mobile, especially under the field theme's larger font, that ran to
 // a quarter of the viewport before a technician saw anything. The AI's own
@@ -2248,15 +2257,23 @@ function renderBreadcrumb() {
 // ever runs) shows it too, without a special case.
 function updateDisclaimerVisibility() {
   const node = NODE_CACHE[state.currentId];
-  const show =
-    state.currentId === GRAPH.start ||
-    state.currentId === MANUFACTURER_STEP_ID ||
-    (node && node.type === "result");
+  const show = isEarlySessionScreen() || (node && node.type === "result");
   disclaimerEl.classList.toggle("hidden", !show);
+}
+
+// Language switch + invite link: useful once, at the very start of a
+// session, and dead weight (plus part of why the title used to wrap to
+// three lines — see header h1) on every screen after that. A technician
+// who wants to switch language mid-session can still do it by going Back
+// to the start or starting over — a narrower affordance than before, but
+// language/invites aren't things anyone reaches for mid-diagnosis.
+function updateHeaderControlsVisibility() {
+  langSwitchEl.classList.toggle("hidden", !isEarlySessionScreen());
 }
 
 function render() {
   updateDisclaimerVisibility();
+  updateHeaderControlsVisibility();
   renderBreadcrumb();
   renderFooterInfo();
   cardEl.innerHTML = "";

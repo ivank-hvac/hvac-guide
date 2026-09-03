@@ -43,6 +43,7 @@
   --input-tint-bg: rgba(224, 145, 63, 0.08);
   --ok-active-bg: rgba(62, 207, 142, 0.18);
   --crit-active-bg: rgba(255, 93, 93, 0.18);
+  --active-border-width: 1px;
 }
 
 /* "Field" theme — high-contrast light palette for reading a phone screen in
@@ -75,9 +76,9 @@
   --border-width: 2px;
   --input-bg: #ffffff;
   --disclaimer-bg: #fdecd9;
-  --warn-bg: #fdecd9;
+  --warn-bg: #fbdba3;
   --crit-bg: #fbdedc;
-  --accent-bg: #dbeafe;
+  --accent-bg: #b8dcff;
   --accent-hover-bg: #c6ddfa;
   --btn-bg: #ffffff;
   --btn-hover-bg: #eef2f6;
@@ -93,8 +94,14 @@
   --ok-tint-bg: #dff3e6;
   --crit-tint-bg: #fbdedc;
   --input-tint-bg: #fdecd9;
-  --ok-active-bg: #cdeedb;
-  --crit-active-bg: #f7c9c6;
+  --ok-active-bg: #a3e0c0;
+  --crit-active-bg: #f2a29c;
+  /* Selected/active toggle buttons (lang, units, theme, intake) get an
+     extra-thick border on top of the already-thicker --border-width — a
+     technician glancing at the row in bright sun needs the SELECTED state
+     to stand out more than an ordinary unselected button, not just as
+     much. Darkened the active fill colors above for the same reason. */
+  --active-border-width: 3px;
 
   /* Root font-size bump scales every rem-sized text/spacing in the app at
      once; explicit padding/min-height bumps below cover the px-sized tap
@@ -131,10 +138,6 @@ body {
   line-height: 1.5;
   text-align: center;
   padding: 7px 16px;
-}
-
-.disclaimer.hidden {
-  display: none;
 }
 
 .offline-banner {
@@ -185,12 +188,26 @@ header h1 {
   flex-shrink: 0;
 }
 
+/* Title on its own full-width row, controls row below — was one row with
+   the title competing for space against RU/EN/invite, which wrapped
+   "HVAC Troubleshooting Guide" onto three lines on an ordinary phone
+   (worse under the field theme's larger root font-size). Full width gives
+   the title room to stay on one line at its normal size instead of
+   shrinking it. */
 .header-top {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 10px;
+}
+
+/* Safety net for genuinely narrow/legacy screens (≤360px) where even a
+   full-width row isn't quite enough room at the normal size. */
+@media (max-width: 360px) {
+  header h1 {
+    font-size: 1.12rem;
+  }
 }
 
 .lang-switch {
@@ -217,6 +234,7 @@ header h1 {
 .lang-btn.active {
   color: var(--accent);
   border-color: var(--accent);
+  border-width: var(--active-border-width);
   background: var(--accent-bg);
 }
 
@@ -240,6 +258,7 @@ header h1 {
 .unit-btn.active {
   color: var(--warn);
   border-color: var(--warn);
+  border-width: var(--active-border-width);
   background: var(--warn-bg);
 }
 
@@ -291,8 +310,8 @@ header h1 {
 }
 
 .q-text {
-  font-size: 1.05rem;
-  line-height: 1.5;
+  font-size: 1.25rem;
+  line-height: 1.4;
   font-weight: 600;
 }
 
@@ -311,7 +330,7 @@ header h1 {
 .options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
   margin-top: 4px;
 }
 
@@ -321,7 +340,7 @@ header h1 {
   color: var(--text);
   padding: 12px 14px;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   text-align: left;
   cursor: pointer;
   transition: border-color .15s, background .15s;
@@ -655,6 +674,7 @@ textarea {
 .intake-toggle-btn.active {
   background: var(--accent-bg);
   border-color: var(--accent);
+  border-width: var(--active-border-width);
   color: var(--text);
 }
 
@@ -835,4 +855,15 @@ footer {
 .version-info a {
   color: inherit;
   text-decoration: underline;
+}
+
+/* Generic visibility utility — toggled from render() on whatever needs to
+   come and go with session progress (the legal banner, the lang/invite
+   switch — see updateDisclaimerVisibility/updateHeaderControlsVisibility
+   in app.js), rather than a class per element. Deliberately last in the
+   file: it and .lang-switch{display:flex} have equal specificity (one
+   class each), so cascade order decides, and this needs to always win
+   regardless of what gets added above it later. */
+.hidden {
+  display: none;
 }
