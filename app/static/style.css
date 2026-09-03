@@ -248,24 +248,14 @@ header h1 {
   gap: 4px;
 }
 
-/* Session-only display theme (dark / field) — same button look and same
-   localStorage-preference pattern as language/units above, its own row so
-   it doesn't crowd either on narrow screens. Only .lang-btn styling is
-   reused (class="lang-btn theme-btn" in tool.html); the actual repaint
-   happens through the CSS variable overrides above, triggered by the
-   data-theme attribute app.js sets on <html>. See CLAUDE.md "Поле:
-   солнце/мороз — высококонтрастная тема". */
-.theme-switch-row {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.theme-btn.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
+/* Session-only display theme (dark / field) — third .unit-switch group in
+   the same row as the temperature/pressure toggles, at the user's request
+   (originally its own row; folded in here to save a line of persistent
+   header height). Only .lang-btn styling is reused (class="lang-btn
+   theme-btn" in tool.html) — its "active" look already comes from the
+   .lang-btn.active rule above, nothing theme-specific needed here. The
+   actual repaint happens through the CSS variable overrides further up,
+   triggered by the data-theme attribute app.js sets on <html>. */
 
 .breadcrumb {
   font-size: 0.7rem;
