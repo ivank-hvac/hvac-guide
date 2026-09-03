@@ -248,6 +248,15 @@ header h1 {
   gap: 4px;
 }
 
+/* Pushed to the far right of the row (or, once it wraps on a narrow screen,
+   to the far right of its own line) via the auto margin — deliberate
+   distance from the temp/pressure buttons on its left, not just visual
+   grouping: with gloves on in the cold, two unrelated toggle groups sitting
+   right next to each other is exactly what makes a mistap likely. */
+.unit-switch-theme {
+  margin-left: auto;
+}
+
 /* Session-only display theme (dark / field) — third .unit-switch group in
    the same row as the temperature/pressure toggles, at the user's request
    (originally its own row; folded in here to save a line of persistent
