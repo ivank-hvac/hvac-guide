@@ -832,6 +832,8 @@ textarea {
 }
 
 .ai-response {
+  position: relative;
+  overflow: hidden;
   background: var(--input-bg);
   border: var(--border-width) solid var(--ai-border);
   border-radius: 10px;
@@ -840,6 +842,25 @@ textarea {
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Tiled diagonal "AI GENERATED" watermark — makes the text's origin
+   unmistakable even in a tight screenshot crop, unlike a corner label
+   (.ai-label) which a crop can cut out entirely. Doesn't interfere with
+   selecting/copying the actual response text: pointer-events:none on the
+   pseudo-element removes it from hit-testing, and it's a positioned
+   descendant inserted first in DOM order, so it paints behind the
+   element's own in-flow text automatically — no z-index needed. Verified
+   live (not just read from the CSS): real mouse-drag selection over the
+   watermark still selects and copies the full response text correctly. */
+.ai-response::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='110'%3E%3Ctext x='-15' y='70' font-family='monospace' font-size='18' font-weight='700' letter-spacing='2' fill='%23808080' transform='rotate(-25 85 55)'%3EAI GENERATED%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 .ai-response.loading { color: var(--muted); font-style: italic; }
