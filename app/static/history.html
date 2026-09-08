@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>HVAC DiagTree — session history</title>
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
+<link rel="stylesheet" href="./style.css">
+<style>
+.landing { max-width: 640px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+.landing h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.landing p.sub { line-height: 1.5; color: var(--muted); font-size: .9rem; margin: 0 0 1.5rem; }
+.lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1rem; }
+.lang-switch button {
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
+.lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+[data-lang-block] { display: none; }
+[data-lang-block].shown { display: block; }
+.empty { color: var(--muted); font-size: .92rem; padding: 1rem 0; }
+.hist-list { display: flex; flex-direction: column; gap: .6rem; }
+.hist-row {
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px;
+  padding: .85rem 1rem; cursor: pointer; text-align: left; width: 100%; font: inherit; color: inherit;
+}
+.hist-row:hover { border-color: var(--accent); }
+.hist-row-top { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.hist-date { font-size: .78rem; color: var(--muted); font-family: var(--mono); }
+.hist-equipment { font-weight: 600; margin-top: .3rem; }
+.hist-meta { display: flex; align-items: center; gap: .5rem; margin-top: .4rem; flex-wrap: wrap; }
+.hist-jobsite {
+  font-size: .78rem; color: var(--text); background: var(--btn-bg);
+  border: 1px solid var(--panel-border); border-radius: 6px; padding: .15rem .5rem;
+}
+.hist-node-id { font-size: .78rem; color: var(--muted); font-family: var(--mono); }
+.hist-detail {
+  margin-top: .7rem; padding-top: .7rem; border-top: 1px dashed var(--panel-border);
+  display: none; font-size: .88rem; line-height: 1.5;
+}
+.hist-detail.shown { display: block; }
+.hist-detail dl { margin: 0; }
+.hist-detail dt { color: var(--muted); font-size: .8rem; margin-top: .6rem; }
+.hist-detail dt:first-child { margin-top: 0; }
+.hist-detail dd { margin: .1rem 0 0; }
+.hist-ai {
+  background: var(--input-bg); border: 1px solid var(--ai-border); border-radius: 10px;
+  padding: .7rem; margin-top: .4rem; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.hist-loading { color: var(--muted); font-style: italic; font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="landing">
+  <div class="lang-switch">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="ru">RU</button>
+  </div>
+
+  <section data-lang-block="en">
+    <h1>Your session history</h1>
+    <p class="sub">Only you can see this. Click a session to see the full question/answer trail and any AI response.</p>
+    <div class="empty" id="empty-en" style="display:none">No sessions yet — start a diagnosis and it will show up here.</div>
+    <div class="hist-list" id="list-en"></div>
+  </section>
+
+  <section data-lang-block="ru">
+    <h1>История сессий</h1>
+    <p class="sub">Видите только вы. Нажмите на сессию, чтобы увидеть весь ход вопросов/ответов и ответ AI, если он был.</p>
+    <div class="empty" id="empty-ru" style="display:none">Пока пусто — начните диагностику, и она появится здесь.</div>
+    <div class="hist-list" id="list-ru"></div>
+  </section>
+</div>
+<script src="./landing.js"></script>
+<script src="./history.js"></script>
+</body>
+</html>
