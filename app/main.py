@@ -301,6 +301,25 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_sessions_equipment "
             "ON checklist_sessions(equipment_type)"
         )
+        # Added after the table already existed — same PRAGMA-guarded ALTER
+        # pattern as sessions.ip/sessions.user_id below. user_id is nullable
+        # and only ever populated when AUTH_ENABLED, for the same reason:
+        # self-host without auth, and every checklist logged before the
+        # "История сессий" feature existed, just come back NULL, meaning
+        # "nothing to attribute," not a stand-in identity. jobsite is the
+        # technician's own short recall label ("RTU-2, warehouse job") —
+        # deliberately never sent to the AI or included in answers_json (see
+        # MAX_JOBSITE_LEN above and app.js's renderManufacturerStep), so it
+        # needs its own column rather than riding along in answers_json.
+        existing_checklist_cols = {row[1] for row in conn.execute("PRAGMA table_info(checklist_sessions)")}
+        if "user_id" not in existing_checklist_cols:
+            conn.execute("ALTER TABLE checklist_sessions ADD COLUMN user_id INTEGER")
+        if "jobsite" not in existing_checklist_cols:
+            conn.execute("ALTER TABLE checklist_sessions ADD COLUMN jobsite TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_checklist_sessions_user "
+            "ON checklist_sessions(user_id, updated_at)"
+        )
         # Separate from checklist_sessions above: that table is a one-way
         # log of completed/reached checklists for pattern analysis. This one
         # is live, resumable in-progress state (currentId/history/answers/
@@ -522,6 +541,11 @@ MAX_NODE_ID_LEN = 100
 MAX_SEVERITY_LEN = 20
 MAX_AI_ANALYSIS_LEN = 4000
 MAX_EQUIPMENT_LEN = 400
+# Short on purpose: a personal recall label ("RTU-2, warehouse job"), not a
+# free-text notes field — see the jobsite field on the manufacturer step and
+# CLAUDE.md "История сессий + jobsite-метка" for why this is deliberately
+# kept out of both the AI context and answers_json.
+MAX_JOBSITE_LEN = 100
 # node_path/checklist_state are opaque JSON blobs from the frontend's own
 # session state (answers, currentId, history, checklist checkbox/field
 # values, etc.) — capped by serialized size rather than a fixed shape, same
@@ -699,6 +723,8 @@ class LogSessionRequest(BaseModel):
     free_text: Optional[str] = Field(default="", max_length=MAX_FREE_TEXT_LEN)
     ai_used: bool = False
     ai_analysis: Optional[str] = Field(default="", max_length=MAX_AI_ANALYSIS_LEN)
+    # Technician's own recall label, not diagnostic data — see MAX_JOBSITE_LEN.
+    jobsite: Optional[str] = Field(default="", max_length=MAX_JOBSITE_LEN)
 
     @field_validator("answers")
     @classmethod
@@ -708,7 +734,7 @@ class LogSessionRequest(BaseModel):
         return v
 
 
-def _save_session(req: LogSessionRequest) -> None:
+def _save_session(req: LogSessionRequest, user_id: Optional[int] = None) -> None:
     now = datetime.now(timezone.utc).isoformat()
     # The first answer is always the "equipment type" choice from the start
     # node — a natural dimension for grouping patterns later.
@@ -728,6 +754,7 @@ def _save_session(req: LogSessionRequest) -> None:
     # the mitigation for that path (see CLAUDE.md).
     free_text = req.free_text or None
     answers = req.answers
+    jobsite = req.jobsite or None
     if req.ai_used and req.ai_analysis and req.ai_analysis.strip() in (
         REFUSAL_MESSAGE[req.lang],
         SAFETY_REDIRECT_MESSAGE[req.lang],
@@ -737,12 +764,16 @@ def _save_session(req: LogSessionRequest) -> None:
         # description) as into the notes field above — both feed the same
         # assistant request, so both get redacted together. Keep the
         # question text (static graph content, always safe) so the panel
-        # still shows which item was flagged.
+        # still shows which item was flagged. jobsite is included too even
+        # though it's never sent to the assistant (see MAX_JOBSITE_LEN) —
+        # cheap defensive-in-depth for the rare case it happens to coincide
+        # with a session that got flagged for other reasons.
         free_text = FLAGGED_CONTENT_PLACEHOLDER
         answers = [
             Answer(question=a.question, answer=FLAGGED_CONTENT_PLACEHOLDER)
             for a in req.answers
         ]
+        jobsite = FLAGGED_CONTENT_PLACEHOLDER
     answers_json = json.dumps([a.model_dump() for a in answers], ensure_ascii=False)
 
     with _db_connect() as conn:
@@ -750,9 +781,11 @@ def _save_session(req: LogSessionRequest) -> None:
             """
             INSERT INTO checklist_sessions
                 (session_id, created_at, updated_at, lang, equipment_type,
-                 final_node_id, severity, answers_json, free_text, ai_used, ai_analysis)
+                 final_node_id, severity, answers_json, free_text, ai_used, ai_analysis,
+                 user_id, jobsite)
             VALUES (:session_id, :now, :now, :lang, :equipment_type,
-                    :final_node_id, :severity, :answers_json, :free_text, :ai_used, :ai_analysis)
+                    :final_node_id, :severity, :answers_json, :free_text, :ai_used, :ai_analysis,
+                    :user_id, :jobsite)
             ON CONFLICT(session_id) DO UPDATE SET
                 updated_at = :now,
                 lang = :lang,
@@ -762,7 +795,9 @@ def _save_session(req: LogSessionRequest) -> None:
                 answers_json = :answers_json,
                 free_text = :free_text,
                 ai_used = ai_used OR :ai_used,
-                ai_analysis = COALESCE(NULLIF(:ai_analysis, ''), ai_analysis)
+                ai_analysis = COALESCE(NULLIF(:ai_analysis, ''), ai_analysis),
+                user_id = COALESCE(user_id, :user_id),
+                jobsite = COALESCE(:jobsite, jobsite)
             """,
             {
                 "session_id": req.session_id,
@@ -775,6 +810,8 @@ def _save_session(req: LogSessionRequest) -> None:
                 "free_text": free_text,
                 "ai_used": int(req.ai_used),
                 "ai_analysis": req.ai_analysis or None,
+                "user_id": user_id,
+                "jobsite": jobsite,
             },
         )
 
@@ -872,6 +909,49 @@ def _get_session(session_id: str) -> Optional[Dict[str, Any]]:
     result = dict(row)
     result["node_path"] = json.loads(result["node_path"])
     result["checklist_state"] = json.loads(result["checklist_state"])
+    return result
+
+
+# --- Per-technician session history (see CLAUDE.md "История сессий +
+# jobsite-метка") -----------------------------------------------------------
+# Both queries filter on user_id in SQL, not "fetch then check in Python" —
+# the WHERE clause itself is the authorization boundary, so there is no
+# window where a row from another account is even constructed in memory.
+
+def _list_user_sessions(user_id: int) -> List[Dict[str, Any]]:
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT session_id, created_at, updated_at, lang, equipment_type,
+                   final_node_id, severity, jobsite, ai_used
+            FROM checklist_sessions
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+            LIMIT 200
+            """,
+            (user_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _get_user_session_detail(session_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+    with _db_connect() as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT session_id, created_at, updated_at, lang, equipment_type,
+                   final_node_id, severity, jobsite, answers_json, free_text,
+                   ai_used, ai_analysis
+            FROM checklist_sessions
+            WHERE session_id = ? AND user_id = ?
+            """,
+            (session_id, user_id),
+        ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    result["answers"] = json.loads(result.pop("answers_json") or "[]")
     return result
 
 
@@ -1508,8 +1588,9 @@ async def ai_assist(request: Request, response: Response, req: AssistRequest):
 @app.post("/api/log-session")
 @limiter.limit(LOG_SESSION_RATE_LIMIT)
 async def log_session(request: Request, response: Response, req: LogSessionRequest):
-    await _require_login(request, response)
-    await run_in_threadpool(_save_session, req)
+    user = await _require_login(request, response)
+    user_id = user["id"] if user else None
+    await run_in_threadpool(_save_session, req, user_id)
     return {"status": "ok"}
 
 
@@ -1532,6 +1613,54 @@ async def restore_session(request: Request, response: Response, session_id: str)
     if result is None:
         raise HTTPException(status_code=404, detail="not found")
     return result
+
+
+# --- Per-technician session history -----------------------------------------
+# Individual-only for now, by explicit decision — no team/company concept
+# exists in the data model (users has no org field), and building one now
+# would mean guessing at the still-open B2B architecture question. See
+# CLAUDE.md "История сессий + jobsite-метка".
+#
+# _require_login returns None only when AUTH_ENABLED is false (it raises 401
+# itself otherwise) — so "user is None" here means "this feature doesn't
+# exist on this deploy," same 404 self-host self-hosts already get from
+# /legal, /manage-invites, etc., not "not logged in."
+
+@app.get("/api/history")
+@limiter.limit(SESSION_RATE_LIMIT)
+async def history_list(request: Request, response: Response):
+    user = await _require_login(request, response)
+    if user is None:
+        raise HTTPException(status_code=404)
+    sessions = await run_in_threadpool(_list_user_sessions, user["id"])
+    return {"sessions": sessions}
+
+
+@app.get("/api/history/{session_id}")
+@limiter.limit(SESSION_RATE_LIMIT)
+async def history_detail(request: Request, response: Response, session_id: str):
+    user = await _require_login(request, response)
+    if user is None:
+        raise HTTPException(status_code=404)
+    if len(session_id) > MAX_SESSION_ID_LEN:
+        raise HTTPException(status_code=404, detail="not found")
+    result = await run_in_threadpool(_get_user_session_detail, session_id, user["id"])
+    if result is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return result
+
+
+@app.get("/history", include_in_schema=False)
+async def history_page(request: Request):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
+    user = await run_in_threadpool(_get_user_by_session_cookie, raw_cookie)
+    if user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    response = FileResponse(os.path.join("static", "history.html"), headers={"Cache-Control": "no-cache"})
+    _set_session_cookie(response, raw_cookie)
+    return response
 
 
 # --- Invite-gate + passwordless login routes -------------------------------

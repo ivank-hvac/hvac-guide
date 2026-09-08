@@ -48,6 +48,9 @@ const I18N = {
     modelLabel: "Модель оборудования (опционально)",
     manufacturerModelQuestion: "Модель оборудования",
     modelPlaceholder: "Например, 48TC-A12...",
+    jobsiteLabel: "Метка объекта (опционально)",
+    jobsitePlaceholder: "Например: RTU-2, склад",
+    jobsiteHint: "Только для вас — чтобы найти сессию в истории. Не пишите сюда имена клиентов или адреса.",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
@@ -139,6 +142,9 @@ const I18N = {
     modelLabel: "Equipment model (optional)",
     manufacturerModelQuestion: "Equipment model",
     modelPlaceholder: "e.g. 48TC-A12...",
+    jobsiteLabel: "Jobsite label (optional)",
+    jobsitePlaceholder: "e.g. RTU-2, warehouse",
+    jobsiteHint: "For you only, to find this session later — don't enter customer names or addresses.",
     mfgDocLink: "See also: official {name} technical documentation",
     refrigerantNotSpecified: "— select refrigerant —",
     refrigerantUnknown: "Don't know / can't tell",
@@ -203,6 +209,7 @@ const DEFAULT_LANG = "ru";
 // changed together with main.py.
 const MAX_ANSWER_FIELD_LEN = 400;
 const MAX_FREE_TEXT_LEN = 2000;
+const MAX_JOBSITE_LEN = 100;
 // Numeric readings need far less room than a text field: six digits, a
 // decimal separator and a sign cover every pressure, temperature, current or
 // micron value this tool asks for. Capping them keeps a measurement field
@@ -845,6 +852,9 @@ let state = {
   sessionId: generateSessionId(),
   manufacturer: null,       // {id, name, url} once picked/typed, else null
   manufacturerAsked: false, // whether the one-time step has already run this session
+  jobsite: null,            // technician's own recall label, entered on the same step — deliberately
+                             // NOT part of answers (never sent to the AI, never in the breadcrumb),
+                             // sent only via logSession(). See CLAUDE.md "История сессий + jobsite-метка".
   pendingNodeId: null,      // where to go once the manufacturer/intake step is submitted
   refrigerant: null,        // {id, name} once picked on a refrigerant_select node, else null
   checklist: {},            // {[resultNodeId]: {[itemId]: boolean|string}} — see renderChecklist
@@ -1065,6 +1075,7 @@ function serializeNodePath() {
     answers: state.answers,
     manufacturer: state.manufacturer,
     manufacturerAsked: state.manufacturerAsked,
+    jobsite: state.jobsite,
     pendingNodeId: state.pendingNodeId,
     refrigerant: state.refrigerant,
     finishNodeId: state.finishNodeId,
@@ -1217,6 +1228,7 @@ async function resumeSession(data) {
     sessionId: data.session_id,
     manufacturer: np.manufacturer || null,
     manufacturerAsked: !!np.manufacturerAsked,
+    jobsite: np.jobsite || null,
     pendingNodeId: np.pendingNodeId || null,
     refrigerant: np.refrigerant || null,
     checklist: data.checklist_state || {},
@@ -2175,6 +2187,7 @@ function restart() {
     sessionId: generateSessionId(),
     manufacturer: null,
     manufacturerAsked: false,
+    jobsite: null,
     pendingNodeId: null,
     refrigerant: null,
     checklist: {},
@@ -2562,6 +2575,31 @@ function renderManufacturerStep() {
   modelWrap.appendChild(attachCharCounter(modelInput, MAX_ANSWER_FIELD_LEN));
   cardEl.appendChild(modelWrap);
 
+  // Deliberately separate from manufacturer/model above: this is a personal
+  // recall label (see state.jobsite), never pushed into state.answers, so it
+  // never reaches currentAnswers()/aiContextAnswers() and therefore never
+  // reaches the AI or the on-screen breadcrumb — only logSession() sends it,
+  // as its own field, straight to storage. See CLAUDE.md "История сессий +
+  // jobsite-метка" for why this separation is load-bearing, not incidental.
+  const jobsiteWrap = document.createElement("div");
+  jobsiteWrap.className = "measurement-field";
+  const jobsiteLabel = document.createElement("div");
+  jobsiteLabel.className = "measurement-field-label";
+  jobsiteLabel.textContent = strings.jobsiteLabel;
+  jobsiteWrap.appendChild(jobsiteLabel);
+  const jobsiteInput = document.createElement("input");
+  jobsiteInput.type = "text";
+  jobsiteInput.className = "numeric-input";
+  jobsiteInput.placeholder = strings.jobsitePlaceholder;
+  jobsiteInput.value = state.jobsite || "";
+  jobsiteWrap.appendChild(jobsiteInput);
+  jobsiteWrap.appendChild(attachCharCounter(jobsiteInput, MAX_JOBSITE_LEN));
+  const jobsiteHint = document.createElement("div");
+  jobsiteHint.className = "numeric-hint";
+  jobsiteHint.textContent = strings.jobsiteHint;
+  jobsiteWrap.appendChild(jobsiteHint);
+  cardEl.appendChild(jobsiteWrap);
+
   const nextBtn = document.createElement("button");
   nextBtn.className = "btn input-action";
   nextBtn.textContent = strings.nextBtn;
@@ -2585,6 +2623,9 @@ function renderManufacturerStep() {
     }
     state.manufacturer = manufacturer;
     state.manufacturerAsked = true;
+    // Not pushed to state.answers on purpose — see the field's own comment
+    // above. Kept as its own state field only, sent solely via logSession().
+    state.jobsite = jobsiteInput.value.trim();
 
     // Two universal "check the simple stuff first" gate questions (power,
     // then thermostat/controller call) come next for every equipment type,
@@ -3491,6 +3532,7 @@ function logSession({ finalNodeId, severity, freeText, aiUsed, aiAnalysis }) {
       free_text: freeText || "",
       ai_used: !!aiUsed,
       ai_analysis: aiAnalysis || "",
+      jobsite: state.jobsite || "",
     }),
   }).catch(() => {});
 }
