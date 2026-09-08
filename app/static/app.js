@@ -209,7 +209,7 @@ const DEFAULT_LANG = "ru";
 // changed together with main.py.
 const MAX_ANSWER_FIELD_LEN = 400;
 const MAX_FREE_TEXT_LEN = 2000;
-const MAX_JOBSITE_LEN = 200;
+const MAX_JOBSITE_LEN = 100;
 // Numeric readings need far less room than a text field: six digits, a
 // decimal separator and a sign cover every pressure, temperature, current or
 // micron value this tool asks for. Capping them keeps a measurement field

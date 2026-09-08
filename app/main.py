@@ -545,7 +545,7 @@ MAX_EQUIPMENT_LEN = 400
 # free-text notes field — see the jobsite field on the manufacturer step and
 # CLAUDE.md "История сессий + jobsite-метка" for why this is deliberately
 # kept out of both the AI context and answers_json.
-MAX_JOBSITE_LEN = 200
+MAX_JOBSITE_LEN = 100
 # node_path/checklist_state are opaque JSON blobs from the frontend's own
 # session state (answers, currentId, history, checklist checkbox/field
 # values, etc.) — capped by serialized size rather than a fixed shape, same
