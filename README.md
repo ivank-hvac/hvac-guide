@@ -787,18 +787,33 @@ Additionally recommended on your end:
 
 ## Dev monitoring panel
 
-A hidden, unannounced stats dashboard at `GET /panel?token=...` — not linked
-from anywhere in the UI, not part of the product. Read-only visualization,
-no admin actions.
+A stats dashboard at `GET /panel` — not linked from the main nav, only
+reachable via the ⚙️ icon that appears in the header for accounts flagged
+as admin. Alongside the read-only stats it also grants two account-level
+toggles: `can_invite` (who can generate invite links) and `is_admin`
+itself (who can reach the panel at all).
 
-**Enabling it:** set `MONITOR_PANEL_TOKEN` in `.env` (blank by default —
-generate a real one with `openssl rand -hex 16`). The route stays a plain
-404 — indistinguishable from a route that doesn't exist — in every one of
-these cases:
-- `MONITOR_PANEL_TOKEN` is unset/blank (the default)
-- it's still the literal placeholder text shown in `.env.example`
-- it contains anything other than letters/digits
-- the `?token=` query string doesn't match it
+**Gating depends on whether login is enabled:**
+- **`AUTH_ENABLED=true`** (invite-gate/passwordless login configured — see
+  "Optional passwordless auth" above) — `/panel` is gated by a real login session
+  plus `users.is_admin`, exactly like `/manage-invites` is gated by
+  `can_invite`. The very first account ever registered gets `is_admin=1`
+  automatically (same chicken-and-egg fix as the very first invite); every
+  other account starts at `is_admin=0` and has to be granted it from the
+  panel itself by an existing admin. `MONITOR_PANEL_TOKEN` is ignored
+  entirely in this mode — there's no query-string token in the URL at all,
+  since the login cookie already does the job (and a bare token in a URL
+  is exactly the kind of thing that leaks into logs/referrers/browser
+  history).
+- **`AUTH_ENABLED=false`** (plain self-host, no login system at all) — the
+  original `MONITOR_PANEL_TOKEN` mechanism, unchanged: set it in `.env`
+  (blank by default — generate a real one with `openssl rand -hex 16`),
+  visit `/panel?token=...`. The route stays a plain 404 — indistinguishable
+  from a route that doesn't exist — in every one of these cases:
+  - `MONITOR_PANEL_TOKEN` is unset/blank (the default)
+  - it's still the literal placeholder text shown in `.env.example`
+  - it contains anything other than letters/digits
+  - the `?token=` query string doesn't match it
 
 Once enabled, it shows: the session funnel (active/completed/abandoned,
 14-day trend, traffic by hour of day in 2-hour buckets, top 10 source IPs), branch
