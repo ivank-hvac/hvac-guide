@@ -254,6 +254,40 @@ app = FastAPI(title="HVAC DiagTree")
 app.state.limiter = limiter
 
 
+# A pentest of the clone deployment flagged these as missing entirely --
+# correctly for the clone (it has none), but the finding read as if the app
+# itself never sends them, when in fact hvacdiagtree.com's own edge Caddy
+# (on Linode, outside this repo) already adds an equivalent set for that one
+# domain specifically -- confirmed live via `curl -I`, not assumed. The
+# clone's edge just never got the same config. Rather than chase a
+# Linode-side fix outside this repo's reach (or leave every OTHER
+# deployment shape -- clone, dev-mirror, and especially plain self-host,
+# which has no Caddy in front of it at all, see docker-compose.yml) with
+# zero defense here, this sets the same values at the one layer common to
+# all of them: the app itself. CSP matches hvacdiagtree.com's already-proven
+# policy exactly (style-src needs 'unsafe-inline' for the inline <style>
+# blocks a few of the static pages use, e.g. history.html) rather than
+# inventing a stricter one that might break something nobody's tested.
+# setdefault, not a plain assignment: a reverse proxy in front of this (edge
+# Caddy on the real domains) is still free to set its own values and win --
+# this is a floor, not an override.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+}
+
+
+@app.middleware("http")
+async def _add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
+
 def _db_connect() -> sqlite3.Connection:
     db_dir = os.path.dirname(SESSIONS_DB_PATH)
     if db_dir:
