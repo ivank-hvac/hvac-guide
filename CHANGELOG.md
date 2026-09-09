@@ -17,6 +17,11 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
   others get granted from the panel itself; `/panel*` also dropped from
   the OpenAPI schema. Prompted by a pentest finding on the query-string
   token. #129, `83c734a`
+- HTTP security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy) added via app middleware — covers every deployment
+  shape (self-host, prod, clone), not just the domains whose edge proxy
+  already sets them. Same pentest, its one surviving finding after
+  review. #130, `1a123a3`
 
 - Личная история сессий (`/history`, значок 🕓 рядом с инвайтом) —
   список пройденных диагностик с раскрытием полного трейла вопрос/ответ
