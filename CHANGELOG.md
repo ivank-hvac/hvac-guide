@@ -11,6 +11,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-08
 
+- `/panel` gated by login+`is_admin` instead of a URL token when auth is
+  on (self-host without login keeps the old `MONITOR_PANEL_TOKEN`
+  unchanged); first registered account becomes admin automatically,
+  others get granted from the panel itself; `/panel*` also dropped from
+  the OpenAPI schema. Prompted by a pentest finding on the query-string
+  token. #129, `83c734a`
+
 - Личная история сессий (`/history`, значок 🕓 рядом с инвайтом) —
   список пройденных диагностик с раскрытием полного трейла вопрос/ответ
   и ответа AI по клику. Только свои сессии — авторизационная граница на
