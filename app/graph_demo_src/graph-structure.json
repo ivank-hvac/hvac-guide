@@ -846,6 +846,24 @@
     }
    ]
   },
+  "precise_sh_sc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "$text": "nodes.precise_sh_sc_refrigerant.text"
+   },
+   "next": "pt_suction_pressure"
+  },
+  "pt_suction_pressure": {
+   "type": "numeric_input",
+   "role": "suction_pressure",
+   "text": {
+    "$text": "nodes.pt_suction_pressure.text"
+   },
+   "unit": "psig",
+   "min": -10,
+   "max": 500,
+   "next": "pt_suction_temp"
+  },
   "rtu_symptom": {
    "type": "question",
    "text": {
@@ -1043,6 +1061,17 @@
      "next": "txv_hunting_result"
     }
    ]
+  },
+  "pt_suction_temp": {
+   "type": "numeric_input",
+   "role": "suction_temp",
+   "text": {
+    "$text": "nodes.pt_suction_temp.text"
+   },
+   "unit": "°F",
+   "min": -40,
+   "max": 150,
+   "next": "pt_head_pressure"
   },
   "nc_refrigerant": {
    "type": "refrigerant_select",
@@ -1253,6 +1282,17 @@
      }
     }
    ]
+  },
+  "pt_head_pressure": {
+   "type": "numeric_input",
+   "role": "head_pressure",
+   "text": {
+    "$text": "nodes.pt_head_pressure.text"
+   },
+   "unit": "psig",
+   "min": 0,
+   "max": 700,
+   "next": "pt_liquid_temp"
   },
   "nc_start": {
    "type": "question",
@@ -1559,6 +1599,17 @@
     "$text": "nodes.noise_vibration.text"
    }
   },
+  "pt_liquid_temp": {
+   "type": "numeric_input",
+   "role": "liquid_temp",
+   "text": {
+    "$text": "nodes.pt_liquid_temp.text"
+   },
+   "unit": "°F",
+   "min": -20,
+   "max": 180,
+   "next": "pt_calc_result"
+  },
   "nc_running": {
    "type": "question",
    "text": {
@@ -1782,6 +1833,13 @@
    "text": {
     "$text": "nodes.leak_condensate_clog.text"
    }
+  },
+  "pt_calc_result": {
+   "type": "pt_calc",
+   "text": {
+    "$text": "nodes.pt_calc_result.text"
+   },
+   "next": "__intake_return__"
   },
   "nc_fans_ok": {
    "type": "dual_pressure_check",

@@ -43,9 +43,20 @@ Trimming logic:
     equipment/tier scoping — neither is gated by either today (verified:
     no "tier" field appears outside the 3 hgbp_* result nodes), and
     scoping them would be new unbuilt machinery, not a data operation.
+  - Any "graph_launch"-type item inside that wholesale-copied
+    intake_checklist/component_checks (e.g. precise_sh_sc) points at a
+    main-graph node via root/refrigerantRoot with NO real incoming edge
+    from "start" at all (see main.py's _UNIVERSAL_ENTRY_WHITELIST) — those
+    roots are seeded into the BFS directly (see collect_graph_launch_roots/
+    build_demo_nodes's extra_seeds), not left to a plain start-only walk
+    that would never reach them. Found missing 9 Sep 2026 (see CLAUDE.md):
+    without this, clicking the item's "Run calculation" button in a
+    demo-only self-host 404'd with a misleading "check your connection"
+    error instead of either working or failing honestly.
   - Fails loudly (non-zero exit) rather than silently shipping a broken
-    demo if any surviving question-type node ends up with zero options —
-    that would mean a bug in this script, not a valid graph shape.
+    demo if any surviving question-type node ends up with zero options,
+    or if a graph_launch root didn't survive the trim — either would mean
+    a bug in this script or the content, not a valid graph shape.
 """
 import copy
 import json
@@ -117,7 +128,8 @@ def _filter_option_list(nid, opts, tier_excluded, enqueue):
             if not target_ok(opt["next"]):
                 opts.remove(opt)
                 continue
-            enqueue(opt["next"])
+            if opt["next"] not in SENTINELS:
+                enqueue(opt["next"])
         elif "nextByEquipment" in opt:
             kept = {
                 k: v
@@ -129,11 +141,12 @@ def _filter_option_list(nid, opts, tier_excluded, enqueue):
                 continue
             opt["nextByEquipment"] = kept
             for v in kept.values():
-                enqueue(v)
+                if v not in SENTINELS:
+                    enqueue(v)
 
 
 def prune_and_enqueue(nid, node, tier_excluded, enqueue):
-    if isinstance(node.get("next"), str):
+    if isinstance(node.get("next"), str) and node["next"] not in SENTINELS:
         enqueue(node["next"])
     if "options" in node:
         _filter_option_list(nid, node["options"], tier_excluded, enqueue)
@@ -142,10 +155,33 @@ def prune_and_enqueue(nid, node, tier_excluded, enqueue):
             _filter_option_list(nid, block["options"], tier_excluded, enqueue)
 
 
-def build_demo_nodes(full_nodes):
+def collect_graph_launch_roots(obj, roots):
+    """intake_checklist/component_checks items of type "graph_launch" (e.g.
+    precise_sh_sc) point straight at a main-graph node id via root/
+    refrigerantRoot — not through a normal options[].next edge, since
+    these are "universal entry points" with no real incoming edge at all
+    (see main.py's _UNIVERSAL_ENTRY_WHITELIST). Plain BFS from "start"
+    never visits them, so without this they'd silently vanish from the
+    demo even though intake_checklist itself is copied in wholesale —
+    the exact gap found 9 Sep 2026 (see CLAUDE.md): clicking "Run
+    calculation" in a demo-only self-host 404'd with a misleading
+    "check your connection" error, not a crash and not an honest stub."""
+    if isinstance(obj, dict):
+        if obj.get("type") == "graph_launch":
+            for key in ("root", "refrigerantRoot"):
+                if key in obj:
+                    roots.add(obj[key])
+        for v in obj.values():
+            collect_graph_launch_roots(v, roots)
+    elif isinstance(obj, list):
+        for v in obj:
+            collect_graph_launch_roots(v, roots)
+
+
+def build_demo_nodes(full_nodes, extra_seeds=()):
     tier_excluded = compute_tier_excluded(full_nodes)
     demo_nodes = {}
-    queue = ["start"]
+    queue = ["start"] + list(extra_seeds)
     seen = set()
     while queue:
         nid = queue.pop(0)
@@ -161,6 +197,20 @@ def build_demo_nodes(full_nodes):
             sys.exit(
                 f"build_demo_graph: {nid!r} has zero options left after "
                 "pruning — bug in the trim logic, not a valid graph shape"
+            )
+
+    # A graph_launch root that didn't survive is either missing from
+    # graph_src entirely (typo/rename) or tier-excluded — the latter would
+    # be a real content bug (a universal, ungated intake item pointing at
+    # gated Tier 2/3 content), not something to ship silently. Checked
+    # here rather than left to surface later as a runtime 404 in the demo.
+    for root in extra_seeds:
+        if root not in demo_nodes:
+            reason = "tier-excluded" if root in tier_excluded else "not found in graph_src at all"
+            sys.exit(
+                f"build_demo_graph: graph_launch root {root!r} (referenced from "
+                f"intake_checklist/component_checks) did not survive the demo "
+                f"trim — {reason}"
             )
 
     return demo_nodes
@@ -199,7 +249,11 @@ def main():
         for lang in LANGS
     }
 
-    demo_nodes = build_demo_nodes(full_structure["nodes"])
+    graph_launch_roots = set()
+    collect_graph_launch_roots(full_structure.get("intake_checklist", []), graph_launch_roots)
+    collect_graph_launch_roots(full_structure.get("component_checks", {}), graph_launch_roots)
+
+    demo_nodes = build_demo_nodes(full_structure["nodes"], extra_seeds=graph_launch_roots)
     demo_structure = {
         "start": full_structure["start"],
         "intake_checklist": copy.deepcopy(full_structure["intake_checklist"]),
