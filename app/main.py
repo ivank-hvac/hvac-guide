@@ -563,6 +563,16 @@ def init_db() -> None:
             """
         )
         conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS invite_quota (
+                user_id INTEGER NOT NULL,
+                day TEXT NOT NULL,
+                count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, day)
+            )
+            """
+        )
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_invites_created_by_at ON invites(created_by, created_at)"
         )
         # Only the SHA-256 of the token is ever stored — the raw value exists
@@ -1474,17 +1484,45 @@ def _user_can_invite(user_id: int) -> bool:
     return bool(row and row[0])
 
 
-def _invites_created_today(user_id: int) -> int:
-    day_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00")
+def _reserve_invite_slot(user_id: int) -> Optional[int]:
+    """Atomic check+increment for INVITE_DAILY_LIMIT_PER_USER — same
+    UPSERT...RETURNING pattern as _consume_ai_quota, closing the same class
+    of TOCTOU race (found 9 Sep 2026 pentest, stage 14): the old shape read
+    today's count (_invites_created_today, now removed) and inserted the
+    new invite as two separate, unlocked transactions, so N concurrent
+    requests from one can_invite account could all read the same stale
+    count and all pass, minting more than the daily cap. A dedicated
+    counter table (not a COUNT(*) over `invites`) because that's what
+    makes a single atomic RETURNING possible here, same reasoning as
+    ai_quota's own counter row. Returns the post-increment count if still
+    under the limit, None (already backed out) if not.
+    """
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     with _db_connect() as conn:
-        return conn.execute(
-            "SELECT COUNT(*) FROM invites WHERE created_by = ? AND created_at >= ?",
-            (user_id, day_start),
+        new_count = conn.execute(
+            """
+            INSERT INTO invite_quota (user_id, day, count) VALUES (?, ?, 1)
+            ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1
+            RETURNING count
+            """,
+            (user_id, day),
         ).fetchone()[0]
+        if new_count > INVITE_DAILY_LIMIT_PER_USER:
+            conn.execute(
+                "UPDATE invite_quota SET count = count - 1 WHERE user_id = ? AND day = ?",
+                (user_id, day),
+            )
+            return None
+    return new_count
 
 
 def _create_invite(user_id: int) -> str:
-    code = secrets.token_urlsafe(8)
+    # token_urlsafe(8) (64 bits) bumped to (16) (128 bits) 9 Sep 2026 — a
+    # pentest finding noted the inconsistency with every other token in
+    # this file (login/session-takeover both use 256-bit token_urlsafe(32)).
+    # Not exploitable today (5/minute rate limit on /api/register makes
+    # online guessing impractical either way) but cheap to normalize.
+    code = secrets.token_urlsafe(16)
     with _db_connect() as conn:
         conn.execute(
             "INSERT INTO invites (code, created_by, created_at) VALUES (?, ?, ?)",
@@ -2079,14 +2117,14 @@ async def create_invite(request: Request, response: Response):
     _set_session_cookie(response, raw_cookie)
     if not user["can_invite"]:
         raise HTTPException(status_code=403, detail=INVITE_MESSAGES[lang]["not_inviter"])
-    used_today = await run_in_threadpool(_invites_created_today, user["id"])
-    if used_today >= INVITE_DAILY_LIMIT_PER_USER:
+    reserved_count = await run_in_threadpool(_reserve_invite_slot, user["id"])
+    if reserved_count is None:
         raise HTTPException(status_code=429, detail=INVITE_MESSAGES[lang]["invite_limit"])
     code = await run_in_threadpool(_create_invite, user["id"])
     return {
         "code": code,
         "url": f"{_external_base_url(request)}/invite/{code}",
-        "remaining_today": INVITE_DAILY_LIMIT_PER_USER - used_today - 1,
+        "remaining_today": INVITE_DAILY_LIMIT_PER_USER - reserved_count,
     }
 
 
