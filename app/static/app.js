@@ -56,6 +56,9 @@ const I18N = {
     refrigerantUnknown: "Не знаю / не могу определить",
     refrigerantLabel: "Хладагент",
     refrigerantStepHint: "Если не знаете хладагент — расчёт по P-T таблице (перегрев/переохлаждение или сравнение с давлением насыщения) будет недоступен, но вы сможете продолжить по качественным показаниям манометров.",
+    refrigerantFavoritesLabel: "★ Избранное",
+    refrigerantAddFavorite: "☆ В избранное",
+    refrigerantRemoveFavorite: "★ В избранном — убрать",
     superheatLabel: "Перегрев (superheat)",
     subcoolingLabel: "Переохлаждение (subcooling)",
     ptCalcLoading: "Расчёт...",
@@ -154,6 +157,9 @@ const I18N = {
     refrigerantUnknown: "Don't know / can't tell",
     refrigerantLabel: "Refrigerant",
     refrigerantStepHint: "If you don't know the refrigerant, the P-T-based calculation (superheat/subcooling, or comparing against saturation pressure) won't be available, but you can still continue using qualitative gauge readings.",
+    refrigerantFavoritesLabel: "★ Favorites",
+    refrigerantAddFavorite: "☆ Add to favorites",
+    refrigerantRemoveFavorite: "★ In favorites — remove",
     superheatLabel: "Superheat",
     subcoolingLabel: "Subcooling",
     ptCalcLoading: "Calculating...",
@@ -1002,6 +1008,56 @@ async function loadRefrigerants() {
   } catch {
     REFRIGERANTS = [];
   }
+}
+
+// Per-browser, not per-session — a tech's favorite refrigerants are a
+// standing personal preference, same storage tier as hvac_unit_pref/
+// hvac_theme_pref above/below, not something that should reset every new
+// diagnostic session. Stores ids only, in display order (the order itself
+// IS the tech's chosen sort — see renderRefrigerantSelect's reorder
+// buttons), not a full refrigerant object, so a future manifest edit
+// (renamed field, re-tiered commonRank) can't desync a stale cached copy.
+const REFRIGERANT_FAVORITES_KEY = "hvac_refrigerant_favorites_v1";
+
+function loadRefrigerantFavorites() {
+  let ids;
+  try {
+    ids = JSON.parse(localStorage.getItem(REFRIGERANT_FAVORITES_KEY) || "[]");
+  } catch {
+    ids = [];
+  }
+  if (!Array.isArray(ids)) return [];
+  // Drop ids that no longer exist in the manifest (removed refrigerant) —
+  // cheap enough to filter on every read rather than reconciling on write.
+  const known = new Set((REFRIGERANTS || []).map((r) => r.id));
+  return ids.filter((id) => known.has(id));
+}
+
+function saveRefrigerantFavorites(ids) {
+  try {
+    localStorage.setItem(REFRIGERANT_FAVORITES_KEY, JSON.stringify(ids));
+  } catch {
+    // localStorage unavailable (private mode, quota) — favorites just
+    // won't persist this session, same graceful-degradation as the other
+    // *_pref keys above.
+  }
+}
+
+// Real-world-frequency order (see refrigerants.json's commonRank —
+// R-410A/R-454B/R-32 first as the current mainstream, R-22/R-500/R-502
+// last as legacy-and-rare, per Ivan's own field observation), with
+// favorited refrigerants always pulled to the very front in the tech's own
+// chosen order regardless of commonRank — that's the whole point of
+// favoriting one.
+function sortedRefrigerants() {
+  const favIds = loadRefrigerantFavorites();
+  const byId = new Map((REFRIGERANTS || []).map((r) => [r.id, r]));
+  const favs = favIds.map((id) => byId.get(id)).filter(Boolean);
+  const rest = (REFRIGERANTS || [])
+    .filter((r) => !favIds.includes(r.id))
+    .slice()
+    .sort((a, b) => (a.commonRank ?? 99) - (b.commonRank ?? 99));
+  return { favs, rest };
 }
 
 // Shows exactly what's deployed (short commit hash + commit date), baked
@@ -3028,6 +3084,89 @@ function renderRefrigerantSelect(node) {
   q.textContent = t(node.text);
   cardEl.appendChild(q);
 
+  function pick(refrigerant) {
+    state.refrigerant = refrigerant;
+    state.answers.push({ nodeId, field: "refrigerant", value: refrigerant.name });
+    goTo(node.next, { prevId: nodeId });
+  }
+
+  // Quick-access row for favorited refrigerants (see
+  // loadRefrigerantFavorites) — tapping a name here picks it immediately,
+  // same as choosing it in the dropdown below and clicking Next, so a tech
+  // who's favorited their common refrigerants doesn't have to scroll the
+  // full 15-entry list every session. The reorder arrows are specifically
+  // what Ivan's Testo instrument's own favorites star is missing.
+  const favWrap = document.createElement("div");
+  favWrap.className = "refrigerant-favorites";
+  cardEl.appendChild(favWrap);
+
+  function renderFavoritesRow() {
+    favWrap.innerHTML = "";
+    const favIds = loadRefrigerantFavorites();
+    if (!favIds.length) return;
+    const favLabel = document.createElement("div");
+    favLabel.className = "numeric-hint";
+    favLabel.textContent = strings.refrigerantFavoritesLabel;
+    favWrap.appendChild(favLabel);
+    const byId = new Map((REFRIGERANTS || []).map((r) => [r.id, r]));
+    favIds.forEach((id, idx) => {
+      const r = byId.get(id);
+      if (!r) return;
+      const row = document.createElement("div");
+      row.className = "refrigerant-favorite-row";
+
+      const nameBtn = document.createElement("button");
+      nameBtn.type = "button";
+      nameBtn.className = "btn refrigerant-favorite-name";
+      nameBtn.textContent = r.name;
+      nameBtn.onclick = () => pick(r);
+      row.appendChild(nameBtn);
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.className = "refrigerant-favorite-move";
+      upBtn.textContent = "▲";
+      upBtn.disabled = idx === 0;
+      upBtn.onclick = () => {
+        const ids = loadRefrigerantFavorites();
+        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+        saveRefrigerantFavorites(ids);
+        renderFavoritesRow();
+        rebuildSelectOptions();
+      };
+      row.appendChild(upBtn);
+
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.className = "refrigerant-favorite-move";
+      downBtn.textContent = "▼";
+      downBtn.disabled = idx === favIds.length - 1;
+      downBtn.onclick = () => {
+        const ids = loadRefrigerantFavorites();
+        [ids[idx + 1], ids[idx]] = [ids[idx], ids[idx + 1]];
+        saveRefrigerantFavorites(ids);
+        renderFavoritesRow();
+        rebuildSelectOptions();
+      };
+      row.appendChild(downBtn);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "refrigerant-favorite-move";
+      removeBtn.textContent = "★";
+      removeBtn.title = strings.refrigerantRemoveFavorite;
+      removeBtn.onclick = () => {
+        saveRefrigerantFavorites(loadRefrigerantFavorites().filter((x) => x !== id));
+        renderFavoritesRow();
+        rebuildSelectOptions();
+        updateFavoriteToggle();
+      };
+      row.appendChild(removeBtn);
+
+      favWrap.appendChild(row);
+    });
+  }
+
   const wrap = document.createElement("div");
   wrap.className = "measurement-field";
   const label = document.createElement("div");
@@ -3037,22 +3176,70 @@ function renderRefrigerantSelect(node) {
 
   const select = document.createElement("select");
   select.className = "numeric-input";
-  const blankOpt = document.createElement("option");
-  blankOpt.value = "";
-  blankOpt.textContent = strings.refrigerantNotSpecified;
-  select.appendChild(blankOpt);
-  (REFRIGERANTS || []).forEach((r) => {
-    const o = document.createElement("option");
-    o.value = r.id;
-    o.textContent = r.name;
-    select.appendChild(o);
-  });
-  const unknownOpt = document.createElement("option");
-  unknownOpt.value = "unknown";
-  unknownOpt.textContent = strings.refrigerantUnknown;
-  select.appendChild(unknownOpt);
   wrap.appendChild(select);
   cardEl.appendChild(wrap);
+
+  // Favorited refrigerants first (tech's own order), then the rest by
+  // real-world commonRank — see sortedRefrigerants(). Not grouped/labeled
+  // in the native <select> itself (optgroups add complexity for little
+  // gain once the quick-access row above already covers "find it fast").
+  // Re-run (preserving whatever's currently picked) any time favorites
+  // change, not just once at render time — otherwise favoriting something
+  // wouldn't visibly reorder the dropdown until the tech left and came
+  // back to a refrigerant_select node in a future session.
+  function rebuildSelectOptions() {
+    const currentVal = select.value;
+    select.innerHTML = "";
+    const blankOpt = document.createElement("option");
+    blankOpt.value = "";
+    blankOpt.textContent = strings.refrigerantNotSpecified;
+    select.appendChild(blankOpt);
+    const { favs, rest } = sortedRefrigerants();
+    favs.concat(rest).forEach((r) => {
+      const o = document.createElement("option");
+      o.value = r.id;
+      o.textContent = r.name;
+      select.appendChild(o);
+    });
+    const unknownOpt = document.createElement("option");
+    unknownOpt.value = "unknown";
+    unknownOpt.textContent = strings.refrigerantUnknown;
+    select.appendChild(unknownOpt);
+    select.value = currentVal;
+  }
+  rebuildSelectOptions();
+
+  // Toggles favorite status for whatever's currently picked in the select
+  // above — deliberately not tied into a full render() (would need to
+  // preserve the in-progress, not-yet-confirmed select value across a
+  // re-render); instead just rebuilds the favorites row and its own label
+  // in place.
+  const favToggleBtn = document.createElement("button");
+  favToggleBtn.type = "button";
+  favToggleBtn.className = "btn ghost refrigerant-fav-toggle";
+  favToggleBtn.style.display = "none";
+  cardEl.appendChild(favToggleBtn);
+
+  function updateFavoriteToggle() {
+    const val = select.value;
+    if (!val || val === "unknown") {
+      favToggleBtn.style.display = "none";
+      return;
+    }
+    favToggleBtn.style.display = "";
+    const isFav = loadRefrigerantFavorites().includes(val);
+    favToggleBtn.textContent = isFav ? strings.refrigerantRemoveFavorite : strings.refrigerantAddFavorite;
+    favToggleBtn.onclick = () => {
+      const ids = loadRefrigerantFavorites();
+      saveRefrigerantFavorites(isFav ? ids.filter((x) => x !== val) : ids.concat([val]));
+      renderFavoritesRow();
+      rebuildSelectOptions();
+      updateFavoriteToggle();
+    };
+  }
+
+  renderFavoritesRow();
+  updateFavoriteToggle();
 
   // Shown/hidden live as the tech picks from the dropdown — before Next is
   // even clickable — so an A2L (mildly flammable) refrigerant is flagged
@@ -3086,6 +3273,7 @@ function renderRefrigerantSelect(node) {
     nextBtn.disabled = !select.value;
     const picked = (REFRIGERANTS || []).find((r) => r.id === select.value);
     a2lWarning.style.display = picked && picked.a2l ? "flex" : "none";
+    updateFavoriteToggle();
   });
 
   nextBtn.onclick = () => {
@@ -3095,9 +3283,7 @@ function renderRefrigerantSelect(node) {
         ? { id: "unknown", name: strings.refrigerantUnknown }
         : (REFRIGERANTS || []).find((r) => r.id === select.value) || null;
     if (!refrigerant) return;
-    state.refrigerant = refrigerant;
-    state.answers.push({ nodeId, field: "refrigerant", value: refrigerant.name });
-    goTo(node.next, { prevId: nodeId });
+    pick(refrigerant);
   };
 }
 

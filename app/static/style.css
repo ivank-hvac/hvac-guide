@@ -572,6 +572,45 @@ textarea {
   gap: 4px;
 }
 
+.refrigerant-favorites {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.refrigerant-favorite-row {
+  display: flex;
+  gap: 6px;
+}
+
+.refrigerant-favorite-name {
+  flex: 1;
+}
+
+/* Reorder (▲▼) and remove (★) buttons on a favorited refrigerant — smaller
+   than the main answer buttons on purpose: these are occasional list-
+   management taps, not the primary field-diagnosis action a glove needs to
+   hit reliably every time (see .intake-toggle-btn's 52px minimum for that
+   case). */
+.refrigerant-favorite-move {
+  flex: 0 0 40px;
+  min-height: 44px;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.refrigerant-favorite-move:hover { border-color: var(--accent); color: var(--text); }
+
+.refrigerant-favorite-move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .measurement-field-label {
   font-size: 0.82rem;
   color: var(--input-accent);
