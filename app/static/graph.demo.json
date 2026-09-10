@@ -953,6 +953,26 @@
     }
    ]
   },
+  "precise_sh_sc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "ru": "Какой хладагент в системе?",
+    "en": "What refrigerant is in the system?"
+   },
+   "next": "pt_suction_pressure"
+  },
+  "pt_suction_pressure": {
+   "type": "numeric_input",
+   "role": "suction_pressure",
+   "text": {
+    "ru": "Давление всасывания (манометр)",
+    "en": "Suction pressure (gauge reading)"
+   },
+   "unit": "psig",
+   "min": -10,
+   "max": 500,
+   "next": "pt_suction_temp"
+  },
   "rtu_symptom": {
    "type": "question",
    "text": {
@@ -1182,6 +1202,18 @@
      "next": "txv_hunting_result"
     }
    ]
+  },
+  "pt_suction_temp": {
+   "type": "numeric_input",
+   "role": "suction_temp",
+   "text": {
+    "ru": "Температура линии всасывания (термометр/термопара на трубке)",
+    "en": "Suction-line temperature (thermometer/thermocouple on the tubing)"
+   },
+   "unit": "°F",
+   "min": -40,
+   "max": 150,
+   "next": "pt_head_pressure"
   },
   "nc_refrigerant": {
    "type": "refrigerant_select",
@@ -1424,6 +1456,18 @@
      }
     }
    ]
+  },
+  "pt_head_pressure": {
+   "type": "numeric_input",
+   "role": "head_pressure",
+   "text": {
+    "ru": "Давление нагнетания (конденсации)",
+    "en": "Discharge (head) pressure"
+   },
+   "unit": "psig",
+   "min": 0,
+   "max": 700,
+   "next": "pt_liquid_temp"
   },
   "nc_start": {
    "type": "question",
@@ -1774,6 +1818,18 @@
     "en": "Check the unit's vibration isolators/mounts, roof-curb/frame attachment (for RTUs — curb-adaptor sealing), and compressor mounting bolts inside the unit (transport bolts are sometimes left in during installation — causing resonance)."
    }
   },
+  "pt_liquid_temp": {
+   "type": "numeric_input",
+   "role": "liquid_temp",
+   "text": {
+    "ru": "Температура жидкостной линии",
+    "en": "Liquid-line temperature"
+   },
+   "unit": "°F",
+   "min": -20,
+   "max": 180,
+   "next": "pt_calc_result"
+  },
   "nc_running": {
    "type": "question",
    "text": {
@@ -2030,6 +2086,14 @@
     "ru": "Засор дренажной линии/трапа — самая частая причина. Прочистите линию (продувка азотом/вакуумом), проверьте уклон трубы, работу конденсатного насоса (если есть) и float switch.",
     "en": "A clogged drain line/trap is the most common cause. Clear the line (nitrogen/vacuum purge), check the pipe slope, condensate pump operation (if fitted), and the float switch."
    }
+  },
+  "pt_calc_result": {
+   "type": "pt_calc",
+   "text": {
+    "ru": "Результат расчёта",
+    "en": "Calculation result"
+   },
+   "next": "__intake_return__"
   },
   "nc_fans_ok": {
    "type": "dual_pressure_check",
