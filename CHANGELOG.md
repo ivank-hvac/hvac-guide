@@ -11,6 +11,15 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-09
 
+- Fixed demo (self-host) graph build: `tools/build_demo_graph.py` now
+  seeds its BFS with `graph_launch` roots (e.g. the precise superheat/
+  subcooling calculator) alongside `start`, not just `start` alone —
+  those roots have no real incoming graph edge, so a plain BFS walk
+  silently dropped them even though the intake-checklist item
+  referencing them is copied into the demo wholesale. Before this,
+  clicking "Run calculation" in a fresh self-host build 404'd with a
+  misleading "check your connection" message instead of working or
+  failing honestly. #133, `1ed2cd3`
 - A2L (mildly flammable) refrigerant safety: `refrigerants.json` flags
   R-32/R-454B/R-1234yf as `a2l`; picking one on any refrigerant_select
   node shows an immediate red warning before Next is even clickable;
