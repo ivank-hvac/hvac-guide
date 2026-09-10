@@ -11,6 +11,15 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-09
 
+- Fixed a fourth pentest finding (stage 14, same day, arrived after the
+  three above were already deployed): TOCTOU race in invite creation —
+  `_invites_created_today()`/`_create_invite()` were separate unlocked
+  transactions, same shape already fixed in `_consume_ai_quota`. New
+  `invite_quota` counter table + atomic UPSERT...RETURNING
+  (`_reserve_invite_slot`), verified live with a real concurrent-request
+  race test (20 threads, limit 5 → exactly 5 got through). Also bumped
+  invite code entropy 64→128 bits (same stage, informational finding).
+  #135, `082cd29`
 - Fixed three findings from the clone pentest engagement: login CSRF via
   magic-link (token wasn't bound to the requesting browser — a phished
   click on someone else's link silently logged you in as them, with no
