@@ -9,6 +9,25 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-09
+
+- A2L (mildly flammable) refrigerant safety: `refrigerants.json` flags
+  R-32/R-454B/R-1234yf as `a2l`; picking one on any refrigerant_select
+  node shows an immediate red warning before Next is even clickable;
+  two new universal intake-checklist items (leak sensor / RDS presence
+  and status) dim by default and switch to a red "A2L" badge treatment
+  once the session's refrigerant is confirmed A2L; `/api/ai-assist`
+  gets a `refrigerant_a2l` flag that forces mandatory A2L safety
+  guidance into the system prompt rather than relying on the model
+  recognizing the refrigerant name on its own. #131, `97da9f9`
+- Refrigerant picker sorted by real-world frequency instead of
+  alphabetical-ish insertion order (`commonRank` in `refrigerants.json`
+  — R-410A/R-454B/R-32 first, R-22/R-500/R-502 last), plus a
+  reorderable favorites row (localStorage, per-browser) addressing the
+  gap in Testo instruments' own favorites star — a tech can tap a
+  favorited refrigerant directly instead of scrolling the full list,
+  and reorder favorites with ▲▼, not just toggle them. #132, `97da9f9`
+
 ## 2026-09-08
 
 - `/panel` gated by login+`is_admin` instead of a URL token when auth is
