@@ -29,7 +29,10 @@
      "label": {
       "$text": "intake_checklist[0].items[2].label"
      },
-     "exclusiveGroup": "metering_type"
+     "exclusiveGroup": "metering_type",
+     "atypicalFor": [
+      "rtu"
+     ]
     },
     {
      "id": "metering_other",
@@ -48,13 +51,23 @@
      "options": [
       "Ductless",
       "Ducted"
-     ]
+     ],
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
+     }
     },
     {
      "id": "split_cooling_only",
      "type": "checkbox",
      "label": {
       "$text": "intake_checklist[0].items[5].label"
+     },
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
      }
     },
     {
@@ -64,6 +77,9 @@
       "$text": "intake_checklist[0].items[6].label"
      },
      "showIf": {
+      "equipment": [
+       "split"
+      ],
       "phase": "visual",
       "item": "split_cooling_only",
       "equals": true
@@ -74,6 +90,11 @@
      "type": "checkbox",
      "label": {
       "$text": "intake_checklist[0].items[7].label"
+     },
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
      }
     },
     {
@@ -120,6 +141,45 @@
      "showIf": {
       "phase": "visual",
       "item": "economizer_present",
+      "equals": true
+     }
+    },
+    {
+     "id": "air_filter_condition",
+     "type": "select",
+     "label": {
+      "$text": "intake_checklist[0].items[15].label"
+     },
+     "options": [
+      "Clean",
+      "Dirty / restricted"
+     ],
+     "normal": "Clean"
+    },
+    {
+     "id": "leak_sensor_present",
+     "type": "checkbox",
+     "label": {
+      "$text": "intake_checklist[0].items[16].label"
+     },
+     "a2lGated": true
+    },
+    {
+     "id": "rds_check",
+     "type": "select",
+     "label": {
+      "$text": "intake_checklist[0].items[17].label"
+     },
+     "options": [
+      "Tested OK",
+      "Not tested",
+      "Alarm/fault present"
+     ],
+     "normal": "Tested OK",
+     "a2lGated": true,
+     "showIf": {
+      "phase": "visual",
+      "item": "leak_sensor_present",
       "equals": true
      }
     },
@@ -845,6 +905,12 @@
       "$text": "nodes.rtu_symptom.options[8].label"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "$text": "nodes.rtu_symptom.options[10].label"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -907,6 +973,12 @@
       "$text": "nodes.split_symptom.options[8].label"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "$text": "nodes.split_symptom.options[10].label"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -963,6 +1035,12 @@
       "$text": "nodes.chiller_symptom.options[8].label"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[9].label"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -1136,6 +1214,45 @@
    "text": {
     "$text": "nodes.ai_freeform.text"
    }
+  },
+  "txv_hunting_result": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.txv_hunting_result.text"
+   },
+   "related_checks": [
+    {
+     "$text": "nodes.txv_hunting_result.related_checks[0]"
+    },
+    {
+     "$text": "nodes.txv_hunting_result.related_checks[1]"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "sizing_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.txv_hunting_result.checklist[0].label"
+     }
+    },
+    {
+     "id": "staging_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.txv_hunting_result.checklist[1].label"
+     }
+    },
+    {
+     "id": "bulb_checked",
+     "type": "checkbox",
+     "label": {
+      "$text": "nodes.txv_hunting_result.checklist[2].label"
+     }
+    }
+   ]
   },
   "nc_start": {
    "type": "question",
@@ -2135,6 +2252,9 @@
     },
     {
      "$text": "nodes.nc_sh_high.related_checks[1]"
+    },
+    {
+     "$text": "nodes.nc_sh_high.related_checks[2]"
     }
    ],
    "checklist": [
@@ -2283,6 +2403,12 @@
     },
     {
      "$text": "nodes.nc_sc_high.related_checks[1]"
+    },
+    {
+     "$text": "nodes.nc_sc_high.related_checks[2]"
+    },
+    {
+     "$text": "nodes.nc_sc_high.related_checks[3]"
     }
    ],
    "checklist": [

@@ -426,6 +426,7 @@ header h1 {
 .badge.info { background: var(--accent-bg); color: var(--accent); }
 .badge.warning { background: var(--warn-bg); color: var(--warn); }
 .badge.critical { background: var(--crit-bg); color: var(--crit); }
+.badge.a2l { background: var(--crit-bg); color: var(--crit); }
 
 .safety-banner {
   background: var(--crit-bg);
@@ -648,9 +649,30 @@ textarea {
   background: var(--crit-tint-bg);
 }
 
+/* a2lGated items (leak_sensor_present/rds_check) once this session's
+   refrigerant is confirmed A2L — see isA2LRefrigerant() in app.js. Same
+   red/critical tokens as intake-select-abnormal above on purpose ("A2L
+   present" is itself a safety-relevant fact, not just an off-normal
+   reading), the .badge.a2l label plus the dedicated hint text tell the two
+   apart rather than a second color family. */
+.intake-item.a2l-emphasis {
+  border-color: var(--crit);
+  background: var(--crit-tint-bg);
+}
+
+.a2l-hint {
+  color: var(--crit);
+  font-weight: 600;
+}
+
 .intake-item-label {
   font-size: 0.92rem;
   line-height: 1.4;
+}
+
+.intake-item-label .badge {
+  margin-left: 8px;
+  vertical-align: middle;
 }
 
 .intake-item-field-row {

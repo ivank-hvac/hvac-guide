@@ -27,7 +27,8 @@
   {
     "id": "r32",
     "name": "R-32",
-    "file": "refrigerants/r32.json"
+    "file": "refrigerants/r32.json",
+    "a2l": true
   },
   {
     "id": "r448a",
@@ -62,12 +63,14 @@
   {
     "id": "r454b",
     "name": "R-454B",
-    "file": "refrigerants/r454b.json"
+    "file": "refrigerants/r454b.json",
+    "a2l": true
   },
   {
     "id": "r1234yf",
     "name": "R-1234yf",
-    "file": "refrigerants/r1234yf.json"
+    "file": "refrigerants/r1234yf.json",
+    "a2l": true
   },
   {
     "id": "r134a",

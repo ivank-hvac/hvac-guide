@@ -92,6 +92,10 @@ const I18N = {
     intakeAtypicalHint: "Нечасто встречается для этого типа оборудования — показано для полноты",
     intakeSyncedHint: "Уже подтверждено в начале сессии: {answer}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
+    intakeA2lDimHint: "Актуально только для A2L (умеренно горючих) хладагентов — например R-32/R-454B/R-1234yf",
+    intakeA2lEmphasisHint: "⚠️ Обязательно для A2L (умеренно горючих) хладагентов — проверьте перед вскрытием контура",
+    a2lBadgeLabel: "A2L",
+    refrigerantA2lWarning: "⚠️ A2L — умеренно горючий хладагент. Требуются дополнительные меры безопасности: не допускайте источники открытого огня/искр в зоне работы, используйте recovery/вакуумное оборудование, рассчитанное под A2L, и проверьте исправность датчика утечки/RDS перед вскрытием контура.",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
     intakeStartBtn: "🔍 Углублённая диагностика (полный чек-лист)",
@@ -186,6 +190,10 @@ const I18N = {
     intakeAtypicalHint: "Uncommon for this equipment type — shown for completeness",
     intakeSyncedHint: "Already confirmed at the start of the session: {answer}",
     intakeGateHint: "Mark every item as done or N/A to move on",
+    intakeA2lDimHint: "Only relevant for A2L (mildly flammable) refrigerants — e.g. R-32/R-454B/R-1234yf",
+    intakeA2lEmphasisHint: "⚠️ Mandatory for A2L (mildly flammable) refrigerants — verify before opening the circuit",
+    a2lBadgeLabel: "A2L",
+    refrigerantA2lWarning: "⚠️ A2L — mildly flammable refrigerant. Extra precautions apply: keep ignition sources (open flame, sparking tools) clear of the work area, use recovery/vacuum equipment rated for A2L, and verify the leak sensor/RDS is functional before opening the circuit.",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
     intakeStartBtn: "🔍 Deeper diagnosis (full checklist)",
@@ -1473,6 +1481,16 @@ function renderReportSection(resultNodeId, container) {
 // are present, both must hold (AND) — see split_low_ambient_kit, which
 // needs equipment: split AND cooling_only: true.
 
+// True only once the session has an actually-confirmed A2L refrigerant
+// (state.refrigerant is set on refrigerant_select, see renderRefrigerantSelect)
+// — "unknown"/not-yet-picked both read as false here, same as a plain
+// non-A2L refrigerant. That's deliberate: a2lGated items (see
+// leak_sensor_present/rds_check) default to dimmed until A2L is positively
+// confirmed, they never hide, so an unconfirmed session loses nothing.
+function isA2LRefrigerant() {
+  return !!(state.refrigerant && state.refrigerant.a2l);
+}
+
 function intakeShowIfMet(showIf) {
   if (!showIf) return true;
   if (showIf.equipment && !showIf.equipment.includes(equipmentKey())) return false;
@@ -1656,12 +1674,32 @@ function renderIntakeChecklist() {
     // still pick it, the shading is a hint, not a rule.
     const isAtypical = !!(item.atypicalFor && item.atypicalFor.includes(equipmentKey()));
 
+    // a2lGated items (leak_sensor_present/rds_check) shade the OPPOSITE way
+    // from atypicalFor: dimmed by default — no confirmed A2L refrigerant
+    // yet, or a confirmed non-A2L one — then switched to a red safety-
+    // emphasis treatment the moment this session's refrigerant is
+    // confirmed A2L (see isA2LRefrigerant()). Never disabled either way,
+    // same "hint, not a rule" reasoning as atypicalFor.
+    const a2lConfirmed = isA2LRefrigerant();
+    const isA2lDimmed = !!item.a2lGated && !a2lConfirmed;
+    const isA2lEmphasized = !!item.a2lGated && a2lConfirmed;
+
     const row = document.createElement("div");
-    row.className = "intake-item" + (isCurrent ? " current" : "") + (isAtypical ? " atypical" : "");
+    row.className =
+      "intake-item" +
+      (isCurrent ? " current" : "") +
+      (isAtypical || isA2lDimmed ? " atypical" : "") +
+      (isA2lEmphasized ? " a2l-emphasis" : "");
 
     const labelEl = document.createElement("div");
     labelEl.className = "intake-item-label";
     labelEl.textContent = t(item.label);
+    if (isA2lEmphasized) {
+      const badge = document.createElement("span");
+      badge.className = "badge a2l";
+      badge.textContent = strings.a2lBadgeLabel;
+      labelEl.appendChild(badge);
+    }
     row.appendChild(labelEl);
 
     if (lockedBy) {
@@ -1675,6 +1713,18 @@ function renderIntakeChecklist() {
       atypicalHint.className = "numeric-hint";
       atypicalHint.textContent = strings.intakeAtypicalHint;
       row.appendChild(atypicalHint);
+    }
+    if (isA2lDimmed) {
+      const a2lDimHint = document.createElement("div");
+      a2lDimHint.className = "numeric-hint";
+      a2lDimHint.textContent = strings.intakeA2lDimHint;
+      row.appendChild(a2lDimHint);
+    }
+    if (isA2lEmphasized) {
+      const a2lHint = document.createElement("div");
+      a2lHint.className = "numeric-hint a2l-hint";
+      a2lHint.textContent = strings.intakeA2lEmphasisHint;
+      row.appendChild(a2lHint);
     }
     if (syncedFromMain) {
       const syncHint = document.createElement("div");
@@ -2393,7 +2443,7 @@ function buildQuestionHeader(node) {
     const label = document.createElement("span");
     label.textContent = t(node.text);
     const refChip = document.createElement("span");
-    refChip.className = "chip q-refrigerant-chip";
+    refChip.className = "chip q-refrigerant-chip" + (isA2LRefrigerant() ? " badge a2l" : "");
     refChip.textContent = state.refrigerant.name;
     q.appendChild(label);
     q.appendChild(refChip);
@@ -3004,6 +3054,23 @@ function renderRefrigerantSelect(node) {
   wrap.appendChild(select);
   cardEl.appendChild(wrap);
 
+  // Shown/hidden live as the tech picks from the dropdown — before Next is
+  // even clickable — so an A2L (mildly flammable) refrigerant is flagged
+  // the moment it's selected, not just after state.refrigerant is set.
+  // Reuses .measurement-alert (already the project's red/critical-toned
+  // box) rather than inventing a new style for this one case.
+  const a2lWarning = document.createElement("div");
+  a2lWarning.className = "measurement-alert";
+  a2lWarning.style.display = "none";
+  const a2lWarningIcon = document.createElement("span");
+  a2lWarningIcon.className = "measurement-alert-icon";
+  a2lWarningIcon.textContent = "⚠️";
+  const a2lWarningText = document.createElement("span");
+  a2lWarningText.textContent = strings.refrigerantA2lWarning;
+  a2lWarning.appendChild(a2lWarningIcon);
+  a2lWarning.appendChild(a2lWarningText);
+  cardEl.appendChild(a2lWarning);
+
   const hint = document.createElement("div");
   hint.className = "numeric-hint";
   hint.textContent = strings.refrigerantStepHint;
@@ -3017,6 +3084,8 @@ function renderRefrigerantSelect(node) {
 
   select.addEventListener("change", () => {
     nextBtn.disabled = !select.value;
+    const picked = (REFRIGERANTS || []).find((r) => r.id === select.value);
+    a2lWarning.style.display = picked && picked.a2l ? "flex" : "none";
   });
 
   nextBtn.onclick = () => {
@@ -3592,6 +3661,12 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
         // session, since that answer set has real extra grounding to
         // reason over, not just the plain symptom-graph path.
         deep_dive: state.intakeAsked,
+        // Forces the backend to fold mandatory A2L (mildly flammable
+        // refrigerant) safety guidance into the system prompt for this
+        // request — see build_system_prompt in main.py. Deterministic on
+        // the backend rather than relying on the model recognizing e.g.
+        // "R-454B" as A2L on its own from the answers list.
+        refrigerant_a2l: isA2LRefrigerant(),
         // The backend refuses requests that carry no live session: a real
         // technician always has one by this point, an automated caller
         // hitting the endpoint directly does not.
