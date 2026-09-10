@@ -11,6 +11,16 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-09
 
+- Fixed three findings from the clone pentest engagement: login CSRF via
+  magic-link (token wasn't bound to the requesting browser — a phished
+  click on someone else's link silently logged you in as them, with no
+  UI ever showing which account you were on; fixed with a nonce-bound
+  cookie + a confirm screen that now shows the target email), an email-
+  enumeration timing side-channel on `/api/login`, and an AI-quota
+  TOCTOU race (`_consume_ai_quota` moved to atomic UPSERT...RETURNING
+  for both the per-session and global counters — the latter found
+  independently, not in the pentest report). All three verified live,
+  including a real concurrent-request race test. #134, `9e87e82`
 - Fixed demo (self-host) graph build: `tools/build_demo_graph.py` now
   seeds its BFS with `graph_launch` roots (e.g. the precise superheat/
   subcooling calculator) alongside `start`, not just `start` alone —
