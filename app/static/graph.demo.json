@@ -33,7 +33,10 @@
       "ru": "EEV (электронный клапан) присутствует",
       "en": "EEV (electronic expansion valve) present"
      },
-     "exclusiveGroup": "metering_type"
+     "exclusiveGroup": "metering_type",
+     "atypicalFor": [
+      "rtu"
+     ]
     },
     {
      "id": "metering_other",
@@ -54,7 +57,12 @@
      "options": [
       "Ductless",
       "Ducted"
-     ]
+     ],
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
+     }
     },
     {
      "id": "split_cooling_only",
@@ -62,6 +70,11 @@
      "label": {
       "ru": "Только охлаждение (нет режима теплового насоса)",
       "en": "Cooling only (no heat-pump mode)"
+     },
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
      }
     },
     {
@@ -72,6 +85,9 @@
       "en": "Low ambient kit installed"
      },
      "showIf": {
+      "equipment": [
+       "split"
+      ],
       "phase": "visual",
       "item": "split_cooling_only",
       "equals": true
@@ -83,6 +99,11 @@
      "label": {
       "ru": "Инвертор (переменная скорость)",
       "en": "Inverter (variable-speed)"
+     },
+     "showIf": {
+      "equipment": [
+       "split"
+      ]
      }
     },
     {
@@ -135,6 +156,48 @@
      "showIf": {
       "phase": "visual",
       "item": "economizer_present",
+      "equals": true
+     }
+    },
+    {
+     "id": "air_filter_condition",
+     "type": "select",
+     "label": {
+      "ru": "Состояние воздушного фильтра",
+      "en": "Air filter condition"
+     },
+     "options": [
+      "Clean",
+      "Dirty / restricted"
+     ],
+     "normal": "Clean"
+    },
+    {
+     "id": "leak_sensor_present",
+     "type": "checkbox",
+     "label": {
+      "ru": "Установлен датчик утечки / система обнаружения хладагента (RDS)",
+      "en": "Leak sensor / Refrigerant Detection System (RDS) present"
+     },
+     "a2lGated": true
+    },
+    {
+     "id": "rds_check",
+     "type": "select",
+     "label": {
+      "ru": "Статус RDS",
+      "en": "RDS status"
+     },
+     "options": [
+      "Tested OK",
+      "Not tested",
+      "Alarm/fault present"
+     ],
+     "normal": "Tested OK",
+     "a2lGated": true,
+     "showIf": {
+      "phase": "visual",
+      "item": "leak_sensor_present",
       "equals": true
      }
     },
@@ -959,6 +1022,13 @@
       "en": "Other / complex case"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "ru": "Давление всасывания и superheat колеблются вместе циклично, головное давление не при чём (ТРВ «охотится»)",
+      "en": "Suction pressure and superheat oscillate together in a cycle, head pressure not involved (TXV hunting)"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -1031,6 +1101,13 @@
       "en": "Other / complex case"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "ru": "Давление всасывания и superheat колеблются вместе циклично, головное давление не при чём (ТРВ «охотится»)",
+      "en": "Suction pressure and superheat oscillate together in a cycle, head pressure not involved (TXV hunting)"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -1096,6 +1173,13 @@
       "en": "Other / complex case"
      },
      "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "ru": "Давление всасывания и superheat колеблются вместе циклично, головное давление не при чём (ТРВ «охотится»)",
+      "en": "Suction pressure and superheat oscillate together in a cycle, head pressure not involved (TXV hunting)"
+     },
+     "next": "txv_hunting_result"
     }
    ]
   },
@@ -1295,6 +1379,51 @@
     "ru": "Опишите ситуацию максимально подробно (оборудование, что наблюдаете, показания приборов, история обслуживания) — передам AI-ассистенту для анализа.",
     "en": "Describe the situation in as much detail as possible (equipment, what you're observing, gauge readings, service history) — I'll pass this to the AI assistant for analysis."
    }
+  },
+  "txv_hunting_result": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "ru": "ТРВ «охотится» — отличается от hot gas bypass hunting: здесь колеблются вместе И давление всасывания, И superheat, а не только suction при стабильном head pressure. Обычные причины — завышенный по производительности ТРВ, очень лёгкая нагрузка по охлаждению, либо схема регулирования частичной нагрузки/ступенчатости, которая нагружает клапан слишком слабо. Сравните паспортную производительность клапана с реальной нагрузкой и проверьте, не загоняют ли другие ступени регулирования систему слишком глубоко для этого клапана.",
+    "en": "TXV hunting — distinct from hot gas bypass hunting: here suction pressure AND superheat oscillate together in a cycle, not just suction with head pressure staying stable. Usual causes are an oversized TXV, a very light cooling load, or a part-load/staging control sequence loading the valve too lightly. Compare the valve's rated capacity against the actual load and check whether other capacity-control stages are running the system too far down for the valve to hold a steady feed."
+   },
+   "related_checks": [
+    {
+     "ru": "Ослабленный или плохо изолированный термобаллон ТРВ тоже может давать эрратичную, похожую на охоту подачу — исключите и это, не только размер клапана",
+     "en": "A loose or poorly insulated TXV sensing bulb can also cause erratic, hunting-like feed — rule that out too, not just valve sizing"
+    },
+    {
+     "ru": "Если нагрузку реально нельзя поднять или переступенчатить иначе — завышенный ТРВ нужно менять под фактическую нагрузку, одной перенастройкой superheat на завышенном клапане охоту не убрать",
+     "en": "If load genuinely can't be raised or staged differently, an oversized TXV needs replacing to match the actual load — readjusting the superheat setting on an oversized valve won't fix hunting on its own"
+    }
+   ],
+   "checklist": [
+    {
+     "id": "sizing_checked",
+     "type": "checkbox",
+     "label": {
+      "ru": "Паспортная производительность ТРВ сверена с фактической/текущей нагрузкой",
+      "en": "TXV rated capacity checked against actual/current load"
+     }
+    },
+    {
+     "id": "staging_checked",
+     "type": "checkbox",
+     "label": {
+      "ru": "Проверена схема регулирования частичной нагрузки/ступенчатости",
+      "en": "Part-load / capacity-staging control checked"
+     }
+    },
+    {
+     "id": "bulb_checked",
+     "type": "checkbox",
+     "label": {
+      "ru": "Проверены крепление и изоляция термобаллона ТРВ",
+      "en": "TXV sensing bulb clamp and insulation checked"
+     }
+    }
+   ]
   },
   "nc_start": {
    "type": "question",
@@ -2442,6 +2571,10 @@
     {
      "ru": "Сверьте измеренный superheat с целевым значением производителя для этого типа метering-устройства",
      "en": "Compare the measured superheat against the manufacturer's target for this metering-device type"
+    },
+    {
+     "ru": "Рассмотрите изношенный/неэффективный компрессор — сниженная производительность (протекающие клапаны, внутренний байпас) тоже даёт высокий suction + высокий superheat и может маскироваться под недозаряд, хотя реально с зарядом всё в порядке",
+     "en": "Consider a worn/inefficient compressor — reduced pumping capacity (leaking reed valves, internal bypass) shows up as high suction + high superheat too, and can mimic undercharge without actually being low on refrigerant"
     }
    ],
    "checklist": [
@@ -2610,6 +2743,14 @@
     {
      "ru": "Осмотрите линию по всей длине на предмет механических повреждений, не только у фильтра-осушителя",
      "en": "Inspect the full line length for physical damage, not just around the filter-drier"
+    },
+    {
+     "ru": "Проверьте температуру наружного воздуха — в холодную погоду головное давление (и subcooling) поднимается так же, как при рестрикции; если на юните нет рабочего head-pressure control (циклирование вентилятора, flooding valve) — это настройка регулировки, а не ремонт течи/рестрикции",
+     "en": "Check outdoor ambient temperature — a cold day can drive head pressure (and subcooling) up the same way a restriction does; if the unit has no working head-pressure control (fan cycling, flooding valve), this is a controls fix, not a leak/restriction repair"
+    },
+    {
+     "ru": "Проверьте airflow на испарителе (фильтр, блоуэр, змеевик) — ограниченный airflow может давать ту же сигнатуру (низкий suction + высокий subcooling) без реальной рестрикции жидкостной линии",
+     "en": "Check evaporator airflow (filter, blower, coil) — restricted airflow can produce this same low-suction/high-subcooling signature without any actual liquid-line restriction"
     }
    ],
    "checklist": [

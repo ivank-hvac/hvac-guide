@@ -56,6 +56,9 @@ const I18N = {
     refrigerantUnknown: "Не знаю / не могу определить",
     refrigerantLabel: "Хладагент",
     refrigerantStepHint: "Если не знаете хладагент — расчёт по P-T таблице (перегрев/переохлаждение или сравнение с давлением насыщения) будет недоступен, но вы сможете продолжить по качественным показаниям манометров.",
+    refrigerantFavoritesLabel: "★ Избранное",
+    refrigerantAddFavorite: "☆ В избранное",
+    refrigerantRemoveFavorite: "★ В избранном — убрать",
     superheatLabel: "Перегрев (superheat)",
     subcoolingLabel: "Переохлаждение (subcooling)",
     ptCalcLoading: "Расчёт...",
@@ -92,6 +95,10 @@ const I18N = {
     intakeAtypicalHint: "Нечасто встречается для этого типа оборудования — показано для полноты",
     intakeSyncedHint: "Уже подтверждено в начале сессии: {answer}",
     intakeGateHint: "Отметьте каждый пункт как сделано либо N/A, чтобы перейти дальше",
+    intakeA2lDimHint: "Актуально только для A2L (умеренно горючих) хладагентов — например R-32/R-454B/R-1234yf",
+    intakeA2lEmphasisHint: "⚠️ Обязательно для A2L (умеренно горючих) хладагентов — проверьте перед вскрытием контура",
+    a2lBadgeLabel: "A2L",
+    refrigerantA2lWarning: "⚠️ A2L — умеренно горючий хладагент. Требуются дополнительные меры безопасности: не допускайте источники открытого огня/искр в зоне работы, используйте recovery/вакуумное оборудование, рассчитанное под A2L, и проверьте исправность датчика утечки/RDS перед вскрытием контура.",
     intakeNextPhaseBtn: "Следующий этап →",
     intakeFinishBtn: "Готово — вернуться к результату",
     intakeStartBtn: "🔍 Углублённая диагностика (полный чек-лист)",
@@ -150,6 +157,9 @@ const I18N = {
     refrigerantUnknown: "Don't know / can't tell",
     refrigerantLabel: "Refrigerant",
     refrigerantStepHint: "If you don't know the refrigerant, the P-T-based calculation (superheat/subcooling, or comparing against saturation pressure) won't be available, but you can still continue using qualitative gauge readings.",
+    refrigerantFavoritesLabel: "★ Favorites",
+    refrigerantAddFavorite: "☆ Add to favorites",
+    refrigerantRemoveFavorite: "★ In favorites — remove",
     superheatLabel: "Superheat",
     subcoolingLabel: "Subcooling",
     ptCalcLoading: "Calculating...",
@@ -186,6 +196,10 @@ const I18N = {
     intakeAtypicalHint: "Uncommon for this equipment type — shown for completeness",
     intakeSyncedHint: "Already confirmed at the start of the session: {answer}",
     intakeGateHint: "Mark every item as done or N/A to move on",
+    intakeA2lDimHint: "Only relevant for A2L (mildly flammable) refrigerants — e.g. R-32/R-454B/R-1234yf",
+    intakeA2lEmphasisHint: "⚠️ Mandatory for A2L (mildly flammable) refrigerants — verify before opening the circuit",
+    a2lBadgeLabel: "A2L",
+    refrigerantA2lWarning: "⚠️ A2L — mildly flammable refrigerant. Extra precautions apply: keep ignition sources (open flame, sparking tools) clear of the work area, use recovery/vacuum equipment rated for A2L, and verify the leak sensor/RDS is functional before opening the circuit.",
     intakeNextPhaseBtn: "Next phase →",
     intakeFinishBtn: "Done — back to results",
     intakeStartBtn: "🔍 Deeper diagnosis (full checklist)",
@@ -996,6 +1010,56 @@ async function loadRefrigerants() {
   }
 }
 
+// Per-browser, not per-session — a tech's favorite refrigerants are a
+// standing personal preference, same storage tier as hvac_unit_pref/
+// hvac_theme_pref above/below, not something that should reset every new
+// diagnostic session. Stores ids only, in display order (the order itself
+// IS the tech's chosen sort — see renderRefrigerantSelect's reorder
+// buttons), not a full refrigerant object, so a future manifest edit
+// (renamed field, re-tiered commonRank) can't desync a stale cached copy.
+const REFRIGERANT_FAVORITES_KEY = "hvac_refrigerant_favorites_v1";
+
+function loadRefrigerantFavorites() {
+  let ids;
+  try {
+    ids = JSON.parse(localStorage.getItem(REFRIGERANT_FAVORITES_KEY) || "[]");
+  } catch {
+    ids = [];
+  }
+  if (!Array.isArray(ids)) return [];
+  // Drop ids that no longer exist in the manifest (removed refrigerant) —
+  // cheap enough to filter on every read rather than reconciling on write.
+  const known = new Set((REFRIGERANTS || []).map((r) => r.id));
+  return ids.filter((id) => known.has(id));
+}
+
+function saveRefrigerantFavorites(ids) {
+  try {
+    localStorage.setItem(REFRIGERANT_FAVORITES_KEY, JSON.stringify(ids));
+  } catch {
+    // localStorage unavailable (private mode, quota) — favorites just
+    // won't persist this session, same graceful-degradation as the other
+    // *_pref keys above.
+  }
+}
+
+// Real-world-frequency order (see refrigerants.json's commonRank —
+// R-410A/R-454B/R-32 first as the current mainstream, R-22/R-500/R-502
+// last as legacy-and-rare, per Ivan's own field observation), with
+// favorited refrigerants always pulled to the very front in the tech's own
+// chosen order regardless of commonRank — that's the whole point of
+// favoriting one.
+function sortedRefrigerants() {
+  const favIds = loadRefrigerantFavorites();
+  const byId = new Map((REFRIGERANTS || []).map((r) => [r.id, r]));
+  const favs = favIds.map((id) => byId.get(id)).filter(Boolean);
+  const rest = (REFRIGERANTS || [])
+    .filter((r) => !favIds.includes(r.id))
+    .slice()
+    .sort((a, b) => (a.commonRank ?? 99) - (b.commonRank ?? 99));
+  return { favs, rest };
+}
+
 // Shows exactly what's deployed (short commit hash + commit date), baked
 // into the image at build time — see Dockerfile / docker-compose*.yml
 // build.args and /api/version. Purely informational, so a failed fetch
@@ -1473,6 +1537,16 @@ function renderReportSection(resultNodeId, container) {
 // are present, both must hold (AND) — see split_low_ambient_kit, which
 // needs equipment: split AND cooling_only: true.
 
+// True only once the session has an actually-confirmed A2L refrigerant
+// (state.refrigerant is set on refrigerant_select, see renderRefrigerantSelect)
+// — "unknown"/not-yet-picked both read as false here, same as a plain
+// non-A2L refrigerant. That's deliberate: a2lGated items (see
+// leak_sensor_present/rds_check) default to dimmed until A2L is positively
+// confirmed, they never hide, so an unconfirmed session loses nothing.
+function isA2LRefrigerant() {
+  return !!(state.refrigerant && state.refrigerant.a2l);
+}
+
 function intakeShowIfMet(showIf) {
   if (!showIf) return true;
   if (showIf.equipment && !showIf.equipment.includes(equipmentKey())) return false;
@@ -1656,12 +1730,32 @@ function renderIntakeChecklist() {
     // still pick it, the shading is a hint, not a rule.
     const isAtypical = !!(item.atypicalFor && item.atypicalFor.includes(equipmentKey()));
 
+    // a2lGated items (leak_sensor_present/rds_check) shade the OPPOSITE way
+    // from atypicalFor: dimmed by default — no confirmed A2L refrigerant
+    // yet, or a confirmed non-A2L one — then switched to a red safety-
+    // emphasis treatment the moment this session's refrigerant is
+    // confirmed A2L (see isA2LRefrigerant()). Never disabled either way,
+    // same "hint, not a rule" reasoning as atypicalFor.
+    const a2lConfirmed = isA2LRefrigerant();
+    const isA2lDimmed = !!item.a2lGated && !a2lConfirmed;
+    const isA2lEmphasized = !!item.a2lGated && a2lConfirmed;
+
     const row = document.createElement("div");
-    row.className = "intake-item" + (isCurrent ? " current" : "") + (isAtypical ? " atypical" : "");
+    row.className =
+      "intake-item" +
+      (isCurrent ? " current" : "") +
+      (isAtypical || isA2lDimmed ? " atypical" : "") +
+      (isA2lEmphasized ? " a2l-emphasis" : "");
 
     const labelEl = document.createElement("div");
     labelEl.className = "intake-item-label";
     labelEl.textContent = t(item.label);
+    if (isA2lEmphasized) {
+      const badge = document.createElement("span");
+      badge.className = "badge a2l";
+      badge.textContent = strings.a2lBadgeLabel;
+      labelEl.appendChild(badge);
+    }
     row.appendChild(labelEl);
 
     if (lockedBy) {
@@ -1675,6 +1769,18 @@ function renderIntakeChecklist() {
       atypicalHint.className = "numeric-hint";
       atypicalHint.textContent = strings.intakeAtypicalHint;
       row.appendChild(atypicalHint);
+    }
+    if (isA2lDimmed) {
+      const a2lDimHint = document.createElement("div");
+      a2lDimHint.className = "numeric-hint";
+      a2lDimHint.textContent = strings.intakeA2lDimHint;
+      row.appendChild(a2lDimHint);
+    }
+    if (isA2lEmphasized) {
+      const a2lHint = document.createElement("div");
+      a2lHint.className = "numeric-hint a2l-hint";
+      a2lHint.textContent = strings.intakeA2lEmphasisHint;
+      row.appendChild(a2lHint);
     }
     if (syncedFromMain) {
       const syncHint = document.createElement("div");
@@ -2393,7 +2499,7 @@ function buildQuestionHeader(node) {
     const label = document.createElement("span");
     label.textContent = t(node.text);
     const refChip = document.createElement("span");
-    refChip.className = "chip q-refrigerant-chip";
+    refChip.className = "chip q-refrigerant-chip" + (isA2LRefrigerant() ? " badge a2l" : "");
     refChip.textContent = state.refrigerant.name;
     q.appendChild(label);
     q.appendChild(refChip);
@@ -2978,6 +3084,89 @@ function renderRefrigerantSelect(node) {
   q.textContent = t(node.text);
   cardEl.appendChild(q);
 
+  function pick(refrigerant) {
+    state.refrigerant = refrigerant;
+    state.answers.push({ nodeId, field: "refrigerant", value: refrigerant.name });
+    goTo(node.next, { prevId: nodeId });
+  }
+
+  // Quick-access row for favorited refrigerants (see
+  // loadRefrigerantFavorites) — tapping a name here picks it immediately,
+  // same as choosing it in the dropdown below and clicking Next, so a tech
+  // who's favorited their common refrigerants doesn't have to scroll the
+  // full 15-entry list every session. The reorder arrows are specifically
+  // what Ivan's Testo instrument's own favorites star is missing.
+  const favWrap = document.createElement("div");
+  favWrap.className = "refrigerant-favorites";
+  cardEl.appendChild(favWrap);
+
+  function renderFavoritesRow() {
+    favWrap.innerHTML = "";
+    const favIds = loadRefrigerantFavorites();
+    if (!favIds.length) return;
+    const favLabel = document.createElement("div");
+    favLabel.className = "numeric-hint";
+    favLabel.textContent = strings.refrigerantFavoritesLabel;
+    favWrap.appendChild(favLabel);
+    const byId = new Map((REFRIGERANTS || []).map((r) => [r.id, r]));
+    favIds.forEach((id, idx) => {
+      const r = byId.get(id);
+      if (!r) return;
+      const row = document.createElement("div");
+      row.className = "refrigerant-favorite-row";
+
+      const nameBtn = document.createElement("button");
+      nameBtn.type = "button";
+      nameBtn.className = "btn refrigerant-favorite-name";
+      nameBtn.textContent = r.name;
+      nameBtn.onclick = () => pick(r);
+      row.appendChild(nameBtn);
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.className = "refrigerant-favorite-move";
+      upBtn.textContent = "▲";
+      upBtn.disabled = idx === 0;
+      upBtn.onclick = () => {
+        const ids = loadRefrigerantFavorites();
+        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+        saveRefrigerantFavorites(ids);
+        renderFavoritesRow();
+        rebuildSelectOptions();
+      };
+      row.appendChild(upBtn);
+
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.className = "refrigerant-favorite-move";
+      downBtn.textContent = "▼";
+      downBtn.disabled = idx === favIds.length - 1;
+      downBtn.onclick = () => {
+        const ids = loadRefrigerantFavorites();
+        [ids[idx + 1], ids[idx]] = [ids[idx], ids[idx + 1]];
+        saveRefrigerantFavorites(ids);
+        renderFavoritesRow();
+        rebuildSelectOptions();
+      };
+      row.appendChild(downBtn);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "refrigerant-favorite-move";
+      removeBtn.textContent = "★";
+      removeBtn.title = strings.refrigerantRemoveFavorite;
+      removeBtn.onclick = () => {
+        saveRefrigerantFavorites(loadRefrigerantFavorites().filter((x) => x !== id));
+        renderFavoritesRow();
+        rebuildSelectOptions();
+        updateFavoriteToggle();
+      };
+      row.appendChild(removeBtn);
+
+      favWrap.appendChild(row);
+    });
+  }
+
   const wrap = document.createElement("div");
   wrap.className = "measurement-field";
   const label = document.createElement("div");
@@ -2987,22 +3176,87 @@ function renderRefrigerantSelect(node) {
 
   const select = document.createElement("select");
   select.className = "numeric-input";
-  const blankOpt = document.createElement("option");
-  blankOpt.value = "";
-  blankOpt.textContent = strings.refrigerantNotSpecified;
-  select.appendChild(blankOpt);
-  (REFRIGERANTS || []).forEach((r) => {
-    const o = document.createElement("option");
-    o.value = r.id;
-    o.textContent = r.name;
-    select.appendChild(o);
-  });
-  const unknownOpt = document.createElement("option");
-  unknownOpt.value = "unknown";
-  unknownOpt.textContent = strings.refrigerantUnknown;
-  select.appendChild(unknownOpt);
   wrap.appendChild(select);
   cardEl.appendChild(wrap);
+
+  // Favorited refrigerants first (tech's own order), then the rest by
+  // real-world commonRank — see sortedRefrigerants(). Not grouped/labeled
+  // in the native <select> itself (optgroups add complexity for little
+  // gain once the quick-access row above already covers "find it fast").
+  // Re-run (preserving whatever's currently picked) any time favorites
+  // change, not just once at render time — otherwise favoriting something
+  // wouldn't visibly reorder the dropdown until the tech left and came
+  // back to a refrigerant_select node in a future session.
+  function rebuildSelectOptions() {
+    const currentVal = select.value;
+    select.innerHTML = "";
+    const blankOpt = document.createElement("option");
+    blankOpt.value = "";
+    blankOpt.textContent = strings.refrigerantNotSpecified;
+    select.appendChild(blankOpt);
+    const { favs, rest } = sortedRefrigerants();
+    favs.concat(rest).forEach((r) => {
+      const o = document.createElement("option");
+      o.value = r.id;
+      o.textContent = r.name;
+      select.appendChild(o);
+    });
+    const unknownOpt = document.createElement("option");
+    unknownOpt.value = "unknown";
+    unknownOpt.textContent = strings.refrigerantUnknown;
+    select.appendChild(unknownOpt);
+    select.value = currentVal;
+  }
+  rebuildSelectOptions();
+
+  // Toggles favorite status for whatever's currently picked in the select
+  // above — deliberately not tied into a full render() (would need to
+  // preserve the in-progress, not-yet-confirmed select value across a
+  // re-render); instead just rebuilds the favorites row and its own label
+  // in place.
+  const favToggleBtn = document.createElement("button");
+  favToggleBtn.type = "button";
+  favToggleBtn.className = "btn ghost refrigerant-fav-toggle";
+  favToggleBtn.style.display = "none";
+  cardEl.appendChild(favToggleBtn);
+
+  function updateFavoriteToggle() {
+    const val = select.value;
+    if (!val || val === "unknown") {
+      favToggleBtn.style.display = "none";
+      return;
+    }
+    favToggleBtn.style.display = "";
+    const isFav = loadRefrigerantFavorites().includes(val);
+    favToggleBtn.textContent = isFav ? strings.refrigerantRemoveFavorite : strings.refrigerantAddFavorite;
+    favToggleBtn.onclick = () => {
+      const ids = loadRefrigerantFavorites();
+      saveRefrigerantFavorites(isFav ? ids.filter((x) => x !== val) : ids.concat([val]));
+      renderFavoritesRow();
+      rebuildSelectOptions();
+      updateFavoriteToggle();
+    };
+  }
+
+  renderFavoritesRow();
+  updateFavoriteToggle();
+
+  // Shown/hidden live as the tech picks from the dropdown — before Next is
+  // even clickable — so an A2L (mildly flammable) refrigerant is flagged
+  // the moment it's selected, not just after state.refrigerant is set.
+  // Reuses .measurement-alert (already the project's red/critical-toned
+  // box) rather than inventing a new style for this one case.
+  const a2lWarning = document.createElement("div");
+  a2lWarning.className = "measurement-alert";
+  a2lWarning.style.display = "none";
+  const a2lWarningIcon = document.createElement("span");
+  a2lWarningIcon.className = "measurement-alert-icon";
+  a2lWarningIcon.textContent = "⚠️";
+  const a2lWarningText = document.createElement("span");
+  a2lWarningText.textContent = strings.refrigerantA2lWarning;
+  a2lWarning.appendChild(a2lWarningIcon);
+  a2lWarning.appendChild(a2lWarningText);
+  cardEl.appendChild(a2lWarning);
 
   const hint = document.createElement("div");
   hint.className = "numeric-hint";
@@ -3017,6 +3271,9 @@ function renderRefrigerantSelect(node) {
 
   select.addEventListener("change", () => {
     nextBtn.disabled = !select.value;
+    const picked = (REFRIGERANTS || []).find((r) => r.id === select.value);
+    a2lWarning.style.display = picked && picked.a2l ? "flex" : "none";
+    updateFavoriteToggle();
   });
 
   nextBtn.onclick = () => {
@@ -3026,9 +3283,7 @@ function renderRefrigerantSelect(node) {
         ? { id: "unknown", name: strings.refrigerantUnknown }
         : (REFRIGERANTS || []).find((r) => r.id === select.value) || null;
     if (!refrigerant) return;
-    state.refrigerant = refrigerant;
-    state.answers.push({ nodeId, field: "refrigerant", value: refrigerant.name });
-    goTo(node.next, { prevId: nodeId });
+    pick(refrigerant);
   };
 }
 
@@ -3592,6 +3847,12 @@ async function runAiAssist({ context, freeText, target, onDone, nodeId, severity
         // session, since that answer set has real extra grounding to
         // reason over, not just the plain symptom-graph path.
         deep_dive: state.intakeAsked,
+        // Forces the backend to fold mandatory A2L (mildly flammable
+        // refrigerant) safety guidance into the system prompt for this
+        // request — see build_system_prompt in main.py. Deterministic on
+        // the backend rather than relying on the model recognizing e.g.
+        // "R-454B" as A2L on its own from the answers list.
+        refrigerant_a2l: isA2LRefrigerant(),
         // The backend refuses requests that carry no live session: a real
         // technician always has one by this point, an automated caller
         // hitting the endpoint directly does not.
