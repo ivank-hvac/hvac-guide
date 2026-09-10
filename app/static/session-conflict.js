@@ -14,6 +14,36 @@
 
   var token = new URLSearchParams(location.search).get("token") || "";
 
+  function showExpired() {
+    ["en", "ru"].forEach(function (lang) {
+      var btn = document.getElementById("continue-" + lang);
+      var result = document.getElementById("result-" + lang);
+      if (btn) btn.disabled = true;
+      if (result) {
+        result.className = "result err";
+        result.textContent = MESSAGES[lang].failed;
+      }
+    });
+  }
+
+  // Read-only lookup (see _peek_session_takeover_email in main.py) — shows
+  // which account this confirm screen is actually about, added for the
+  // login-CSRF finding (9 Sep 2026): a phished victim previously had no
+  // way to tell they were about to continue into a stranger's account.
+  // Doesn't consume the token, so this fetch itself never burns it.
+  fetch("/api/session-conflict-info?token=" + encodeURIComponent(token))
+    .then(function (r) {
+      if (!r.ok) throw new Error("expired");
+      return r.json();
+    })
+    .then(function (data) {
+      ["en", "ru"].forEach(function (lang) {
+        var el = document.getElementById("email-" + lang);
+        if (el) el.textContent = data.email;
+      });
+    })
+    .catch(showExpired);
+
   function wire(lang) {
     var btn = document.getElementById("continue-" + lang);
     var result = document.getElementById("result-" + lang);

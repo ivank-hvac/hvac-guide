@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>HVAC DiagTree — another session is open</title>
+<title>HVAC DiagTree — confirm sign-in</title>
 <link rel="icon" href="./favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
 <link rel="stylesheet" href="./style.css">
@@ -39,16 +39,16 @@ button.submit:disabled { opacity: .6; cursor: default; }
   </div>
 
   <section data-lang-block="en">
-    <h1>Another session is already open</h1>
-    <p>This account is signed in somewhere else right now. Only one active session is allowed per account. Continuing here will sign that other session out.</p>
-    <button type="button" class="submit" id="continue-en">Sign out the other session and continue here</button>
+    <h1>Confirm before continuing</h1>
+    <p>This is going to sign you in as <strong id="email-en">…</strong>. If that's not your own email, close this page now — do not continue. Also shown if that account already has a session open elsewhere: continuing here signs the other one out.</p>
+    <button type="button" class="submit" id="continue-en">Continue as this account</button>
     <div class="result" id="result-en"></div>
   </section>
 
   <section data-lang-block="ru">
-    <h1>Уже открыта другая сессия</h1>
-    <p>Этот аккаунт сейчас залогинен на другом устройстве. Одновременно допускается только одна активная сессия. Продолжив здесь, вы завершите ту, другую.</p>
-    <button type="button" class="submit" id="continue-ru">Завершить другую сессию и продолжить здесь</button>
+    <h1>Подтвердите перед продолжением</h1>
+    <p>Вы собираетесь войти как <strong id="email-ru">…</strong>. Если это не ваш email — закройте страницу, не продолжайте. Этот же экран появляется, если у аккаунта уже есть активная сессия на другом устройстве: продолжив здесь, вы завершите ту, другую.</p>
+    <button type="button" class="submit" id="continue-ru">Продолжить под этим аккаунтом</button>
     <div class="result" id="result-ru"></div>
   </section>
 </div>

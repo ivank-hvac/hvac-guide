@@ -12,7 +12,7 @@ import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, Response
@@ -92,6 +92,24 @@ SQLITE_BUSY_TIMEOUT_MS = int(os.getenv("SQLITE_BUSY_TIMEOUT_MS", "5000"))
 AI_DAILY_LIMIT_PER_SESSION = int(os.getenv("AI_DAILY_LIMIT_PER_SESSION", "100"))
 AI_DAILY_LIMIT_GLOBAL = int(os.getenv("AI_DAILY_LIMIT_GLOBAL", "400"))
 
+# Reserved session_id used for the global daily counter's own row in
+# ai_quota (see _consume_ai_quota). Deliberately longer than
+# MAX_SESSION_ID_LEN (100) rather than just a distinctive-looking short
+# string — session_id has no format/pattern validation anywhere, only a
+# length cap, so a short reserved value could in principle be submitted
+# verbatim by a raw API caller (create a `sessions` row with that literal
+# id, then use it as their own session_id) and collide with this row.
+# Over the length cap, Pydantic's max_length on every session_id field
+# rejects it before a request carrying it is ever accepted, so the
+# collision is structurally impossible, not just unlikely. Keeping the
+# global count as an atomically-incremented row in the same table, rather
+# than a bare SELECT SUM(calls), is what closes the TOCTOU race found
+# 9 Sep 2026: a plain SUM read has no lock behind it, so concurrent
+# requests could all read the same pre-increment total and all get
+# allowed past a limit that, by the time their writes landed, had
+# already been reached.
+AI_QUOTA_GLOBAL_KEY = "__global__:" + "0" * 100
+
 # How many resumable-session save/restore calls a single IP may make per
 # minute. Separate from LOG_SESSION_RATE_LIMIT above: that one fires once per
 # completed checklist, this one fires on every debounced save while a
@@ -147,6 +165,24 @@ LOGIN_SESSION_TTL_DAYS = int(os.getenv("LOGIN_SESSION_TTL_DAYS", "30"))
 LOGIN_SESSION_RENEW_THRESHOLD = timedelta(days=LOGIN_SESSION_TTL_DAYS / 2)
 LOGIN_COOKIE_NAME = "hvac_auth"
 
+# Login-CSRF binding (found 9 Sep 2026 pentest, stage 12): a magic-link
+# token alone used to be sufficient to log in from ANY browser, not just the
+# one that requested it — an attacker could request their own legitimate
+# link, phish a victim into clicking it, and the victim's browser would
+# silently authenticate as the attacker with zero UI indication (the
+# logged-in email was never shown anywhere). This cookie is set on the
+# requesting browser alongside the emailed token (see request_login) and
+# checked when the token is consumed (see consume_login_token) — a click
+# from a browser that never held this cookie fails the "same browser"
+# check and routes through the confirm screen (see /session-conflict)
+# instead of logging in silently. Deliberately NOT a hard block: a
+# legitimate cross-device open (request on a laptop, click from a phone's
+# mail app) is a normal, common magic-link pattern and must keep working —
+# the confirm screen (which now shows the target email) is what lets a
+# genuine cross-device user proceed with one extra click while giving a
+# phished victim an actual chance to notice "that's not my email".
+LOGIN_NONCE_COOKIE_NAME = "hvac_login_nonce"
+
 # One active login_sessions row per account at a time. Consuming a magic-link
 # token while a *different* session for the same user is still live doesn't
 # silently spawn a second row — it redirects to a short confirm screen
@@ -174,6 +210,17 @@ TOS_VERSION = "2026-08-23"
 # email, so unlike most rate limits here this also protects a stranger's
 # inbox from being spammed by repeated requests for their address.
 LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/minute")
+
+# request_login only awaits the real Resend network call (~200-400ms
+# typically) when the email actually has an account — an unregistered
+# email returns almost instantly. Found 9 Sep 2026 pentest, stage 12: that
+# gap is a timing side-channel for email enumeration even though the
+# response BODY is identical either way. Padding the fast path up to this
+# floor (see request_login) makes both branches take about the same wall-
+# clock time; not perfectly constant-time (Resend can occasionally run
+# slower than this), but closes the gap for the common case at negligible
+# UX cost.
+LOGIN_TIMING_PAD_SECONDS = 0.5
 
 # How many invite codes a single can_invite account may generate per day.
 # Guards against a compromised or overenthusiastic trusted account flooding
@@ -531,10 +578,20 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL,
-                used_at TEXT
+                used_at TEXT,
+                nonce_hash TEXT
             )
             """
         )
+        existing_login_token_cols = {row[1] for row in conn.execute("PRAGMA table_info(login_tokens)")}
+        if "nonce_hash" not in existing_login_token_cols:
+            # Added 9 Sep 2026 for login-CSRF binding (see LOGIN_NONCE_COOKIE_NAME
+            # below) — a fresh CREATE TABLE above already includes it, this only
+            # matters for a DB that already had the table before this column
+            # existed. NULL on old/in-flight rows reads as "can't verify" in
+            # consume_login_token, which routes to the confirm screen rather
+            # than silently trusting an unbound click — the safe default.
+            conn.execute("ALTER TABLE login_tokens ADD COLUMN nonce_hash TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS login_sessions (
@@ -1162,41 +1219,51 @@ def _mark_invite_used(code: str, user_id: int) -> None:
         )
 
 
-def _create_login_token(user_id: int) -> str:
+def _create_login_token(user_id: int) -> Tuple[str, str]:
+    """Returns (raw_token, raw_nonce) — the token goes in the emailed link,
+    the nonce goes in a cookie on the requesting browser only (see
+    LOGIN_NONCE_COOKIE_NAME/request_login). Only their hashes are stored."""
     raw = secrets.token_urlsafe(32)
+    raw_nonce = secrets.token_urlsafe(24)
     now = datetime.now(timezone.utc)
     expires_at = (now + timedelta(minutes=LOGIN_TOKEN_TTL_MINUTES)).isoformat()
     with _db_connect() as conn:
         conn.execute(
-            "INSERT INTO login_tokens (token_hash, user_id, created_at, expires_at) "
-            "VALUES (?, ?, ?, ?)",
-            (_hash_token(raw), user_id, now.isoformat(), expires_at),
+            "INSERT INTO login_tokens (token_hash, user_id, created_at, expires_at, nonce_hash) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (_hash_token(raw), user_id, now.isoformat(), expires_at, _hash_token(raw_nonce)),
         )
-    return raw
+    return raw, raw_nonce
 
 
-def _consume_login_token(raw: str) -> Optional[int]:
+def _consume_login_token(raw: str) -> Optional[Tuple[int, Optional[str]]]:
     """One-shot: a token that validates here can never validate again,
     win or lose the race — the UPDATE and the validity check happen against
     the same row read, so a token can't be used twice even if two requests
-    for it arrive at once."""
+    for it arrive at once.
+
+    Returns (user_id, nonce_hash) — nonce_hash is None for a row created
+    before the login-CSRF fix (or in the small window where storage failed
+    to set the cookie); consume_login_token treats that the same as an
+    outright mismatch, i.e. "can't verify this browser" routes to the
+    confirm screen rather than defaulting to trust."""
     token_hash = _hash_token(raw)
     now = datetime.now(timezone.utc).isoformat()
     with _db_connect() as conn:
         row = conn.execute(
-            "SELECT user_id, expires_at, used_at FROM login_tokens WHERE token_hash = ?",
+            "SELECT user_id, expires_at, used_at, nonce_hash FROM login_tokens WHERE token_hash = ?",
             (token_hash,),
         ).fetchone()
         if row is None:
             return None
-        user_id, expires_at, used_at = row
+        user_id, expires_at, used_at, nonce_hash = row
         if used_at is not None or expires_at < now:
             return None
         conn.execute(
             "UPDATE login_tokens SET used_at = ? WHERE token_hash = ?",
             (now, token_hash),
         )
-    return user_id
+    return user_id, nonce_hash
 
 
 def _create_login_session(user_id: int) -> str:
@@ -1291,6 +1358,27 @@ def _consume_session_takeover_token(raw: str) -> Optional[int]:
     return user_id
 
 
+def _peek_session_takeover_email(raw: str) -> Optional[str]:
+    """Read-only counterpart to _consume_session_takeover_token — doesn't
+    mark the token used, so the /session-conflict page can show the tech
+    which account they're about to continue as (added 9 Sep 2026, login-CSRF
+    finding: the target email was never shown anywhere) without burning the
+    one-shot token just by loading the page. Only the eventual "Continue"
+    click (POST /api/session-takeover) actually consumes it."""
+    token_hash = _hash_token(raw)
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        row = conn.execute(
+            """
+            SELECT u.email FROM session_takeover_tokens t
+            JOIN users u ON u.id = t.user_id
+            WHERE t.token_hash = ? AND t.used_at IS NULL AND t.expires_at > ?
+            """,
+            (token_hash, now),
+        ).fetchone()
+    return row[0] if row else None
+
+
 def _set_session_cookie(response: Response, raw_token: str) -> None:
     # Reissued on every authenticated response (see LOGIN_SESSION_RENEW_THRESHOLD)
     # so the browser-side Max-Age always reflects the most recent visit, not
@@ -1299,6 +1387,21 @@ def _set_session_cookie(response: Response, raw_token: str) -> None:
         key=LOGIN_COOKIE_NAME,
         value=raw_token,
         max_age=LOGIN_SESSION_TTL_DAYS * 86400,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _set_login_nonce_cookie(response: Response, raw_nonce: str) -> None:
+    # See LOGIN_NONCE_COOKIE_NAME. Same TTL as the login token itself — no
+    # reason for this to outlive the link it's proving the requesting
+    # browser for.
+    response.set_cookie(
+        key=LOGIN_NONCE_COOKIE_NAME,
+        value=raw_nonce,
+        max_age=LOGIN_TOKEN_TTL_MINUTES * 60,
         httponly=True,
         secure=COOKIE_SECURE,
         samesite="lax",
@@ -1505,34 +1608,58 @@ def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
     Reserved before the provider is called rather than recorded after, so a
     request that fails or times out still costs quota — the conservative
     direction when the thing being protected is a metered API key.
+
+    Both limits are enforced by incrementing a counter row and checking the
+    RETURNED post-increment value, not by a separate SELECT before the
+    write — found 9 Sep 2026: the old check-then-act shape let concurrent
+    requests near the boundary all read the same pre-increment count and
+    all get allowed, oversubscribing the limit by up to (concurrency - 1).
+    A plain increment can't have that gap: the value it returns already
+    reflects every write that landed before it, by construction.
     """
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     with _db_connect() as conn:
-        used_global = conn.execute(
-            "SELECT COALESCE(SUM(calls), 0) FROM ai_quota WHERE day = ?", (day,)
-        ).fetchone()[0]
-        if used_global >= AI_DAILY_LIMIT_GLOBAL:
-            return {"allowed": False, "scope": "global", "remaining": 0,
-                    "limit": AI_DAILY_LIMIT_PER_SESSION}
-
-        row = conn.execute(
-            "SELECT calls FROM ai_quota WHERE session_id = ? AND day = ?",
-            (session_id, day),
-        ).fetchone()
-        used = row[0] if row else 0
-        if used >= AI_DAILY_LIMIT_PER_SESSION:
-            return {"allowed": False, "scope": "session", "remaining": 0,
-                    "limit": AI_DAILY_LIMIT_PER_SESSION}
-
-        conn.execute(
+        new_session_calls = conn.execute(
             """
             INSERT INTO ai_quota (session_id, day, calls) VALUES (?, ?, 1)
             ON CONFLICT(session_id, day) DO UPDATE SET calls = calls + 1
+            RETURNING calls
             """,
             (session_id, day),
-        )
+        ).fetchone()[0]
+        if new_session_calls > AI_DAILY_LIMIT_PER_SESSION:
+            # Over budget — this reservation doesn't happen, so back the
+            # increment out rather than let a rejected request still cost
+            # real quota against a future one.
+            conn.execute(
+                "UPDATE ai_quota SET calls = calls - 1 WHERE session_id = ? AND day = ?",
+                (session_id, day),
+            )
+            return {"allowed": False, "scope": "session", "remaining": 0,
+                    "limit": AI_DAILY_LIMIT_PER_SESSION}
+
+        new_global_calls = conn.execute(
+            """
+            INSERT INTO ai_quota (session_id, day, calls) VALUES (?, ?, 1)
+            ON CONFLICT(session_id, day) DO UPDATE SET calls = calls + 1
+            RETURNING calls
+            """,
+            (AI_QUOTA_GLOBAL_KEY, day),
+        ).fetchone()[0]
+        if new_global_calls > AI_DAILY_LIMIT_GLOBAL:
+            conn.execute(
+                "UPDATE ai_quota SET calls = calls - 1 WHERE session_id = ? AND day = ?",
+                (AI_QUOTA_GLOBAL_KEY, day),
+            )
+            conn.execute(
+                "UPDATE ai_quota SET calls = calls - 1 WHERE session_id = ? AND day = ?",
+                (session_id, day),
+            )
+            return {"allowed": False, "scope": "global", "remaining": 0,
+                    "limit": AI_DAILY_LIMIT_PER_SESSION}
+
     return {"allowed": True, "scope": None,
-            "remaining": AI_DAILY_LIMIT_PER_SESSION - (used + 1),
+            "remaining": AI_DAILY_LIMIT_PER_SESSION - new_session_calls,
             "limit": AI_DAILY_LIMIT_PER_SESSION}
 
 
@@ -1778,7 +1905,7 @@ async def legal_page():
 
 @app.post("/api/register")
 @limiter.limit(LOGIN_RATE_LIMIT)
-async def register(request: Request, req: RegisterRequest):
+async def register(request: Request, response: Response, req: RegisterRequest):
     if not AUTH_ENABLED:
         raise HTTPException(status_code=404)
     if not req.tos_accepted:
@@ -1789,11 +1916,12 @@ async def register(request: Request, req: RegisterRequest):
 
     user_id = await run_in_threadpool(_get_or_create_user, req.email)
     await run_in_threadpool(_mark_invite_used, req.code, user_id)
-    raw_token = await run_in_threadpool(_create_login_token, user_id)
+    raw_token, raw_nonce = await run_in_threadpool(_create_login_token, user_id)
     login_url = f"{_external_base_url(request)}/login/{raw_token}"
     sent = await _send_login_email(req.email, login_url, req.lang)
     if not sent:
         raise HTTPException(status_code=502, detail=INVITE_MESSAGES[req.lang]["send_failed"])
+    _set_login_nonce_cookie(response, raw_nonce)
     return {"status": "sent", "message": INVITE_MESSAGES[req.lang]["sent"].format(email=req.email)}
 
 
@@ -1806,17 +1934,26 @@ async def login_page():
 
 @app.post("/api/login")
 @limiter.limit(LOGIN_RATE_LIMIT)
-async def request_login(request: Request, req: LoginRequest):
+async def request_login(request: Request, response: Response, req: LoginRequest):
     if not AUTH_ENABLED:
         raise HTTPException(status_code=404)
-    # Always the same response whether or not the email has an account —
-    # anything else lets a caller enumerate which addresses are registered.
+    # Always the same response BODY whether or not the email has an account
+    # — anything else lets a caller enumerate which addresses are
+    # registered. The padded timing below (LOGIN_TIMING_PAD_SECONDS) closes
+    # the same gap for response TIME: only the "account exists" branch
+    # below awaits the real Resend network call, so without padding this
+    # endpoint would answer noticeably faster for an email with no account.
+    start = time.monotonic()
     with _db_connect() as conn:
         row = conn.execute("SELECT id FROM users WHERE email = ?", (req.email,)).fetchone()
     if row is not None:
-        raw_token = await run_in_threadpool(_create_login_token, row[0])
+        raw_token, raw_nonce = await run_in_threadpool(_create_login_token, row[0])
         login_url = f"{_external_base_url(request)}/login/{raw_token}"
         await _send_login_email(req.email, login_url, req.lang)
+        _set_login_nonce_cookie(response, raw_nonce)
+    elapsed = time.monotonic() - start
+    if elapsed < LOGIN_TIMING_PAD_SECONDS:
+        await asyncio.sleep(LOGIN_TIMING_PAD_SECONDS - elapsed)
     return {"status": "sent", "message": INVITE_MESSAGES[req.lang]["sent"].format(email=req.email)}
 
 
@@ -1826,9 +1963,10 @@ async def consume_login_token(token: str, request: Request):
         raise HTTPException(status_code=404)
     if len(token) > 128:
         return RedirectResponse(url="/login?expired=1", status_code=303)
-    user_id = await run_in_threadpool(_consume_login_token, token)
-    if user_id is None:
+    result = await run_in_threadpool(_consume_login_token, token)
+    if result is None:
         return RedirectResponse(url="/login?expired=1", status_code=303)
+    user_id, nonce_hash = result
 
     # Fast path: this browser already holds a valid cookie for this exact
     # account (re-clicking an old email, a double tab, etc) — nothing to
@@ -1841,10 +1979,25 @@ async def consume_login_token(token: str, request: Request):
     if current_user and current_user["id"] == user_id:
         return RedirectResponse(url="/diagnose", status_code=303)
 
+    # Login-CSRF binding (see LOGIN_NONCE_COOKIE_NAME): this browser must be
+    # the one that requested the link, proven by holding the matching nonce
+    # cookie — the token alone, visible to anyone the link gets forwarded
+    # to, is no longer sufficient on its own. A missing/mismatched nonce
+    # does NOT hard-fail — a legitimate cross-device open (requested on a
+    # laptop, clicked from a phone's mail app) looks identical from here,
+    # and that's a normal magic-link pattern that has to keep working. It's
+    # folded into the same "can't silently trust this" bucket as an
+    # already-active-session-elsewhere below, both routed to one confirm
+    # screen that now shows the target email (see /session-conflict).
+    cookie_nonce = request.cookies.get(LOGIN_NONCE_COOKIE_NAME)
+    nonce_verified = bool(
+        nonce_hash and cookie_nonce and secrets.compare_digest(_hash_token(cookie_nonce), nonce_hash)
+    )
+
     # One active login_sessions row per account (see SESSION_TAKEOVER_TOKEN_TTL_MINUTES
     # above): a live session elsewhere doesn't get silently duplicated — this
     # device gets sent to a confirm screen instead of a fresh cookie.
-    if await run_in_threadpool(_has_active_session, user_id):
+    if not nonce_verified or await run_in_threadpool(_has_active_session, user_id):
         takeover_token = await run_in_threadpool(_create_session_takeover_token, user_id)
         return RedirectResponse(url=f"/session-conflict?token={takeover_token}", status_code=303)
 
@@ -1861,6 +2014,24 @@ async def session_conflict_page():
     return FileResponse(
         os.path.join("static", "session-conflict.html"), headers={"Cache-Control": "no-cache"}
     )
+
+
+@app.get("/api/session-conflict-info")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def session_conflict_info(request: Request, token: str):
+    # Lets the confirm screen show WHICH account it's about to continue as
+    # (see _peek_session_takeover_email) — added for the login-CSRF finding,
+    # where a phished victim had no way to notice they were about to
+    # continue into a stranger's account. Read-only: doesn't consume the
+    # token, so loading the page twice or refreshing doesn't burn it.
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    if len(token) > 128:
+        raise HTTPException(status_code=400, detail="expired")
+    email = await run_in_threadpool(_peek_session_takeover_email, token)
+    if email is None:
+        raise HTTPException(status_code=400, detail="expired")
+    return {"email": email}
 
 
 @app.post("/api/session-takeover")
