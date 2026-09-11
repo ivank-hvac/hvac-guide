@@ -11,6 +11,16 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-11
 
+- AI quota (pentest stages 13/14, code review then a live exploit run):
+  the per-"session" daily limit was keyed by a client-generated
+  `session_id`, free to rotate on every call — bounded only by the IP
+  rate-limit and the global daily cap, not by design. `/api/ai-assist`
+  now keys the quota by the logged-in account (`user:<id>`) instead,
+  falling back to `session_id` only for self-host without auth. Verified
+  live: two calls on one account through two different session_ids now
+  correctly show `calls_remaining` decreasing instead of resetting.
+  #138, `efbf190`
+
 - Login-CSRF (pentest stage 17, live confirmation): the `/session-conflict`
   confirm screen's single neutral warning wasn't sharp enough to reliably
   stop a rushed/social-engineered click — a full account takeover went
