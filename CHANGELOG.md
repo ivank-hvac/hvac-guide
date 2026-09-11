@@ -9,6 +9,15 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-11
+
+- Manage-invites icon (👥) polish, three small fixes from live feedback:
+  missing hover tooltip (RU/EN, same pattern as the history/admin icons),
+  near-invisible contrast in dark theme (the glyph itself renders very
+  dark, brightened via a scoped CSS filter), and undersized inside field
+  theme's bigger 48px tap target (icon-only buttons now scale their
+  font-size in that theme, text labels untouched). #136, `6fcddd3`
+
 ## 2026-09-09
 
 - Fixed a fourth pentest finding (stage 14, same day, arrived after the
