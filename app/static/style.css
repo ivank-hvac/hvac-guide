@@ -115,6 +115,17 @@
   padding: 12px 16px;
 }
 
+/* Icon-only buttons (theme toggle, history/invite/admin links) keep the
+   base .lang-btn font-size (0.75rem) even in field theme, so the emoji
+   glyph stayed dark-theme-sized while the button itself grew to the
+   48px tap target above — a small icon adrift in a much bigger square.
+   Bumped just for these, not all .lang-btn text, since RU/EN/unit
+   labels already read fine at the base size. */
+:root[data-theme="field"] .theme-btn,
+:root[data-theme="field"] .invite-link {
+  font-size: 1.5rem;
+}
+
 * { box-sizing: border-box; }
 
 body {
