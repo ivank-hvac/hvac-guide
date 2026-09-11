@@ -24,3 +24,5 @@ user-facing features. No implementation details or internal working plans.
   superheat/subcooling.
 - **Multi-provider AI** — fallback if the primary AI provider fails, a
   user-facing assistant switcher.
+- **OAuth sign-in** (Google, Apple, etc.) as an alternative to the current
+  email magic-link login. Planned, no timeline yet.

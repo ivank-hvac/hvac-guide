@@ -41,6 +41,13 @@ documents the node types. `tools/visualize_graph.py` renders the graph to a
 Mermaid diagram, which is the fastest way to see what a change does to the
 paths.
 
+**A PR here edits the demo subset, not the full product graph.** This
+repo's own `graph.json` only ships entry-level RTU/Split/Chiller content —
+the maintainer's full graph (every equipment type, deeper tiers) lives in a
+private repo, see README's "graph.json itself isn't a tracked file in this
+repo anymore" for why. A graph-content PR is still genuinely useful (it's
+what a fresh self-host actually runs), it just isn't the whole picture.
+
 ## Code changes
 
 Keep pull requests small and focused, and say what you tested. There is no

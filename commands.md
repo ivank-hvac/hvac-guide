@@ -83,22 +83,36 @@ docker exec hvac-guide python3 -c "import urllib.request as u; print(u.urlopen('
 docker ps   # both containers should be "Up"
 ```
 
-## Basic auth (Phase 1: login/password on the whole site)
+## Access control (see DEPLOY.md "Access control" for the full picture)
 
 ```bash
-# Generate the password hash — MUST end with | sed (see README/Caddyfile
+# --- Option A: shared team password (Caddy basic auth) ---
+# Generate the password hash — MUST end with | sed (see DEPLOY.md/Caddyfile
 # about escaping $, otherwise docker compose truncates the hash and no one's
 # password will be accepted)
 docker run --rm caddy:2-alpine caddy hash-password --plaintext 'NEW_PASSWORD' | sed 's/\$/\$\$/g'
-# paste the result into .env -> CADDY_BASIC_AUTH_HASH, then:
+# paste the result into .env -> CADDY_BASIC_AUTH_HASH, then uncomment the
+# basic_auth block in Caddyfile if it isn't already, then:
 docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 
 # Confirm the full hash actually made it into the container (~60 chars, not a stub)
 docker exec hvac-guide-caddy printenv CADDY_BASIC_AUTH_HASH
 
-# Disable basic auth (Phase 2 — open to everyone):
-# 1. Comment out the basic_auth { ... } block in Caddyfile
-# 2. docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
+# Turn basic auth back off: comment the basic_auth { ... } block out in
+# Caddyfile, then --force-recreate caddy again as above.
+
+# --- Option B: invite-gate + passwordless login ---
+# Set in .env, then rebuild (RESEND_API_KEY/RESEND_FROM_EMAIL, see DEPLOY.md):
+docker compose -f docker-compose.prod.yml up -d --build
+
+# First-ever start with no accounts mints a one-time bootstrap invite:
+docker compose -f docker-compose.prod.yml logs hvac-guide | grep "bootstrap invite"
+
+# Confirm it's actually wired up:
+curl -s https://your-domain/api/health   # should show "auth_configured": true
+
+# Grant/revoke can_invite or is_admin on an account — done from /panel in
+# the browser (logged in as an is_admin account), no CLI equivalent today.
 ```
 
 ## Settings (.env) with no code rebuild

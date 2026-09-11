@@ -2,8 +2,9 @@
 
 *English | [Русский](README.ru.md)*
 
-Interactive checklist troubleshooter for HVAC/R equipment (RTU, split, VRF/VRV,
-chillers, refrigeration equipment, furnaces). Questions follow a decision graph
+Interactive checklist troubleshooter for HVAC/R equipment (RTU, split,
+furnaces, heat pumps, chillers, refrigeration equipment, VRF/VRV). Questions
+follow a decision graph
 based on equipment type and symptom. At result nodes and in complex cases, an
 AI assistant (Anthropic API) is available — it analyzes the whole checklist
 path taken so far and gives a more precise diagnosis.

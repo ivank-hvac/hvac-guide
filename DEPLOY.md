@@ -4,17 +4,18 @@ Step-by-step deploy/rollback with explanations. Bare commands with no
 explanations are in [commands.md](commands.md); change history is in
 [CHANGELOG.md](CHANGELOG.md).
 
-The project is built for gradually opening up access without rewriting code:
-team-only first (basic auth via Caddy), then public.
+The project is built to run wide open, behind a shared team password, or
+behind individual accounts — pick whichever access control fits, without
+touching application code either way.
 
 ## Requirements
 
 - Docker + Docker Compose on the target machine.
-- For prod (Phase 1/2): the Caddy in this repo (`docker-compose.prod.yml`)
-  listens on `:80` and doesn't terminate TLS itself — an edge proxy further
-  up the chain is assumed (e.g. an external Caddy on a separate host with a
-  public IP, which gets the certificate and forwards traffic here, say over
-  a WireGuard tunnel). If you terminate TLS directly on this machine, you'll
+- For the Caddy-fronted shape (`docker-compose.prod.yml`): Caddy listens on
+  `:80` and doesn't terminate TLS itself — an edge proxy further up the
+  chain is assumed (e.g. an external Caddy on a separate host with a public
+  IP, which gets the certificate and forwards traffic here, say over a
+  WireGuard tunnel). If you terminate TLS directly on this machine, you'll
   need to reconfigure Caddy separately for a real domain and port 443 — the
   config below isn't built for that.
 - Git hooks for the build version — see "Build version" below, enabled once
@@ -30,10 +31,19 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-## Phase 1 — team-only access (Caddy + basic auth)
+## Access control
 
-Basic auth is enabled in the Caddyfile by default — nothing in the file
-itself needs touching, just fill in `.env`:
+Two independent, optional layers — use either, both, or neither. Neither is
+required by the application itself; they exist for when the tool is
+reachable from somewhere you don't fully trust yet.
+
+### Option A — a shared team password (Caddy basic auth)
+
+Simplest option: one password, no email setup, works the moment Caddy is
+up. Good for "a handful of people I already trust, for now."
+
+Basic auth is commented out in the Caddyfile by default — uncomment the
+`basic_auth @not_public { ... }` block, then fill in `.env`:
 
 ```bash
 cp .env.example .env
@@ -66,17 +76,55 @@ the hash with the command above (with `| sed`), update `.env`, and:
 docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
 ```
 
-Only your team sits behind basic auth in the meantime (TLS is the edge
-proxy's job further up the chain, not this Caddy's — see "Requirements"
-above).
+Everyone behind it shares one password (TLS is the edge proxy's job further
+up the chain, not this Caddy's — see "Requirements" above). To turn it back
+off later: comment the `basic_auth { ... }` block out again and
+`--force-recreate caddy`.
 
-## Phase 2 — open to everyone
+### Option B — invite-gate + passwordless login
 
-1. In `Caddyfile`, comment the `basic_auth { ... }` block back out.
-2. In `.env`, tighten `AI_ASSIST_RATE_LIMIT` (e.g. `3/minute`) if you expect
-   a lot of traffic.
-3. `docker compose -f docker-compose.prod.yml up -d --force-recreate caddy`
-   — the application code isn't touched at all.
+Individual accounts instead of one shared password: a technician registers
+through a personal invite link, then signs in with a one-time emailed
+link (no password to manage or leak). Adds per-account session history,
+an admin panel, and a per-account daily AI-usage quota — meaningfully more
+setup than Option A, worth it once you actually want to know who's using
+the tool rather than just keeping strangers out.
+
+Entirely opt-in and independent of `docker-compose.prod.yml`/Caddy: the
+app turns this on for itself the moment `RESEND_API_KEY` is set — leave it
+blank and `/diagnose`/the graph API stay exactly as open as the plain
+self-host path, no accounts, no invites, no code path even runs.
+
+```bash
+# .env — get a key from https://resend.com (free tier is plenty at low
+# volume) and verify a sending domain there first
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=Your Project <login@your-verified-domain.com>
+
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+On first start with no accounts yet, the app mints a one-time bootstrap
+invite and logs it:
+
+```bash
+docker compose -f docker-compose.prod.yml logs hvac-guide | grep "bootstrap invite"
+# AUTH_ENABLED with no users yet — bootstrap invite created: visit
+# /invite/<code> to register the first account, then grant it can_invite
+# from /panel.
+```
+
+Register through that link. The very first account is automatically
+granted admin (`/panel` access) — from there, grant yourself `can_invite`
+(so you can generate invite links for everyone else via
+`/manage-invites`) and `is_admin` to any other trusted account, both from
+`/panel`'s "Invite-gate accounts" section. `GET /api/health` reports
+`"auth_configured": true` once this is wired up correctly.
+
+This project's own deployment ran Option A first (team-only, while the
+tool was still rough) and switched to Option B for the public launch —
+see CHANGELOG around 27 Aug 2026 for that specific cutover. Neither order
+is required; pick whichever matches where you're at.
 
 ## Routine updates (day to day)
 
@@ -162,7 +210,15 @@ full commit rollback.
 
 - Logs: `docker compose -f docker-compose.prod.yml logs -f [service]`
 - Basic auth loops on the password prompt → see the `$`-escaping warning in
-  Phase 1 above.
+  Option A above.
+- `/api/health` shows `"auth_configured": false` after setting
+  `RESEND_API_KEY` → the container needs a rebuild/recreate to pick up a
+  changed `.env` (`up -d --build`, not just editing the file); also double-
+  check `RESEND_FROM_EMAIL`'s domain is actually verified in your Resend
+  account, not just any address.
+- Nobody can reach `/panel` → the very first registered account is admin
+  automatically; if that account is unknown/lost, the only recovery path
+  today is editing `users.is_admin` directly in `sessions.db`.
 - `ERR_TOO_MANY_REDIRECTS` in the browser → a real incident (see CHANGELOG):
   if the site is addressed in the Caddyfile by a domain name (not `:80`),
   Caddy triggers automatic HTTPS and redirects the already-decrypted HTTP

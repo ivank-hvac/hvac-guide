@@ -58,7 +58,12 @@
 		not path / /style.css /landing.js /favicon.ico /icon-512.png
 	}
 
-	# --- Phase 1 (team-only access) — basic auth enabled by default ---
+	# --- Option A: shared team password (see DEPLOY.md "Access control") ---
+	# Commented out below by default — this project's own deployment
+	# switched to Option B (invite-gate + passwordless login, entirely at
+	# the application layer, not here) as its access control, see
+	# CHANGELOG.md around 27 Aug 2026. Uncomment the basic_auth block below
+	# to use this option instead/as well; it's independent of Option B.
 	# The password hash is generated like this (MUST end with `| sed`!):
 	#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YOUR_PASSWORD' | sed 's/\$/\$\$/g'
 	# The result (with the doubled $$) goes into CADDY_BASIC_AUTH_HASH in .env.
@@ -76,13 +81,8 @@
 	# basic_auth @not_public {
 	# 	{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 	# }
-	# --- Phase 2 (public launch, 27 авг. 2026) ---
-	# Disabled: invite-gate + passwordless login is the access control now
-	# (see CLAUDE.md "план выхода в паблик"). The 6 testers who shared this
-	# password lose access until they register via a personal invite from
-	# /manage-invites — expected and already agreed with the team.
-	# To disable basic auth and open access to everyone — comment out the
-	# basic_auth block above (no need to touch the application code).
+	# To turn basic auth back off — comment the basic_auth block above back
+	# out (no need to touch the application code either way).
 
 	# Access logging is off by default in Caddy, which means an incident — or
 	# a penetration test — leaves no trace at all. JSON to stderr keeps this
