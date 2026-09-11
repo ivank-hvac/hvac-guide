@@ -239,6 +239,16 @@ header h1 {
   margin-right: 14px;
 }
 
+/* The 👥 glyph itself renders in a very dark indigo in most emoji fonts
+   (unlike the light/white 🕓 and ⚙️ next to it), making it nearly
+   invisible against the dark theme's button background — text color
+   doesn't affect emoji rendering, so this has to brighten the glyph
+   itself. Field theme's light background already gives it plenty of
+   contrast as-is, so the filter is scoped to dark theme only. */
+:root:not([data-theme="field"]) #inviteLink {
+  filter: brightness(2.2);
+}
+
 .lang-btn {
   border: var(--border-width) solid var(--panel-border);
   background: transparent;
