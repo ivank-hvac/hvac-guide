@@ -1657,8 +1657,14 @@ def _session_is_live(session_id: str) -> bool:
         return False
 
 
-def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
+def _consume_ai_quota(quota_key: str) -> Dict[str, Any]:
     """Reserve one AI call against today's allowances.
+
+    `quota_key` is `user:<id>` for a logged-in account, or the raw client
+    session_id as a fallback for self-host without auth (see the call site
+    in ai_assist) — the `ai_quota` table just stores whatever key it's
+    given per day, same column either way (it already dual-purposes as the
+    home for AI_QUOTA_GLOBAL_KEY's reserved row below).
 
     Reserved before the provider is called rather than recorded after, so a
     request that fails or times out still costs quota — the conservative
@@ -1680,7 +1686,7 @@ def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
             ON CONFLICT(session_id, day) DO UPDATE SET calls = calls + 1
             RETURNING calls
             """,
-            (session_id, day),
+            (quota_key, day),
         ).fetchone()[0]
         if new_session_calls > AI_DAILY_LIMIT_PER_SESSION:
             # Over budget — this reservation doesn't happen, so back the
@@ -1688,7 +1694,7 @@ def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
             # real quota against a future one.
             conn.execute(
                 "UPDATE ai_quota SET calls = calls - 1 WHERE session_id = ? AND day = ?",
-                (session_id, day),
+                (quota_key, day),
             )
             return {"allowed": False, "scope": "session", "remaining": 0,
                     "limit": AI_DAILY_LIMIT_PER_SESSION}
@@ -1708,7 +1714,7 @@ def _consume_ai_quota(session_id: str) -> Dict[str, Any]:
             )
             conn.execute(
                 "UPDATE ai_quota SET calls = calls - 1 WHERE session_id = ? AND day = ?",
-                (session_id, day),
+                (quota_key, day),
             )
             return {"allowed": False, "scope": "global", "remaining": 0,
                     "limit": AI_DAILY_LIMIT_PER_SESSION}
@@ -1771,7 +1777,7 @@ async def ai_assist(request: Request, response: Response, req: AssistRequest):
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail=SETUP_ERROR[req.lang])
 
-    await _require_login(request, response)
+    user = await _require_login(request, response)
 
     ip = client_key(request)
     if await run_in_threadpool(_is_ip_banned, ip):
@@ -1780,7 +1786,17 @@ async def ai_assist(request: Request, response: Response, req: AssistRequest):
     if not req.session_id or not await run_in_threadpool(_session_is_live, req.session_id):
         raise HTTPException(status_code=403, detail=NO_SESSION_ERROR[req.lang])
 
-    quota = await run_in_threadpool(_consume_ai_quota, req.session_id)
+    # Quota keyed by account when logged in (pentest stages 13/14: a client-
+    # generated session_id costs nothing to rotate, so the per-"session"
+    # limit was really a per-request limit against anyone willing to mint a
+    # fresh one — bounded only by the global cap and the IP rate-limit, not
+    # by design). AUTH_ENABLED means _require_login above already resolved a
+    # real account, so "session" and "account" can be the same durable unit
+    # instead of two different things that happen to share a name. Falls
+    # back to session_id for self-host without auth, where there's no
+    # account to key against at all.
+    quota_key = f"user:{user['id']}" if user else req.session_id
+    quota = await run_in_threadpool(_consume_ai_quota, quota_key)
     if not quota["allowed"]:
         detail = (DAILY_GLOBAL_LIMIT_ERROR if quota["scope"] == "global"
                   else DAILY_SESSION_LIMIT_ERROR)[req.lang]
