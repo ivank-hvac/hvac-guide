@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-11
 
+- SECURITY.md: added a "Known limitations (accepted risk)" section
+  documenting the magic-link Login-CSRF trade-off and the AI-assist
+  abuse protections as deliberate, already-mitigated design decisions —
+  prompted by the pentest engagement's stages 13/14/17. Rest of the
+  existing policy untouched. #139, `876e99c`
+
 - AI quota (pentest stages 13/14, code review then a live exploit run):
   the per-"session" daily limit was keyed by a client-generated
   `session_id`, free to rotate on every call — bounded only by the IP
