@@ -11,6 +11,15 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-11
 
+- Login-CSRF (pentest stage 17, live confirmation): the `/session-conflict`
+  confirm screen's single neutral warning wasn't sharp enough to reliably
+  stop a rushed/social-engineered click — a full account takeover went
+  through end-to-end with just one click. Split the two triggers (unverified
+  browser = actual phishing/CSRF shape vs. an active session elsewhere =
+  ordinary multi-device re-login) into a severe red warning vs. a milder
+  heads-up via a new `reason` field, verified live for both paths. #137,
+  `a936a8a`
+
 - Manage-invites icon (👥) polish, three small fixes from live feedback:
   missing hover tooltip (RU/EN, same pattern as the history/admin icons),
   near-invisible contrast in dark theme (the glyph itself renders very
