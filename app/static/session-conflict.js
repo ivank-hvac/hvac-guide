@@ -12,6 +12,23 @@
     },
   };
 
+  // Two distinct reasons land here (see reason in _peek_session_takeover_info,
+  // main.py) — "unverified_browser" is the real phishing/CSRF shape (this
+  // browser never requested the link it just followed) and gets the sharp
+  // warning; "active_session" is the ordinary multi-device re-login and gets
+  // a milder heads-up. Unrecognized/missing reason (old pre-migration token)
+  // falls back to the mild copy, never the sharp one.
+  var ALERTS = {
+    unverified_browser: {
+      en: "⚠️ This link was not opened on the device that requested it. If someone sent you this link, STOP — continuing will sign this device into THEIR account, not your own.",
+      ru: "⚠️ Эта ссылка открыта не на том устройстве, что её запрашивало. Если ссылку прислал вам кто-то другой — ОСТАНОВИТЕСЬ. Продолжив, вы войдёте на этом устройстве в ЧУЖОЙ аккаунт, не в свой.",
+    },
+    active_session: {
+      en: "You already have an active session on another device. Continuing here will sign that other device out.",
+      ru: "У вас уже есть активная сессия на другом устройстве. Продолжив здесь, вы завершите ту сессию.",
+    },
+  };
+
   var token = new URLSearchParams(location.search).get("token") || "";
 
   function showExpired() {
@@ -26,10 +43,11 @@
     });
   }
 
-  // Read-only lookup (see _peek_session_takeover_email in main.py) — shows
-  // which account this confirm screen is actually about, added for the
-  // login-CSRF finding (9 Sep 2026): a phished victim previously had no
-  // way to tell they were about to continue into a stranger's account.
+  // Read-only lookup (see _peek_session_takeover_info in main.py) — shows
+  // which account this confirm screen is actually about, and why it's
+  // showing at all, added for the login-CSRF finding (9 Sep, sharpened
+  // 11 Sep after pentest stage 17 showed the original single neutral
+  // paragraph wasn't a strong enough deterrent against a rushed click).
   // Doesn't consume the token, so this fetch itself never burns it.
   fetch("/api/session-conflict-info?token=" + encodeURIComponent(token))
     .then(function (r) {
@@ -37,9 +55,16 @@
       return r.json();
     })
     .then(function (data) {
+      var copy = ALERTS[data.reason] || ALERTS.active_session;
+      var severity = data.reason === "unverified_browser" ? "severe" : "mild";
       ["en", "ru"].forEach(function (lang) {
-        var el = document.getElementById("email-" + lang);
-        if (el) el.textContent = data.email;
+        var emailEl = document.getElementById("email-" + lang);
+        if (emailEl) emailEl.textContent = data.email;
+        var alertEl = document.getElementById("alert-" + lang);
+        if (alertEl) {
+          alertEl.textContent = copy[lang];
+          alertEl.className = "alert-box " + severity;
+        }
       });
     })
     .catch(showExpired);
