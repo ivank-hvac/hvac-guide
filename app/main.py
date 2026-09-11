@@ -619,10 +619,21 @@ def init_db() -> None:
                 user_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL,
-                used_at TEXT
+                used_at TEXT,
+                reason TEXT
             )
             """
         )
+        existing_takeover_cols = {row[1] for row in conn.execute("PRAGMA table_info(session_takeover_tokens)")}
+        if "reason" not in existing_takeover_cols:
+            # Added 11 Sep 2026 (pentest stage 17 — see SESSION_TAKEOVER_TOKEN_TTL_MINUTES
+            # below): lets /session-conflict tell a real CSRF/phishing attempt
+            # (nonce cookie missing/mismatched) apart from a legitimate
+            # multi-device re-login (nonce verified, just an active session
+            # elsewhere) and show a much sharper warning for the former. NULL
+            # on old rows (10-minute TTL, so effectively none survive) falls
+            # back to the milder copy client-side — never the sharper one.
+            conn.execute("ALTER TABLE session_takeover_tokens ADD COLUMN reason TEXT")
 
 
 init_db()
@@ -1334,15 +1345,15 @@ def _invalidate_all_sessions(user_id: int) -> None:
         conn.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
 
 
-def _create_session_takeover_token(user_id: int) -> str:
+def _create_session_takeover_token(user_id: int, reason: str) -> str:
     raw = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     expires_at = (now + timedelta(minutes=SESSION_TAKEOVER_TOKEN_TTL_MINUTES)).isoformat()
     with _db_connect() as conn:
         conn.execute(
-            "INSERT INTO session_takeover_tokens (token_hash, user_id, created_at, expires_at) "
-            "VALUES (?, ?, ?, ?)",
-            (_hash_token(raw), user_id, now.isoformat(), expires_at),
+            "INSERT INTO session_takeover_tokens (token_hash, user_id, created_at, expires_at, reason) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (_hash_token(raw), user_id, now.isoformat(), expires_at, reason),
         )
     return raw
 
@@ -1368,25 +1379,31 @@ def _consume_session_takeover_token(raw: str) -> Optional[int]:
     return user_id
 
 
-def _peek_session_takeover_email(raw: str) -> Optional[str]:
+def _peek_session_takeover_info(raw: str) -> Optional[Tuple[str, str]]:
     """Read-only counterpart to _consume_session_takeover_token — doesn't
     mark the token used, so the /session-conflict page can show the tech
     which account they're about to continue as (added 9 Sep 2026, login-CSRF
     finding: the target email was never shown anywhere) without burning the
     one-shot token just by loading the page. Only the eventual "Continue"
-    click (POST /api/session-takeover) actually consumes it."""
+    click (POST /api/session-takeover) actually consumes it. Also returns
+    `reason` (added 11 Sep 2026, pentest stage 17) so the confirm screen can
+    show a sharply different warning for "this browser was never verified"
+    (real CSRF/phishing shape) versus "you're already signed in somewhere
+    else" (ordinary multi-device re-login) — NULL/unrecognized reason on an
+    old pre-migration row falls back to the milder copy, never the sharper
+    one."""
     token_hash = _hash_token(raw)
     now = datetime.now(timezone.utc).isoformat()
     with _db_connect() as conn:
         row = conn.execute(
             """
-            SELECT u.email FROM session_takeover_tokens t
+            SELECT u.email, t.reason FROM session_takeover_tokens t
             JOIN users u ON u.id = t.user_id
             WHERE t.token_hash = ? AND t.used_at IS NULL AND t.expires_at > ?
             """,
             (token_hash, now),
         ).fetchone()
-    return row[0] if row else None
+    return (row[0], row[1] or "active_session") if row else None
 
 
 def _set_session_cookie(response: Response, raw_token: str) -> None:
@@ -2035,8 +2052,17 @@ async def consume_login_token(token: str, request: Request):
     # One active login_sessions row per account (see SESSION_TAKEOVER_TOKEN_TTL_MINUTES
     # above): a live session elsewhere doesn't get silently duplicated — this
     # device gets sent to a confirm screen instead of a fresh cookie.
-    if not nonce_verified or await run_in_threadpool(_has_active_session, user_id):
-        takeover_token = await run_in_threadpool(_create_session_takeover_token, user_id)
+    # reason distinguishes the two triggers for the confirm screen's copy
+    # (see _peek_session_takeover_info) — an unverified browser is the actual
+    # phishing/CSRF shape and gets the sharper warning; checked first since a
+    # request can trip both at once (e.g. a phished click on an account that
+    # also happens to have a session open elsewhere) and the sharper reason
+    # should win.
+    if not nonce_verified:
+        takeover_token = await run_in_threadpool(_create_session_takeover_token, user_id, "unverified_browser")
+        return RedirectResponse(url=f"/session-conflict?token={takeover_token}", status_code=303)
+    if await run_in_threadpool(_has_active_session, user_id):
+        takeover_token = await run_in_threadpool(_create_session_takeover_token, user_id, "active_session")
         return RedirectResponse(url=f"/session-conflict?token={takeover_token}", status_code=303)
 
     session_token = await run_in_threadpool(_create_login_session, user_id)
@@ -2057,19 +2083,21 @@ async def session_conflict_page():
 @app.get("/api/session-conflict-info")
 @limiter.limit(LOGIN_RATE_LIMIT)
 async def session_conflict_info(request: Request, token: str):
-    # Lets the confirm screen show WHICH account it's about to continue as
-    # (see _peek_session_takeover_email) — added for the login-CSRF finding,
-    # where a phished victim had no way to notice they were about to
-    # continue into a stranger's account. Read-only: doesn't consume the
-    # token, so loading the page twice or refreshing doesn't burn it.
+    # Lets the confirm screen show WHICH account it's about to continue as,
+    # and WHY it's asking (see _peek_session_takeover_info) — added for the
+    # login-CSRF finding, where a phished victim had no way to notice they
+    # were about to continue into a stranger's account. Read-only: doesn't
+    # consume the token, so loading the page twice or refreshing doesn't
+    # burn it.
     if not AUTH_ENABLED:
         raise HTTPException(status_code=404)
     if len(token) > 128:
         raise HTTPException(status_code=400, detail="expired")
-    email = await run_in_threadpool(_peek_session_takeover_email, token)
-    if email is None:
+    info = await run_in_threadpool(_peek_session_takeover_info, token)
+    if info is None:
         raise HTTPException(status_code=400, detail="expired")
-    return {"email": email}
+    email, reason = info
+    return {"email": email, "reason": reason}
 
 
 @app.post("/api/session-takeover")

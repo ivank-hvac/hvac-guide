@@ -29,6 +29,12 @@ button.submit:disabled { opacity: .6; cursor: default; }
 .result { margin-top: 1.2rem; font-size: .9rem; }
 .result.ok { color: #4fd18b; }
 .result.err { color: #ff7a7f; }
+.alert-box {
+  border-radius: 10px; padding: .9rem 1rem; margin-bottom: 1rem;
+  font-weight: 600; line-height: 1.5;
+}
+.alert-box.severe { background: #3a1616; color: #ffd6d6; border: 1px solid #ff5d5d; }
+.alert-box.mild { background: #241c0d; color: #e7e9ee; border: 1px solid #f0b429; }
 </style>
 </head>
 <body>
@@ -40,14 +46,16 @@ button.submit:disabled { opacity: .6; cursor: default; }
 
   <section data-lang-block="en">
     <h1>Confirm before continuing</h1>
-    <p>This is going to sign you in as <strong id="email-en">…</strong>. If that's not your own email, close this page now — do not continue. Also shown if that account already has a session open elsewhere: continuing here signs the other one out.</p>
+    <div class="alert-box" id="alert-en"></div>
+    <p>This is going to sign you in as <strong id="email-en">…</strong>. If that's not your own email, close this page now — do not continue.</p>
     <button type="button" class="submit" id="continue-en">Continue as this account</button>
     <div class="result" id="result-en"></div>
   </section>
 
   <section data-lang-block="ru">
     <h1>Подтвердите перед продолжением</h1>
-    <p>Вы собираетесь войти как <strong id="email-ru">…</strong>. Если это не ваш email — закройте страницу, не продолжайте. Этот же экран появляется, если у аккаунта уже есть активная сессия на другом устройстве: продолжив здесь, вы завершите ту, другую.</p>
+    <div class="alert-box" id="alert-ru"></div>
+    <p>Вы собираетесь войти как <strong id="email-ru">…</strong>. Если это не ваш email — закройте страницу, не продолжайте.</p>
     <button type="button" class="submit" id="continue-ru">Продолжить под этим аккаунтом</button>
     <div class="result" id="result-ru"></div>
   </section>
