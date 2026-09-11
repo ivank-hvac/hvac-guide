@@ -35,6 +35,16 @@ ROADMAP-internal.md
 /tools/prod-tunnel-watchdog.sh
 /tools/sync-graph-content.sh
 
+# Same reasoning again: reveals that a separate dev/mirror box exists and
+# roughly how it's wired to prod's own Caddy config, which is operational
+# topology about this maintainer's setup, not something a self-hoster or
+# fork needs — the documented self-host path is docker-compose.yml (or
+# docker-compose.prod.yml for the Caddy-fronted shape), neither of which
+# this touches. Content itself has no real hostnames/IPs/secrets, so this
+# is a forward-only removal, not a git-history scrub.
+/docker-compose.dev-prod-mirror.yml
+/Caddyfile.dev-mirror
+
 # Claude Code's own working files (permission allowlists, agents, local
 # scratch) - tooling config for whoever happens to be developing this, not
 # part of the app. Same reasoning as CLAUDE.md above.

@@ -75,7 +75,6 @@ services:
     ports:
       - "${CADDY_BIND_ADDR:-0.0.0.0}:80:80"
       - "${CADDY_BIND_ADDR:-0.0.0.0}:443:443"
-    # Overridden on dev — see docker-compose.dev-prod-mirror.yml.
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
