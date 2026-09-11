@@ -157,7 +157,9 @@ not because it's expected to come up often in the field.
   all — same word, completely different component. Worth not conflating
   the two if this vocabulary ever reaches shared graph content.
 - See `graph-tiering-concept.md` for how this connects to the actual
-  `graph-structure.json` tagging pass — hot gas bypass content
+  `graph-structure.json` tagging pass (now in the maintainer's private
+  graph repo, not this one — see README's "graph.json itself isn't a
+  tracked file in this repo anymore") — hot gas bypass content
   (`hgbp_*`) is tagged Tier 2 there per this same 28 Aug conversation;
   the receiver/king-queen valve branch was redesigned as an equipment-
   agnostic yes/no question instead of being tiered by equipment type at

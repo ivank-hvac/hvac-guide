@@ -1,8 +1,11 @@
 # Component inventory (working list, not yet part of the app)
 
-Scratch list compiled by combing through `graph.json` (intake_checklist,
-component_checks, and node text across the main troubleshooting graph) —
-a starting point for whatever comes next (component-check pilot
+Scratch list compiled by combing through the full diagnostic graph
+(intake_checklist, component_checks, and node text across the main
+troubleshooting graph) before that content moved to a private repo — this
+repo's own `graph.json` now ships only a trimmed RTU/Split/Chiller demo
+subset, so some entries here (e.g. receiver/king valve) won't be found in
+it. A starting point for whatever comes next (component-check pilot
 generalization, per-component files, etc.). Not wired into the app yet.
 Add/edit freely.
 

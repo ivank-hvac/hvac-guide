@@ -1,10 +1,17 @@
 # Graph tiering — concept, partially implemented
 
 Scratch design doc, same spirit as the other files in this directory: not
-wired into the app (the two small `graph-structure.json` edits described
-below are content/structure changes, not app code — the `tier` field
-itself is still unread by anything). Written 28 Aug 2026 at Ivan's request
+wired into the app's runtime access control (the two small
+`graph-structure.json` edits described below are content/structure
+changes, not app code, and nothing gates a technician's access based on
+`tier` at request time). Written 28 Aug 2026 at Ivan's request
 ("разметка графа, можно начинать. сначала концепт, потом деплой").
+**Update, 30 Aug 2026**: the `tier` field got its first real reader —
+`tools/build_demo_graph.py` filters on it to build this repo's public
+demo graph (RTU/Split/Chiller Tier 1 only), excluding anything tagged
+Tier 2/3. Still not runtime access control (nothing checks a logged-in
+user's own tier), just a build-time filter — the distinction below still
+holds, this field just isn't literally unread anymore.
 
 **Revised twice the same day** as Ivan reviewed and answered in detail
 ("действительно серьезный вопрос" — a genuinely serious question), which
@@ -67,7 +74,9 @@ after billing exists, not alongside this.
   `tools/build_graph.py`, verify semantic equality on everything except the
   new field, deploy. Same low-risk mechanics as the `nc_sc_high` wording fix
   from the 27 Aug audit — a content-only change, no code changes needed for
-  *this* pass (the field just sits there unread by anything yet).
+  *this* pass (see the "Update, 30 Aug 2026" note at the top for the one
+  existing reader of the field — a build-time filter, still not runtime
+  access control).
 
 ## Why this is a much smaller task than it sounds
 
@@ -190,7 +199,7 @@ attempted here.
 - All 35 result nodes the 27 Aug audit found genuinely universal (reachable
   from 2+ equipment types) — Tier 1 by the reasoning above, left untagged.
 
-## Tier-1 fallback / stub content — new design item from Ivan's revision, NOT built
+## Tier-1 fallback / stub content — new design item from Ivan's revision, mostly NOT built (one concrete instance shipped, see VRF/VRV below)
 
 This answers what was originally "open question 3" (does choosing VRF/
 chiller as equipment type alone imply a tier floor), and the answer turned
@@ -217,12 +226,24 @@ isn't lost, not scoping or estimating it.
 
 **VRF/VRV specifically, same conversation**: Ivan wants VRF/VRV kept
 selectable as an equipment type (not removed or hidden), but with an
-explicit **"To be continued"** placeholder wherever this stub mechanism
-would apply to it — an acknowledgment that VRF/VRV-specific content in
-this graph isn't fully built out yet, rather than pretending it's
-complete. Same non-decision as everything else here: recorded, not
-implemented — there's no stub mechanism to attach "To be continued" to
-yet.
+explicit **"To be continued"**-style placeholder wherever this stub
+mechanism would apply to it — an acknowledgment that VRF/VRV-specific
+content in this graph isn't fully built out yet, rather than pretending
+it's complete.
+
+**Update, 2 Sep 2026 — a concrete instance of this shipped, though not the
+generic mechanism**: `vrf_symptom` (previously a full 9-option symptom
+question routing into shared single-circuit content that doesn't actually
+fit VRF/VRV's architecture — multiple indoor units, branch controllers,
+heat-recovery piping) was converted into an honest `result`-node stub
+(`severity: info`, `ai: true`) — explains the content gap directly,
+points to the manufacturer's service manual, keeps the AI assistant and
+intake checklist available since both stay meaningfully useful even
+without VRF-specific content. This is real, shipped behavior, but it's a
+**per-equipment-type special case** (the whole VRF branch got one stub
+node), not the generic per-node/per-tier mechanism this section describes
+(where a Tier-2/3-tagged node anywhere in the graph would need two
+authored content variants). The generic mechanism is still not built.
 
 ## Open questions for Ivan (status after 28 Aug, second round)
 
@@ -231,11 +252,12 @@ yet.
    instead (see above). Closed.
 2. ✅ **EEV** — resolved: stays untagged/free. The capacity-based-gate
    idea is noted as a possible future direction, not decided.
-3. **Tier-1-floor / stub content** — answered in principle, but the
-   answer requires new mechanism (generic-fallback + specific-depth
-   content pairs, "To be continued" placeholders) that this doc doesn't
-   design or build — see the section above. Still open as an
-   implementation question, just not as a design question.
+3. **Tier-1-floor / stub content** — answered in principle, and one
+   concrete per-equipment-type instance shipped (VRF/VRV, 2 Sep 2026 —
+   see the section above), but the generalized mechanism (generic-fallback
+   + specific-depth content pairs, per-node) that this doc doesn't
+   design or build still isn't. Still open as an implementation question,
+   just not as a design question.
 4. Is the candidate list complete, or did this pass miss something not yet
    isolated to one equipment type at the structural level (which would
    mean the *audit*, not just the tiering, needs revisiting first)? Still
@@ -260,9 +282,12 @@ question.
 - `chiller.md` reworked for compressor type (separate file, see there).
 
 **Still ahead, not started**:
-- **The stub-content mechanism** (generic Tier-1 fallback text + "See
-  Tier 2..." pointer, "To be continued" for VRF/VRV) — separate, larger,
-  needs actual content authored per Tier 2/3 node, not scoped here.
+- **The generic stub-content mechanism** (generic Tier-1 fallback text +
+  "See Tier 2..." pointer, applied per-node across the graph) — separate,
+  larger, needs actual content authored per Tier 2/3 node, not scoped
+  here. VRF/VRV got a one-off, per-equipment-type version of the same
+  idea on 2 Sep 2026 (see the section above) — the first real instance of
+  this pattern, but not the generalized mechanism.
 - Deciding whether the same "ask directly instead of gating by equipment
   type" fix that resolved the receiver question should also apply to hot
   gas bypass (`hgbp_start` is currently reachable only from
