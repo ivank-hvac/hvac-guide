@@ -115,6 +115,17 @@
   padding: 12px 16px;
 }
 
+/* Icon-only buttons (theme toggle, history/invite/admin links) keep the
+   base .lang-btn font-size (0.75rem) even in field theme, so the emoji
+   glyph stayed dark-theme-sized while the button itself grew to the
+   48px tap target above — a small icon adrift in a much bigger square.
+   Bumped just for these, not all .lang-btn text, since RU/EN/unit
+   labels already read fine at the base size. */
+:root[data-theme="field"] .theme-btn,
+:root[data-theme="field"] .invite-link {
+  font-size: 1.5rem;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -237,6 +248,16 @@ header h1 {
    RU/EN pair itself, making the invite button an easy mistap next to them. */
 .invite-link {
   margin-right: 14px;
+}
+
+/* The 👥 glyph itself renders in a very dark indigo in most emoji fonts
+   (unlike the light/white 🕓 and ⚙️ next to it), making it nearly
+   invisible against the dark theme's button background — text color
+   doesn't affect emoji rendering, so this has to brighten the glyph
+   itself. Field theme's light background already gives it plenty of
+   contrast as-is, so the filter is scoped to dark theme only. */
+:root:not([data-theme="field"]) #inviteLink {
+  filter: brightness(2.2);
 }
 
 .lang-btn {
