@@ -587,6 +587,13 @@ def init_db() -> None:
             "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
             "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
             "direct_fired_pressure_drop", "source",
+            # Added 17 Sep 2026, same batch as the per-field confidence idea
+            # below: induced_draft_fan_amps rounds out the motor-by-motor
+            # amps fields (compressor/condenser fan/blower already existed);
+            # low_confidence_fields is a JSON-encoded array (the only
+            # non-scalar column here) — see _get_cached_model_specs/
+            # _store_model_specs for the encode/decode this needs.
+            "induced_draft_fan_amps", "low_confidence_fields",
         ):
             if _col not in existing_model_specs_cols:
                 conn.execute(f"ALTER TABLE model_specs ADD COLUMN {_col} TEXT")
@@ -974,6 +981,7 @@ _NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity
                             "heating_capacity", "seer",
                             "refrigerant", "compressor_type", "metering_device", "voltage",
                             "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
+                            "induced_draft_fan_amps",
                             "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
                             "direct_fired_pressure_drop"]
 
@@ -1068,7 +1076,8 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "Ответь ТОЛЬКО одним JSON-объектом, без markdown-обёртки, без текста до "
         "или после, строго такой формы:\n"
         "{" + _json_schema_shape(_NAMEPLATE_LOOKUP_FIELDS) + ', '
-        '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        '"confidence": "high"|"low", "note": ..., "flagged": false, '
+        '"low_confidence_fields": [...]}\n\n'
         "Многие RTU/gas-electric юниты печатают ОТДЕЛЬНЫЕ значения "
         "охлаждения и нагрева — capacity — только охлаждение (или общая "
         "мощность, если юнит не combo), heating_capacity — отдельно "
@@ -1081,11 +1090,20 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "шильдике (MCA/Minimum Circuit Ampacity, либо RLA/FLA, если именно "
         "так подписано — запиши цифру как есть, не пересчитывай и не "
         "путай с MOCP/max fuse size, это про защиту цепи, не про ток). "
-        "compressor_amps — RLA компрессора (или FLA, если компрессор так "
-        "подписан). condenser_fan_amps/blower_amps — FLA соответствующего "
-        "мотора. Заполняй только то, что реально отдельно подписано на "
-        "шильдике — если конкретного значения нет, null, не выводи его из "
-        "других чисел.\n\n"
+        "Шильдики почти всегда отдельно перечисляют моторы по типу — "
+        "проверяй КАЖДЫЙ тип независимо: compressor_amps (RLA компрессора, "
+        "или FLA, если так подписан), condenser_fan_amps (FLA вентилятора "
+        "конденсатора), blower_amps (FLA вентилятора/blower), "
+        "induced_draft_fan_amps (FLA вентилятора дымоудаления/горелки, "
+        "induced draft motor — актуально для газового нагрева). Если "
+        "несколько одинаковых моторов одного типа объединены в одну строку "
+        "таблицы (одно значение FLA на несколько единиц количества) — "
+        "записывай то же значение FLA, не умножай на количество. Заполняй "
+        "каждое из этих полей независимо — если конкретного мотора на "
+        "этом оборудовании нет или его цифра не напечатана отдельно, null "
+        "для этого поля, не выводи его из других чисел. Всё, что не "
+        "укладывается в эти поля (например целиком мотор-таблица с "
+        "HP/RPM) — коротко в note.\n\n"
         "Напряжение и ток — всегда в вольтах (В) и амперах (А), региональных "
         "вариаций тут нет. С давлением и температурой другое дело — единицы "
         "различаются по региону: североамериканское оборудование обычно "
@@ -1116,6 +1134,14 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "\"high\" только если шильдик чётко виден и читаем; \"low\", если шильдик "
         "в кадре, но частично нечитаем (блики, угол, повреждение). note — короткая "
         "строка только при необходимости оговорки, иначе null.\n\n"
+        "low_confidence_fields — список ИМЁН полей (точно как они названы "
+        "выше), значение которых ты записал, но не уверен в точности "
+        "прочтения (блики, угол, повреждение, нечёткий шрифт, значение из "
+        "неполной мотор-таблицы) — включай сюда только поле, которому ты "
+        "РЕАЛЬНО поставил непустое значение; если прочитать не смог "
+        "вообще — ставь null самому полю, а не добавляй его в этот "
+        "список. Пустой список [], если сомнений нет ни по одному "
+        "заполненному полю.\n\n"
         "Если на фото вообще не шильдик оборудования (не туда сфотографировано, "
         "размыто/пусто, что-то не по теме) — поставь null во все поля спеков, "
         "confidence \"low\", flagged false, и note с тем, что ты на самом деле "
@@ -1136,7 +1162,8 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "Respond with ONLY a single JSON object, no markdown fences, no prose "
         "before or after, matching exactly this shape:\n"
         "{" + _json_schema_shape(_NAMEPLATE_LOOKUP_FIELDS) + ', '
-        '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        '"confidence": "high"|"low", "note": ..., "flagged": false, '
+        '"low_confidence_fields": [...]}\n\n'
         "Many RTU/gas-electric units print SEPARATE cooling and heating "
         "ratings — capacity is cooling only (or the unit's overall rating "
         "if it isn't a combo unit), heating_capacity is the heating rating "
@@ -1149,11 +1176,20 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "the plate (MCA/Minimum Circuit Ampacity, or RLA/FLA if that's what "
         "it's actually labeled — record the printed number, don't confuse "
         "it with MOCP/max fuse size, which is circuit protection, not "
-        "current draw). compressor_amps is the compressor's RLA (or FLA if "
-        "that's how it's labeled). condenser_fan_amps/blower_amps are the "
-        "respective motor's FLA. Only fill in a field that is actually "
-        "separately labeled on the nameplate — null if a specific figure "
-        "isn't printed, never derive one from the others.\n\n"
+        "current draw). Nameplates almost always list motors separately by "
+        "type — check EACH type independently: compressor_amps (the "
+        "compressor's RLA, or FLA if that's how it's labeled), "
+        "condenser_fan_amps (condenser fan motor FLA), blower_amps "
+        "(blower/indoor fan motor FLA), induced_draft_fan_amps (induced "
+        "draft/combustion-air fan motor FLA — relevant for gas heating). "
+        "If several identical motors of the same type are combined into "
+        "one table row (one FLA figure covering more than one motor by "
+        "quantity), record that same FLA figure, don't multiply by "
+        "quantity. Fill in each of these fields independently — null for "
+        "a given field if that motor type isn't present on this equipment "
+        "or its figure isn't separately printed, never derive one from the "
+        "others. Anything that doesn't fit these fields (e.g. a whole "
+        "HP/RPM motor table) goes briefly into note instead.\n\n"
         "Voltage and current are always in volts (V) and amps (A) — no "
         "regional variation there. Pressure and temperature are different: "
         "units vary by region — North American equipment typically prints "
@@ -1185,6 +1221,13 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "when the nameplate is clearly visible and legible; \"low\" if it's "
         "present but partially unreadable (glare, angle, damage). note is a short "
         "string only when something needs qualifying, otherwise null.\n\n"
+        "low_confidence_fields is a list of field NAMES (exactly as named "
+        "above) whose value you did record but aren't fully confident is "
+        "accurate (glare, angle, damage, unclear print, or a value read "
+        "from an incomplete motor table) — only include a field you "
+        "actually set to a non-null value; if you couldn't read it at "
+        "all, set that field itself to null instead of listing it here. "
+        "Empty list [] if you have no doubts about any filled-in field.\n\n"
         "If the photo does not show an equipment nameplate at all (wrong subject, "
         "blank/blurry image, or anything unrelated), set every spec field to "
         "null, confidence to \"low\", flagged to false, and note explaining what "
@@ -2200,9 +2243,9 @@ def _log_ai_call(
 _MODEL_SPECS_COLUMNS = [
     "brand", "equipment_type", "capacity", "heating_capacity", "seer", "refrigerant",
     "compressor_type", "metering_device", "voltage",
-    "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
+    "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps", "induced_draft_fan_amps",
     "supply_gas_pressure", "manifold_gas_pressure", "gas_type", "direct_fired_pressure_drop",
-    "confidence", "note", "source",
+    "confidence", "note", "source", "low_confidence_fields",
 ]
 
 
@@ -2214,7 +2257,17 @@ def _get_cached_model_specs(model_number: str) -> Optional[Dict[str, Any]]:
         ).fetchone()
     if row is None:
         return None
-    return dict(zip(_MODEL_SPECS_COLUMNS, row))
+    result = dict(zip(_MODEL_SPECS_COLUMNS, row))
+    # The only non-scalar column — stored as JSON text (see
+    # _store_model_specs), decoded back into a real list here so callers
+    # (both the /api/model-lookup cache-hit response and _store_model_specs'
+    # own merge logic) never have to know the storage encoding.
+    raw = result.get("low_confidence_fields")
+    try:
+        result["low_confidence_fields"] = json.loads(raw) if raw else []
+    except (json.JSONDecodeError, ValueError):
+        result["low_confidence_fields"] = []
+    return result
 
 
 def _store_model_specs(
@@ -2241,6 +2294,11 @@ def _store_model_specs(
         for col in _MODEL_SPECS_COLUMNS if col != "source"
     }
     merged["source"] = source
+    # low_confidence_fields is a Python list at this point either way (fresh
+    # from this lookup's specs dict, or decoded by _get_cached_model_specs
+    # from `existing`) — encode it back to JSON text for storage, the one
+    # column that isn't already a plain string/None.
+    merged["low_confidence_fields"] = json.dumps(merged.get("low_confidence_fields") or [])
     # Values built in exactly _MODEL_SPECS_COLUMNS' own order.
     row_values = [merged[col] for col in _MODEL_SPECS_COLUMNS]
     set_clause = ", ".join(f"{col} = excluded.{col}" for col in _MODEL_SPECS_COLUMNS)
@@ -2458,6 +2516,11 @@ _NAMEPLATE_FIELD_NAMES_PATTERN = "|".join(
 _NAMEPLATE_FIELD_VALUE_RE = re.compile(
     r'"(' + _NAMEPLATE_FIELD_NAMES_PATTERN + r')"\s*:\s*(null|"(?:[^"\\]|\\.)*")'
 )
+# low_confidence_fields is an array, not a scalar, so it needs its own
+# pattern — best-effort: grabs whatever's between the brackets and lets the
+# caller split/clean it, rather than trying to fully re-parse a JSON array
+# with a regex.
+_NAMEPLATE_LOW_CONFIDENCE_ARRAY_RE = re.compile(r'"low_confidence_fields"\s*:\s*\[([^\]]*)\]')
 
 
 def _recover_nameplate_fields_by_regex(text: str) -> Dict[str, Any]:
@@ -2481,6 +2544,11 @@ def _recover_nameplate_fields_by_regex(text: str) -> Dict[str, Any]:
             recovered[field] = json.loads(raw_value)
         except (json.JSONDecodeError, ValueError):
             continue
+    arr_m = _NAMEPLATE_LOW_CONFIDENCE_ARRAY_RE.search(text)
+    if arr_m:
+        recovered["low_confidence_fields"] = [
+            tok.strip().strip('"') for tok in arr_m.group(1).split(",") if tok.strip()
+        ]
     return recovered
 
 
@@ -2511,6 +2579,7 @@ def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
         else "Could not parse the model's response."
     )
     fallback["flagged"] = False
+    fallback["low_confidence_fields"] = []
 
     try:
         data = json.loads(text)
@@ -2544,6 +2613,18 @@ def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
         result[field] = value
     confidence = data.get("confidence")
     result["confidence"] = confidence if confidence in ("high", "low") else "low"
+    # Ivan's per-field confidence idea, 17 Sep 2026: a name only counts if
+    # it's (a) one of the real schema fields and (b) that field actually
+    # got a non-null value in THIS same response — a null field is already
+    # "not found," flagging it "uncertain" too would be meaningless, and a
+    # name the model wasn't even asked about could only be a hallucination.
+    raw_low_conf = data.get("low_confidence_fields")
+    if not isinstance(raw_low_conf, list):
+        raw_low_conf = []
+    result["low_confidence_fields"] = [
+        f for f in raw_low_conf
+        if isinstance(f, str) and f in _NAMEPLATE_LOOKUP_FIELDS and result.get(f) is not None
+    ]
     # Deliberately strict: only a literal True counts. Anything else
     # (missing key, string "true", null) is treated as not-flagged rather
     # than guessed at — the model is instructed to emit a real JSON boolean,
@@ -2558,6 +2639,7 @@ def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
             result[field] = None
         result["confidence"] = "low"
         result["note"] = None
+        result["low_confidence_fields"] = []
     return result
 
 
