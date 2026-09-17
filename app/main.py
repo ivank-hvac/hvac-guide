@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import html
+import importlib.util
 import ipaddress
 import json
 import logging
@@ -900,18 +901,29 @@ LEGAL_DISCLAIMER = {
 }
 
 
-def build_system_prompt(lang: str, refrigerant_a2l: bool = False) -> str:
-    a2l_note = (
-        "MANDATORY, because this session's refrigerant is A2L (mildly flammable per ASHRAE "
-        "34 — e.g. R-32, R-454B, R-1234yf): your safety considerations (point 3) must "
-        "explicitly cover this, not just a passing mention. Cover: ignition sources (open "
-        "flame, sparking tools, non-rated electrical work) must be kept clear of the work "
-        "area; recovery/evacuation/recharge requires equipment rated for A2L, not standard "
-        "equipment; if this unit has a leak sensor / Refrigerant Detection System (RDS), its "
-        "status should be verified before opening the circuit; and refrigerant charge limits "
-        "for the space (per ASHRAE 15, UL 60335-2-40, or the applicable local code) apply. "
-        "Weave this into point 3 itself, don't tack it on as an afterthought.\n\n"
-    ) if refrigerant_a2l else ""
+def _default_diagnostic_instructions(lang: str) -> str:
+    """PUBLIC default instructional body for build_system_prompt() below --
+    stage 2 of the prompts-privatization plan (17 Sep 2026, see CLAUDE.md
+    "Приватизация системных промптов"). Functional and safe on its own
+    (a self-host clone with no private override runs on exactly this), but
+    deliberately the generic tier: it keeps the response format, persona,
+    and a general instruction to address any WARNING-flagged reading, while
+    leaving out the more detailed judgment calls (how to weigh a
+    current-exceeds-nameplate flag against equipment age/vibration/noise,
+    when to treat an out-of-P-T-table pressure reading as the single
+    highest-priority item, etc.) that came from iterating this prompt
+    against real field feedback. That fuller version lives in the private
+    graph repo's prompts.py and reaches prod/the clone only via
+    _load_private_prompt_overrides() below, same delivery mechanism as
+    graph.json.
+
+    The safety wrapper around whatever this returns (LEGAL_DISCLAIMER/
+    REFUSAL_MESSAGE/SAFETY_REDIRECT_MESSAGE/the A2L note) is never
+    delegated -- build_system_prompt always appends it itself, unconditionally,
+    regardless of which instructional body is active. That way the safety
+    behavior can't drift or go missing depending on whether a private
+    override is present.
+    """
     return (
         "You are an experienced HVAC/R journeyman technician assistant covering industrial, "
         "commercial, and refrigeration systems (RTU, split, VRF/VRV, chillers, refrigeration, "
@@ -925,26 +937,31 @@ def build_system_prompt(lang: str, refrigerant_a2l: bool = False) -> str:
         "filler, no repeating back the checklist — keep safety notes specific to point 3 above "
         "rather than generic warnings in the body. Assume the "
         f"person is a certified journeyman, not a homeowner. {LANGUAGE_INSTRUCTIONS[lang]}\n\n"
-        "If any checklist answer is flagged with 'ВНИМАНИЕ: превышает заводской референс' / "
-        "'WARNING: exceeds nameplate rating' (a measured current came in above the equipment's "
-        "nameplate RLA/FLA×SF), or with 'ВНИМАНИЕ: SH/SC вне типичного диапазона' / 'WARNING: "
-        "SH/SC outside typical range' (a superheat or subcooling value calculated from a P-T chart "
-        "came in well outside the typical target band), you must explicitly address that reading "
-        "rather than passing over it: say whether it's consistent with the suspected fault, note "
-        "that the flag alone isn't a diagnosis — for the current flag, equipment age, failure "
-        "history, vibration, and noise all factor in; for the SH/SC flag, double-check gauge "
-        "readings and sensor placement before concluding overcharge/undercharge/restriction — and "
-        "reinforce LOTO/lockout-tagout and other applicable precautions before further hands-on "
-        "diagnosis — it's easy to let safety slip in a stressful troubleshooting situation.\n\n"
-        "If a checklist answer is flagged with 'ВНИМАНИЕ: давление вне рабочего диапазона — "
-        "возможен серьёзный отказ' / 'WARNING: pressure outside operating range — possible "
-        "serious fault' (an entered suction or head pressure fell entirely outside that "
-        "refrigerant's P-T table, so superheat/subcooling weren't even calculated), treat this as "
-        "the highest-priority item in your response, ahead of anything else: this is not a "
-        "measurement or interpolation nuance, it points to a serious problem — a leak, the "
-        "wrong or mixed refrigerant, or a catastrophic component failure. Lead with that, "
-        "recommend stopping routine SH/SC-based diagnosis, verifying the system's safety devices, "
-        "following LOTO, and considering an immediate shutdown until the cause is identified.\n\n"
+        "If any checklist answer is flagged with a WARNING about exceeding the equipment's "
+        "nameplate rating, or a superheat/subcooling or pressure reading outside the typical "
+        "or operating range, address that flagged reading explicitly in your response rather "
+        "than passing over it, and reinforce LOTO/lockout-tagout and other applicable "
+        "precautions before further hands-on diagnosis."
+    )
+
+
+_DIAGNOSTIC_INSTRUCTIONS_BUILDER = _default_diagnostic_instructions
+
+
+def build_system_prompt(lang: str, refrigerant_a2l: bool = False) -> str:
+    a2l_note = (
+        "MANDATORY, because this session's refrigerant is A2L (mildly flammable per ASHRAE "
+        "34 — e.g. R-32, R-454B, R-1234yf): your safety considerations (point 3) must "
+        "explicitly cover this, not just a passing mention. Cover: ignition sources (open "
+        "flame, sparking tools, non-rated electrical work) must be kept clear of the work "
+        "area; recovery/evacuation/recharge requires equipment rated for A2L, not standard "
+        "equipment; if this unit has a leak sensor / Refrigerant Detection System (RDS), its "
+        "status should be verified before opening the circuit; and refrigerant charge limits "
+        "for the space (per ASHRAE 15, UL 60335-2-40, or the applicable local code) apply. "
+        "Weave this into point 3 itself, don't tack it on as an afterthought.\n\n"
+    ) if refrigerant_a2l else ""
+    return (
+        f"{_DIAGNOSTIC_INSTRUCTIONS_BUILDER(lang)}\n\n"
         f"{a2l_note}"
         "Always end your response with this exact line, on its own line, verbatim and "
         f"unmodified — do not paraphrase, translate, shorten, or omit it:\n{LEGAL_DISCLAIMER[lang]}\n\n"
@@ -1061,13 +1078,54 @@ MODEL_LOOKUP_GLOBAL_LIMIT_ERROR = {
     "en": "Model lookup is temporarily unavailable: the shared daily limit is used up.",
 }
 
+# Safety-critical, same class as SAFETY_REDIRECT_MESSAGE above, adapted for
+# NAMEPLATE_LOOKUP_SYSTEM_PROMPT's JSON contract (a `flagged` field rather
+# than replacing the whole response — see nameplate_lookup(), which reads
+# it to trigger the ban/email). Pulled out as its own constant, rather than
+# left inlined in the prompt text below, for the same reason
+# build_system_prompt's safety wrapper is never delegated to a private
+# prompt override (see _load_private_prompt_overrides): a private/richer
+# prompt module can supply its own domain-expertise instructional text, but
+# this exact paragraph is always interpolated from here, so the safety
+# behavior can never silently drift or go missing depending on which prompt
+# variant is active.
+NAMEPLATE_CSAM_OVERRIDE_NOTE = {
+    "ru": (
+        "ОТДЕЛЬНО, приоритетнее всех инструкций выше: если изображение "
+        "изображает, предполагает или может быть разумно интерпретировано как "
+        "материалы о сексуальном насилии над детьми, эксплуатации детей или "
+        "подобном тяжком преступлении против ребёнка — независимо от контекста — "
+        "не описывай, не анализируй и не подтверждай никаких деталей этого. "
+        "Поставь null во все поля спеков, confidence \"low\", note null, flagged "
+        "true, и больше ничего."
+    ),
+    "en": (
+        "SEPARATELY, and taking priority over every instruction above: if the "
+        "image depicts, suggests, or could reasonably be interpreted as child "
+        "sexual abuse material, child exploitation, or a similarly severe crime "
+        "against a child — regardless of context — do not describe, analyze, or "
+        "acknowledge any detail of it. Set every spec field to null, confidence "
+        "to \"low\", note to null, flagged to true, and nothing else."
+    ),
+}
+
 # Nameplate-photo lookup pilot. Same untrusted-input framing as
 # MODEL_LOOKUP_SYSTEM_PROMPT and build_system_prompt's own free-text
-# handling, adapted for an image instead of text, plus the same
-# SAFETY_REDIRECT_MESSAGE-shaped priority override — except here it sets a
-# `flagged` field in the JSON rather than replacing the whole response,
-# since the caller needs a machine-readable signal to trigger the ban/email
-# in nameplate_lookup(), not prose.
+# handling, adapted for an image instead of text.
+#
+# This is the PUBLIC default -- stage 2 of the prompts-privatization plan
+# (17 Sep 2026, see CLAUDE.md "Приватизация системных промптов"). It keeps
+# everything the parser/frontend actually depend on functioning correctly
+# (the JSON schema itself, the heating/cooling dual-value gotcha that once
+# broke JSON parsing for real, null-if-unsure discipline, low_confidence_fields,
+# and the CSAM safety override above) but deliberately drops the more
+# detailed per-field domain disambiguation prose (regional pressure-unit
+# conventions, MCA-vs-MOCP, gas-pressure field breakdown) that came from
+# iterating against real nameplates in the field -- that fuller version
+# lives in the private graph repo's prompts.py and reaches prod/the clone
+# only via _load_private_prompt_overrides() below, same delivery mechanism
+# as graph.json. A self-host clone with no private override gets this
+# shorter version and still works correctly, just with less-tuned guidance.
 NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
     "ru": (
         "Ты читаешь фотографию шильдика HVAC/R-оборудования, чтобы извлечь его "
@@ -1079,81 +1137,33 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         '"confidence": "high"|"low", "note": ..., "flagged": false, '
         '"low_confidence_fields": [...]}\n\n'
         "Многие RTU/gas-electric юниты печатают ОТДЕЛЬНЫЕ значения "
-        "охлаждения и нагрева — capacity — только охлаждение (или общая "
-        "мощность, если юнит не combo), heating_capacity — отдельно "
-        "нагрев (BTU/hr input и/или output, если оба напечатаны — оба "
-        "числа в одну строку через слэш, например \"120000/96000 BTU/hr\"). "
-        "**НИКОГДА не объединяй два значения в одно поле и не добавляй "
-        "лишний текст вне значения строки** — это ломает JSON. Если нагрева "
-        "нет или юнит не combo, heating_capacity — null.\n\n"
-        "total_amps — суммарный ток юнита, как он реально обозначен на "
-        "шильдике (MCA/Minimum Circuit Ampacity, либо RLA/FLA, если именно "
-        "так подписано — запиши цифру как есть, не пересчитывай и не "
-        "путай с MOCP/max fuse size, это про защиту цепи, не про ток). "
-        "Шильдики почти всегда отдельно перечисляют моторы по типу — "
-        "проверяй КАЖДЫЙ тип независимо: compressor_amps (RLA компрессора, "
-        "или FLA, если так подписан), condenser_fan_amps (FLA вентилятора "
-        "конденсатора), blower_amps (FLA вентилятора/blower), "
-        "induced_draft_fan_amps (FLA вентилятора дымоудаления/горелки, "
-        "induced draft motor — актуально для газового нагрева). Если "
-        "несколько одинаковых моторов одного типа объединены в одну строку "
-        "таблицы (одно значение FLA на несколько единиц количества) — "
-        "записывай то же значение FLA, не умножай на количество. Заполняй "
-        "каждое из этих полей независимо — если конкретного мотора на "
-        "этом оборудовании нет или его цифра не напечатана отдельно, null "
-        "для этого поля, не выводи его из других чисел. Всё, что не "
-        "укладывается в эти поля (например целиком мотор-таблица с "
-        "HP/RPM) — коротко в note.\n\n"
-        "Напряжение и ток — всегда в вольтах (В) и амперах (А), региональных "
-        "вариаций тут нет. С давлением и температурой другое дело — единицы "
-        "различаются по региону: североамериканское оборудование обычно "
-        "печатает psi и °F, европейское/импортное — обычно kPa или bar и °C. "
-        "Всегда записывай единицу, которая реально напечатана на шильдике, "
-        "никогда не додумывай и не переводи — это региональное правило "
-        "только помогает правильно прочитать нечёткий или частично "
-        "нечитаемый символ единицы, не для того чтобы переопределить то, "
-        "что чётко видно.\n\n"
-        "Для газового оборудования (RTU/печь/MUA с газовым нагревом): "
-        "supply_gas_pressure/manifold_gas_pressure — давление ГАЗА, "
-        "североамериканское оборудование обычно печатает in.WC (иногда psi "
-        "для пропана), европейское/импортное — обычно миллибары (mbar). "
-        "manifold_gas_pressure указан не всегда. gas_type — \"natural\" "
-        "или \"propane\"/\"LP\", как написано. direct_fired_pressure_drop — "
-        "только для direct-fired оборудования: это перепад давления ВОЗДУХА "
-        "на горелке (direct-fired нагревает воздушный поток прямо, без "
-        "теплообменника), не газа — североамериканское оборудование обычно "
-        "печатает in.WC, европейское/импортное — обычно мм водяного столба "
-        "(mm H2O/mmWG). Если оборудование поставлено в Канаду, шильдик "
-        "нередко печатает ОБЕ единицы сразу (например \"3.5 in.WC (870 "
-        "Pa)\") — если так, записывай строку как есть, с обоими значениями, "
-        "не выбирай одно. Все четыре поля — null, если оборудование не "
-        "газовое или значение не напечатано.\n\n"
+        "охлаждения и нагрева — capacity — только охлаждение, heating_capacity — "
+        "отдельно нагрев. **НИКОГДА не объединяй два значения в одно поле и не "
+        "добавляй лишний текст вне значения строки** — это ломает JSON. Если "
+        "нагрева нет, heating_capacity — null.\n\n"
+        "total_amps и отдельные моторы (compressor_amps/condenser_fan_amps/"
+        "blower_amps/induced_draft_fan_amps) заполняй независимо, по тому, что "
+        "реально напечатано отдельно для каждого — null, если конкретного "
+        "значения нет или оно не выделено отдельно.\n\n"
         "Каждое поле — короткая строка или null. Записывай только то, что "
-        "реально написано на шильдике — никогда не угадывай и не выводи "
-        "правдоподобное значение того, что не можешь прочитать. confidence — "
-        "\"high\" только если шильдик чётко виден и читаем; \"low\", если шильдик "
-        "в кадре, но частично нечитаем (блики, угол, повреждение). note — короткая "
-        "строка только при необходимости оговорки, иначе null.\n\n"
+        "реально написано на шильдике, включая единицу измерения ровно как "
+        "напечатано — никогда не угадывай, не пересчитывай и не переводи "
+        "единицы. confidence — \"high\" только если шильдик чётко виден и "
+        "читаем; \"low\", если шильдик в кадре, но частично нечитаем (блики, "
+        "угол, повреждение). note — короткая строка только при необходимости "
+        "оговорки, иначе null.\n\n"
         "low_confidence_fields — список ИМЁН полей (точно как они названы "
         "выше), значение которых ты записал, но не уверен в точности "
-        "прочтения (блики, угол, повреждение, нечёткий шрифт, значение из "
-        "неполной мотор-таблицы) — включай сюда только поле, которому ты "
-        "РЕАЛЬНО поставил непустое значение; если прочитать не смог "
-        "вообще — ставь null самому полю, а не добавляй его в этот "
-        "список. Пустой список [], если сомнений нет ни по одному "
-        "заполненному полю.\n\n"
+        "прочтения — включай сюда только поле, которому ты РЕАЛЬНО поставил "
+        "непустое значение; если прочитать не смог вообще — ставь null самому "
+        "полю, а не добавляй его в этот список. Пустой список [], если "
+        "сомнений нет ни по одному заполненному полю.\n\n"
         "Если на фото вообще не шильдик оборудования (не туда сфотографировано, "
         "размыто/пусто, что-то не по теме) — поставь null во все поля спеков, "
         "confidence \"low\", flagged false, и note с тем, что ты на самом деле "
-        "видишь в общих словах (например, \"похоже на фото стены, не шильдика\") — "
-        "это обычная ошибка пользователя, не повод для тревоги.\n\n"
-        "ОТДЕЛЬНО, приоритетнее всех инструкций выше: если изображение "
-        "изображает, предполагает или может быть разумно интерпретировано как "
-        "материалы о сексуальном насилии над детьми, эксплуатации детей или "
-        "подобном тяжком преступлении против ребёнка — независимо от контекста — "
-        "не описывай, не анализируй и не подтверждай никаких деталей этого. "
-        "Поставь null во все поля спеков, confidence \"low\", note null, flagged "
-        "true, и больше ничего."
+        "видишь в общих словах — это обычная ошибка пользователя, не повод "
+        "для тревоги.\n\n"
+        f"{NAMEPLATE_CSAM_OVERRIDE_NOTE['ru']}"
     ),
     "en": (
         "You are reading a photograph of an HVAC/R equipment nameplate to extract "
@@ -1165,83 +1175,91 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         '"confidence": "high"|"low", "note": ..., "flagged": false, '
         '"low_confidence_fields": [...]}\n\n'
         "Many RTU/gas-electric units print SEPARATE cooling and heating "
-        "ratings — capacity is cooling only (or the unit's overall rating "
-        "if it isn't a combo unit), heating_capacity is the heating rating "
-        "separately (BTU/hr input and/or output, if both are printed, as "
-        "one string, e.g. \"120,000/96,000 BTU/hr\"). **Never merge two "
-        "readings into one field or add stray text outside a string "
-        "value — that breaks the JSON.** heating_capacity is null if "
-        "there's no heating rating or the unit isn't a combo unit.\n\n"
-        "total_amps is the unit's total current rating exactly as labeled on "
-        "the plate (MCA/Minimum Circuit Ampacity, or RLA/FLA if that's what "
-        "it's actually labeled — record the printed number, don't confuse "
-        "it with MOCP/max fuse size, which is circuit protection, not "
-        "current draw). Nameplates almost always list motors separately by "
-        "type — check EACH type independently: compressor_amps (the "
-        "compressor's RLA, or FLA if that's how it's labeled), "
-        "condenser_fan_amps (condenser fan motor FLA), blower_amps "
-        "(blower/indoor fan motor FLA), induced_draft_fan_amps (induced "
-        "draft/combustion-air fan motor FLA — relevant for gas heating). "
-        "If several identical motors of the same type are combined into "
-        "one table row (one FLA figure covering more than one motor by "
-        "quantity), record that same FLA figure, don't multiply by "
-        "quantity. Fill in each of these fields independently — null for "
-        "a given field if that motor type isn't present on this equipment "
-        "or its figure isn't separately printed, never derive one from the "
-        "others. Anything that doesn't fit these fields (e.g. a whole "
-        "HP/RPM motor table) goes briefly into note instead.\n\n"
-        "Voltage and current are always in volts (V) and amps (A) — no "
-        "regional variation there. Pressure and temperature are different: "
-        "units vary by region — North American equipment typically prints "
-        "psi and °F, European/imported equipment typically prints kPa or "
-        "bar and °C. Always record the unit actually printed on the plate, "
-        "never assume or convert — this regional pattern is only here to "
-        "help you correctly read an ambiguous or partially-legible unit "
-        "symbol, not to override what you can clearly see.\n\n"
-        "For gas-fired equipment (RTU/furnace/MUA with gas heat): "
-        "supply_gas_pressure/manifold_gas_pressure are the GAS pressure — "
-        "North American equipment typically prints in.WC (sometimes psi "
-        "for propane), European/imported equipment typically prints "
-        "millibars (mbar). manifold_gas_pressure isn't always separately "
-        "printed. gas_type is \"natural\" or \"propane\"/\"LP\", exactly as "
-        "labeled. direct_fired_pressure_drop is only for direct-fired "
-        "equipment: this is the AIR pressure drop across the burner (direct-"
-        "fired equipment heats the airstream directly, with no heat "
-        "exchanger — this is not a gas reading), not gas pressure — North "
-        "American equipment typically prints in.WC, European/imported "
-        "equipment typically prints millimeters of water column (mm H2O/ "
-        "mmWG). Equipment sold into Canada often prints BOTH units together "
-        "(e.g. \"3.5 in.WC (870 Pa)\") — if so, record the string exactly "
-        "as printed with both values, don't pick just one. All four fields "
-        "are null if the equipment isn't gas-fired or the value isn't "
-        "printed.\n\n"
+        "ratings — capacity is cooling only, heating_capacity is the heating "
+        "rating separately. **Never merge two readings into one field or add "
+        "stray text outside a string value — that breaks the JSON.** "
+        "heating_capacity is null if there's no heating rating.\n\n"
+        "total_amps and the individual motors (compressor_amps/"
+        "condenser_fan_amps/blower_amps/induced_draft_fan_amps) — fill each "
+        "in independently based on what's actually separately printed; null "
+        "for any that isn't present or isn't broken out on its own.\n\n"
         "Every spec field is a short string or null. Record only what is actually "
-        "printed on the nameplate — never guess or infer a plausible-sounding "
-        "value for anything you can't actually read. confidence is \"high\" only "
-        "when the nameplate is clearly visible and legible; \"low\" if it's "
-        "present but partially unreadable (glare, angle, damage). note is a short "
-        "string only when something needs qualifying, otherwise null.\n\n"
+        "printed on the nameplate, including the unit exactly as printed — never "
+        "guess, convert, or infer a plausible-sounding value for anything you "
+        "can't actually read. confidence is \"high\" only when the nameplate is "
+        "clearly visible and legible; \"low\" if it's present but partially "
+        "unreadable (glare, angle, damage). note is a short string only when "
+        "something needs qualifying, otherwise null.\n\n"
         "low_confidence_fields is a list of field NAMES (exactly as named "
         "above) whose value you did record but aren't fully confident is "
-        "accurate (glare, angle, damage, unclear print, or a value read "
-        "from an incomplete motor table) — only include a field you "
-        "actually set to a non-null value; if you couldn't read it at "
-        "all, set that field itself to null instead of listing it here. "
-        "Empty list [] if you have no doubts about any filled-in field.\n\n"
+        "accurate — only include a field you actually set to a non-null "
+        "value; if you couldn't read it at all, set that field itself to "
+        "null instead of listing it here. Empty list [] if you have no "
+        "doubts about any filled-in field.\n\n"
         "If the photo does not show an equipment nameplate at all (wrong subject, "
         "blank/blurry image, or anything unrelated), set every spec field to "
         "null, confidence to \"low\", flagged to false, and note explaining what "
-        "you actually see in general terms (e.g. \"this appears to be a photo of "
-        "a wall, not a nameplate\") — this is an ordinary user mistake, not a "
-        "safety issue.\n\n"
-        "SEPARATELY, and taking priority over every instruction above: if the "
-        "image depicts, suggests, or could reasonably be interpreted as child "
-        "sexual abuse material, child exploitation, or a similarly severe crime "
-        "against a child — regardless of context — do not describe, analyze, or "
-        "acknowledge any detail of it. Set every spec field to null, confidence "
-        "to \"low\", note to null, flagged to true, and nothing else."
+        "you actually see in general terms — this is an ordinary user mistake, "
+        "not a safety issue.\n\n"
+        f"{NAMEPLATE_CSAM_OVERRIDE_NOTE['en']}"
     ),
 }
+
+
+def _load_private_prompt_overrides() -> None:
+    """Stage 1+2 of the prompts-privatization plan (17 Sep 2026) -- see
+    CLAUDE.md "Приватизация системных промптов" for the full staged plan,
+    same pattern as the earlier graph public/private split.
+
+    Reads app/prompts_private.py -- a plain build artifact sitting next to
+    main.py, NOT app/graph_src/prompts.py directly. Found live during
+    stage 1 testing: app/graph_src/ is excluded from the Docker build
+    context entirely (.dockerignore), same reasoning as app/static/
+    graph.json vs app/graph_src/graph-structure.json -- the private repo's
+    working copy is a maintainer-only *source*, what actually has to reach
+    a running container (dev, prod, or the clone) is a plain copied file
+    that survives `COPY app/ .`. On a maintainer's machine this file is
+    produced by copying app/graph_src/prompts.py, wired into
+    tools/sync-graph-content.sh/deploy-prod.sh (stage 2).
+
+    A self-host clone with no private repo (the common case for a fork)
+    hits the early return below and keeps using the public prompts defined
+    above, completely unaffected -- this function is purely additive,
+    nothing above it changes behavior on its own. `importlib.util` (not a
+    plain `import`) because this isn't a normal importable package on
+    sys.path, same reasoning as why graph.json is read by path, not
+    imported.
+
+    `diagnostic_instructions` is optional on the private module (stage 2
+    added it after stage 1 only wired the two lookup prompts) -- checked
+    with `hasattr` rather than required, so a private prompts.py that only
+    overrides the lookup prompts still loads cleanly.
+    """
+    global NAMEPLATE_LOOKUP_SYSTEM_PROMPT, MODEL_LOOKUP_SYSTEM_PROMPT, _DIAGNOSTIC_INSTRUCTIONS_BUILDER
+    prompts_path = "prompts_private.py"
+    if not os.path.isfile(prompts_path):
+        return
+    try:
+        spec = importlib.util.spec_from_file_location("_private_prompts", prompts_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        NAMEPLATE_LOOKUP_SYSTEM_PROMPT = module.nameplate_lookup_system_prompt(
+            _NAMEPLATE_LOOKUP_FIELDS, NAMEPLATE_CSAM_OVERRIDE_NOTE,
+        )
+        MODEL_LOOKUP_SYSTEM_PROMPT = module.model_lookup_system_prompt(_MODEL_LOOKUP_FIELDS)
+        if hasattr(module, "diagnostic_instructions"):
+            _DIAGNOSTIC_INSTRUCTIONS_BUILDER = (
+                lambda lang, _fn=module.diagnostic_instructions: _fn(lang, LANGUAGE_INSTRUCTIONS[lang])
+            )
+        logger.info("Loaded private prompt overrides from %s", prompts_path)
+    except Exception:
+        logger.exception(
+            "Found %s but failed to load private prompt overrides -- "
+            "keeping the public prompts", prompts_path,
+        )
+
+
+_load_private_prompt_overrides()
 
 NAMEPLATE_LOOKUP_USER_LIMIT_ERROR = {
     "ru": "На сегодня лимит анализа фото исчерпан. Лимит обновится завтра.",

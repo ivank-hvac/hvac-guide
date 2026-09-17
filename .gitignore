@@ -65,6 +65,14 @@ ROADMAP-internal.md
 /app/graph_src/
 /app/static/graph.json
 
+# Private AI system-prompt overrides -- same delivery shape as graph.json
+# above (plain build artifact copied from app/graph_src/prompts.py, not
+# the private repo working copy itself). Stage 1 of the prompts-
+# privatization plan, 17 Sep 2026 -- see CLAUDE.md. Absent entirely on a
+# self-host clone; app/main.py's loader falls back to the public prompts
+# it already defines when this file isn't present.
+/app/prompts_private.py
+
 # Maintainer-only domain-knowledge reference docs (never read by the app
 # at runtime) - moved 17 Sep 2026 into the same private graph repo as
 # app/graph_src/ above, same reasoning: real accumulated expertise a
