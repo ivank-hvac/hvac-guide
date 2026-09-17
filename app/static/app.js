@@ -2756,10 +2756,14 @@ function renderManufacturerStep() {
   nameplateWarning.appendChild(nameplateWarningActions);
   cardEl.appendChild(nameplateWarning);
 
+  // No `capture` attribute on purpose: that hint forces mobile browsers
+  // straight into the camera, skipping the OS picker's other sources.
+  // Leaving it off gives the normal chooser (camera / gallery / files) on
+  // phones and a plain file browse on desktop -- a tech should be able to
+  // use a photo already on the device, not only a fresh live shot.
   const nameplateFileInput = document.createElement("input");
   nameplateFileInput.type = "file";
   nameplateFileInput.accept = "image/*";
-  nameplateFileInput.capture = "environment";
   nameplateFileInput.style.display = "none";
   cardEl.appendChild(nameplateFileInput);
 
