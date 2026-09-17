@@ -139,6 +139,31 @@ body {
   align-items: center;
 }
 
+.nameplate-warning {
+  background: var(--crit-bg);
+  border: var(--border-width) solid var(--crit);
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  margin: .6rem 0;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+.nameplate-warning-title { font-weight: 700; margin-bottom: .3rem; }
+.nameplate-warning-actions { display: flex; gap: .6rem; margin-top: .7rem; flex-wrap: wrap; }
+.nameplate-result {
+  background: var(--panel);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  margin: .6rem 0;
+  font-size: .88rem;
+}
+.nameplate-result dl { margin: .4rem 0 0; }
+.nameplate-result dt { color: var(--muted); font-size: .78rem; margin-top: .5rem; }
+.nameplate-result dt:first-child { margin-top: 0; }
+.nameplate-result dd { margin: .1rem 0 0; font-weight: 600; }
+.nameplate-confidence-low { color: var(--warn); font-weight: 600; margin-top: .5rem; }
+
 .disclaimer {
   width: 100%;
   box-sizing: border-box;
