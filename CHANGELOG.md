@@ -11,6 +11,17 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: compress client-side (canvas resize to 1600px/JPEG
+  0.85) before upload, plus a 45s upload timeout with a clear message.
+  Found live in the field — an uncompressed phone photo over a weak
+  connection stalled with no way out. Caught and fixed a CSP gap in the
+  same pass (`img-src` had no `blob:` exception, so the resize step was
+  silently no-op'ing). #143, `7ceaab2`
+
+- Nameplate photo: allow picking an existing photo from gallery/files,
+  not just live camera capture (`capture="environment"` was forcing
+  the camera app on mobile). #142, `d8325cc`
+
 - Nameplate-photo lookup pilot: new 📷 button on the manufacturer/model
   step — reads brand/model/specs from a nameplate photo via Claude's
   vision input, auto-fills the two fields on that step. Gated behind an
