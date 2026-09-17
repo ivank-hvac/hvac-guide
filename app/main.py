@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import html
+import importlib.util
 import ipaddress
 import json
 import logging
@@ -1242,6 +1243,45 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "to \"low\", note to null, flagged to true, and nothing else."
     ),
 }
+
+
+def _load_private_prompt_overrides() -> None:
+    """Stage 1 of the prompts-privatization plan (17 Sep 2026) -- see
+    CLAUDE.md "Приватизация системных промптов" for the full staged plan,
+    same pattern as the earlier graph public/private split.
+
+    If a maintainer has the private graph_src repo cloned (it already
+    holds graph-structure.json/content/equipment-profiles -- see .gitignore),
+    and that repo ALSO has a prompts.py in it, this overrides the two
+    domain-expertise-heavy prompt dicts above with whatever it returns.
+    A self-host clone with no private repo (the overwhelming common case
+    right now, since nothing delivers this file to prod/clone yet) hits
+    the `except` below and keeps using the public prompts defined above,
+    completely unaffected -- this function is purely additive, nothing
+    above it changes behavior on its own. `importlib.util` (not a plain
+    `import`) because graph_src isn't a normal importable package on
+    sys.path, same reasoning as why graph.json is read by path, not
+    imported.
+    """
+    global NAMEPLATE_LOOKUP_SYSTEM_PROMPT, MODEL_LOOKUP_SYSTEM_PROMPT
+    prompts_path = os.path.join("graph_src", "prompts.py")
+    if not os.path.isfile(prompts_path):
+        return
+    try:
+        spec = importlib.util.spec_from_file_location("_private_prompts", prompts_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        NAMEPLATE_LOOKUP_SYSTEM_PROMPT = module.nameplate_lookup_system_prompt(_NAMEPLATE_LOOKUP_FIELDS)
+        MODEL_LOOKUP_SYSTEM_PROMPT = module.model_lookup_system_prompt(_MODEL_LOOKUP_FIELDS)
+        logger.info("Loaded private prompt overrides from %s", prompts_path)
+    except Exception:
+        logger.exception(
+            "Found %s but failed to load private prompt overrides -- "
+            "keeping the public prompts", prompts_path,
+        )
+
+
+_load_private_prompt_overrides()
 
 NAMEPLATE_LOOKUP_USER_LIMIT_ERROR = {
     "ru": "На сегодня лимит анализа фото исчерпан. Лимит обновится завтра.",
