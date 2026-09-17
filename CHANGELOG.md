@@ -11,6 +11,19 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: schema now checks each motor type independently
+  (compressor/condenser fan/blower/induced draft fan), null per motor
+  if not printed — instead of nameplate motor tables just being an
+  informal note. New per-field `low_confidence_fields`: the model flags
+  individual uncertain values instead of one blanket confidence for the
+  whole card; uncertain fields get an amber highlight + inline edit on
+  the result card, confident ones carry forward into refrigerant_select
+  and the measurement step's reference fields with a blue "confirm"
+  highlight (never silently, an uncertain value is never used to
+  pre-fill a real diagnostic input). Also fixes RU/EN language buttons
+  overflowing/drifting in the field theme's header row — moved into the
+  units row. #152, `36e5d4c`
+
 - Nameplate photo: explicit "Take Photo" / "Choose from Device" buttons
   instead of relying on a single file input to surface both a camera
   and a gallery option — found live: on one real device/browser, a
