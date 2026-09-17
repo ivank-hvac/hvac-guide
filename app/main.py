@@ -1250,21 +1250,28 @@ def _load_private_prompt_overrides() -> None:
     CLAUDE.md "Приватизация системных промптов" for the full staged plan,
     same pattern as the earlier graph public/private split.
 
-    If a maintainer has the private graph_src repo cloned (it already
-    holds graph-structure.json/content/equipment-profiles -- see .gitignore),
-    and that repo ALSO has a prompts.py in it, this overrides the two
-    domain-expertise-heavy prompt dicts above with whatever it returns.
+    Reads app/prompts_private.py -- a plain build artifact sitting next to
+    main.py, NOT app/graph_src/prompts.py directly. Found live during
+    stage 1 testing: app/graph_src/ is excluded from the Docker build
+    context entirely (.dockerignore), same reasoning as app/static/
+    graph.json vs app/graph_src/graph-structure.json -- the private repo's
+    working copy is a maintainer-only *source*, what actually has to reach
+    a running container (dev, prod, or the clone) is a plain copied file
+    that survives `COPY app/ .`. On a maintainer's machine this file is
+    produced by copying app/graph_src/prompts.py (folded into
+    sync-graph-content.sh in stage 2, done by hand for this stage-1 proof).
+
     A self-host clone with no private repo (the overwhelming common case
     right now, since nothing delivers this file to prod/clone yet) hits
-    the `except` below and keeps using the public prompts defined above,
-    completely unaffected -- this function is purely additive, nothing
-    above it changes behavior on its own. `importlib.util` (not a plain
-    `import`) because graph_src isn't a normal importable package on
+    the early return below and keeps using the public prompts defined
+    above, completely unaffected -- this function is purely additive,
+    nothing above it changes behavior on its own. `importlib.util` (not a
+    plain `import`) because this isn't a normal importable package on
     sys.path, same reasoning as why graph.json is read by path, not
     imported.
     """
     global NAMEPLATE_LOOKUP_SYSTEM_PROMPT, MODEL_LOOKUP_SYSTEM_PROMPT
-    prompts_path = os.path.join("graph_src", "prompts.py")
+    prompts_path = "prompts_private.py"
     if not os.path.isfile(prompts_path):
         return
     try:
