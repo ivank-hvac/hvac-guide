@@ -70,6 +70,11 @@ const I18N = {
     nameplateCompressorTypeLabel: "Тип компрессора",
     nameplateMeteringDeviceLabel: "Дозирующее устройство",
     nameplateVoltageLabel: "Напряжение",
+    nameplateTotalAmpsLabel: "Общий ток (MCA/RLA)",
+    nameplateCompressorAmpsLabel: "Ток компрессора (RLA)",
+    nameplateCondenserFanAmpsLabel: "Ток вентилятора конденсатора",
+    nameplateBlowerAmpsLabel: "Ток вентилятора/блоуэра",
+    nameplateRefrigerantPrefilled: "Заполнено по фото шильдика — проверьте и подтвердите",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
@@ -190,6 +195,11 @@ const I18N = {
     nameplateCompressorTypeLabel: "Compressor type",
     nameplateMeteringDeviceLabel: "Metering device",
     nameplateVoltageLabel: "Voltage",
+    nameplateTotalAmpsLabel: "Total unit amps (MCA/RLA)",
+    nameplateCompressorAmpsLabel: "Compressor amps (RLA)",
+    nameplateCondenserFanAmpsLabel: "Condenser fan amps",
+    nameplateBlowerAmpsLabel: "Blower/indoor fan amps",
+    nameplateRefrigerantPrefilled: "Filled in from the nameplate photo — check and confirm",
     mfgDocLink: "See also: official {name} technical documentation",
     refrigerantNotSpecified: "— select refrigerant —",
     refrigerantUnknown: "Don't know / can't tell",
@@ -818,6 +828,7 @@ function tryBootOffline() {
   state.manufacturerAsked = !!np.manufacturerAsked;
   state.pendingNodeId = np.pendingNodeId || null;
   state.refrigerant = np.refrigerant || null;
+  state.nameplateSpecs = np.nameplateSpecs || null;
   state.checklist = snap.checklistState;
   state.finishNodeId = np.finishNodeId || null;
   state.intake = np.intake || {};
@@ -909,6 +920,10 @@ let state = {
                              // sent only via logSession(). See CLAUDE.md "История сессий + jobsite-метка".
   pendingNodeId: null,      // where to go once the manufacturer/intake step is submitted
   refrigerant: null,        // {id, name} once picked on a refrigerant_select node, else null
+  nameplateSpecs: null,     // raw result of a successful /api/nameplate-lookup this session, else
+                             // null — read by renderRefrigerantSelect to pre-fill (never auto-skip)
+                             // the later refrigerant question. Not sent to the AI, not part of
+                             // answers[] — same "own field, not answers" reasoning as jobsite above.
   checklist: {},            // {[resultNodeId]: {[itemId]: boolean|string}} — see renderChecklist
   finishNodeId: null,       // which result node's checklist the finish screen is summarizing
   intake: {},               // {[phaseId]: {[itemId]: {value, skipped}}} — see renderIntakeChecklist
@@ -1229,6 +1244,7 @@ function serializeNodePath() {
     jobsite: state.jobsite,
     pendingNodeId: state.pendingNodeId,
     refrigerant: state.refrigerant,
+    nameplateSpecs: state.nameplateSpecs,
     finishNodeId: state.finishNodeId,
     intake: state.intake,
     intakeAsked: state.intakeAsked,
@@ -1382,6 +1398,7 @@ async function resumeSession(data) {
     jobsite: np.jobsite || null,
     pendingNodeId: np.pendingNodeId || null,
     refrigerant: np.refrigerant || null,
+    nameplateSpecs: np.nameplateSpecs || null,
     checklist: data.checklist_state || {},
     finishNodeId: np.finishNodeId || null,
     intake: np.intake || {},
@@ -2383,6 +2400,7 @@ function restart() {
     jobsite: null,
     pendingNodeId: null,
     refrigerant: null,
+    nameplateSpecs: null,
     checklist: {},
     finishNodeId: null,
     intake: {},
@@ -2842,6 +2860,10 @@ function renderManufacturerStep() {
   });
 
   function applyNameplateResult(data) {
+    // Kept for the rest of this session (see state.nameplateSpecs) so a
+    // later refrigerant_select node can pre-fill from it -- see there for
+    // why that's a pre-fill the tech still confirms, never an auto-skip.
+    state.nameplateSpecs = data;
     if (data.brand) {
       const brandLower = data.brand.toLowerCase();
       const match = (MANUFACTURERS || []).find(
@@ -2875,6 +2897,10 @@ function renderManufacturerStep() {
       ["compressor_type", strings.nameplateCompressorTypeLabel],
       ["metering_device", strings.nameplateMeteringDeviceLabel],
       ["voltage", strings.nameplateVoltageLabel],
+      ["total_amps", strings.nameplateTotalAmpsLabel],
+      ["compressor_amps", strings.nameplateCompressorAmpsLabel],
+      ["condenser_fan_amps", strings.nameplateCondenserFanAmpsLabel],
+      ["blower_amps", strings.nameplateBlowerAmpsLabel],
     ];
     const anySpecFound = specFields.some(([field]) => data[field]);
     if (!anySpecFound && !data.brand && !data.model_number) {
@@ -3577,6 +3603,47 @@ function renderRefrigerantSelect(node) {
     if (!refrigerant) return;
     pick(refrigerant);
   };
+
+  // Pre-fill (never auto-advance) from a nameplate photo taken earlier this
+  // session -- found live 17 Sep 2026: the photo already read the
+  // refrigerant off the plate, but the tech still had to pick it again
+  // here from scratch. A tech can always change the selection before
+  // hitting Next; this only saves the redundant re-entry, it doesn't skip
+  // the confirmation the way a hard sync/lock would -- see CLAUDE.md "Роль
+  // AI vs техника в диагностике" for why a quantitative P-T input like
+  // this one is exactly the wrong place to auto-commit without the tech
+  // actually looking at it (wrong unit photographed, low-confidence OCR,
+  // etc. would otherwise silently drive the wrong P-T curve).
+  const matched = matchRefrigerantFromNameplate(state.nameplateSpecs && state.nameplateSpecs.refrigerant);
+  if (matched && !select.value) {
+    select.value = matched.id;
+    nextBtn.disabled = false;
+    a2lWarning.style.display = matched.a2l ? "flex" : "none";
+    updateFavoriteToggle();
+    const prefillHint = document.createElement("div");
+    prefillHint.className = "numeric-hint";
+    prefillHint.textContent = strings.nameplateRefrigerantPrefilled;
+    cardEl.insertBefore(prefillHint, nextBtn);
+  }
+}
+
+// Matches a free-text refrigerant reading from a nameplate photo (e.g.
+// "R-410A (Puron)") against the known refrigerants.json list — normalizes
+// both sides to bare alphanumerics and checks containment either way, so
+// trailing trade names/whitespace/punctuation on the nameplate string
+// don't prevent a match. Returns null on no match (including an empty/
+// null input) rather than guessing.
+function matchRefrigerantFromNameplate(rawText) {
+  if (!rawText) return null;
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const target = normalize(rawText);
+  if (!target) return null;
+  return (REFRIGERANTS || []).find((r) => {
+    const idNorm = normalize(r.id);
+    const nameNorm = normalize(r.name);
+    return target.includes(idNorm) || target.includes(nameNorm)
+      || idNorm.includes(target) || nameNorm.includes(target);
+  }) || null;
 }
 
 // Terminal step of the P-T calculator sequence (refrigerant_select + a

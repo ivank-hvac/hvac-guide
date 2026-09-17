@@ -1020,7 +1020,18 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "или после, строго такой формы:\n"
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
         '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
-        '"voltage": ..., "confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
+        '"condenser_fan_amps": ..., "blower_amps": ..., "confidence": "high"|"low", '
+        '"note": ..., "flagged": false}\n\n'
+        "total_amps — суммарный ток юнита, как он реально обозначен на "
+        "шильдике (MCA/Minimum Circuit Ampacity, либо RLA/FLA, если именно "
+        "так подписано — запиши цифру как есть, не пересчитывай и не "
+        "путай с MOCP/max fuse size, это про защиту цепи, не про ток). "
+        "compressor_amps — RLA компрессора (или FLA, если компрессор так "
+        "подписан). condenser_fan_amps/blower_amps — FLA соответствующего "
+        "мотора. Заполняй только то, что реально отдельно подписано на "
+        "шильдике — если конкретного значения нет, null, не выводи его из "
+        "других чисел.\n\n"
         "Каждое поле — короткая строка или null. Записывай только то, что "
         "реально написано на шильдике — никогда не угадывай и не выводи "
         "правдоподобное значение того, что не можешь прочитать. confidence — "
@@ -1048,7 +1059,18 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "before or after, matching exactly this shape:\n"
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
         '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
-        '"voltage": ..., "confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
+        '"condenser_fan_amps": ..., "blower_amps": ..., "confidence": "high"|"low", '
+        '"note": ..., "flagged": false}\n\n'
+        "total_amps is the unit's total current rating exactly as labeled on "
+        "the plate (MCA/Minimum Circuit Ampacity, or RLA/FLA if that's what "
+        "it's actually labeled — record the printed number, don't confuse "
+        "it with MOCP/max fuse size, which is circuit protection, not "
+        "current draw). compressor_amps is the compressor's RLA (or FLA if "
+        "that's how it's labeled). condenser_fan_amps/blower_amps are the "
+        "respective motor's FLA. Only fill in a field that is actually "
+        "separately labeled on the nameplate — null if a specific figure "
+        "isn't printed, never derive one from the others.\n\n"
         "Every spec field is a short string or null. Record only what is actually "
         "printed on the nameplate — never guess or infer a plausible-sounding "
         "value for anything you can't actually read. confidence is \"high\" only "
@@ -2298,7 +2320,8 @@ def _consume_nameplate_lookup_quota(quota_key: str) -> Dict[str, Any]:
 
 
 _NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity", "seer",
-                            "refrigerant", "compressor_type", "metering_device", "voltage"]
+                            "refrigerant", "compressor_type", "metering_device", "voltage",
+                            "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps"]
 
 
 def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
