@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: explicit "Take Photo" / "Choose from Device" buttons
+  instead of relying on a single file input to surface both a camera
+  and a gallery option — found live: on one real device/browser, a
+  plain `accept="image/*"` input went straight to a file browser with
+  no camera option offered at all. #151, `10171a4`
+
 - Nameplate photo: European gas equipment typically prints millibars,
   not in.WC; direct_fired_pressure_drop is actually an air-side reading
   (mm H2O/mmWG in Europe) since direct-fired equipment heats the
