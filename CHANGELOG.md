@@ -11,6 +11,19 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: recover fields from malformed JSON via regex instead
+  of dumping raw text to the technician, split capacity into separate
+  cooling/heating fields (the actual cause of a real parse failure seen
+  live), and fix a data-loss bug where a plain model-number lookup could
+  silently blank out amps/gas fields a nameplate photo had already
+  found for the same model. #146, `27d8f5b`
+
+- Nameplate/model lookup: persist the extracted DATA (not the photo) in
+  the shared `model_specs` table so a model doesn't need re-photographing
+  on a later visit; added gas-fired fields (supply/manifold gas pressure,
+  gas type, direct-fired pressure drop); new README scope line excluding
+  solid/liquid/biomass-fuel heating equipment. #145, `6e26a2c`
+
 - Nameplate photo: extract amperage fields (total unit MCA/RLA,
   compressor RLA, condenser fan and blower FLA) and pre-fill the later
   refrigerant_select step from the photo's reading (with a "check and
