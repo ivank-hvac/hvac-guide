@@ -11,6 +11,11 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: pass the equipment type already picked at the start
+  of the flow (RTU/split/furnace/etc.) through as a search hint —
+  narrows focus without permitting a guess; a hinted field still comes
+  back null if it isn't actually printed/legible. #148, `69e4c9d`
+
 - Model/nameplate lookup prompts now generate their JSON-schema shape
   from the same field lists the parsers read, instead of a separately
   hand-typed copy in each of the four RU/EN prompt strings — removes a
