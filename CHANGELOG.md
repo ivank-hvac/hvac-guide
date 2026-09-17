@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: clarify voltage/current are always V/A (no regional
+  variation), and hint that pressure/temperature units typically follow
+  region (psi/°F for North American plates, kPa or bar/°C for European/
+  imported ones) — helps read an ambiguous unit symbol without ever
+  overriding what's actually printed. #149, `7b91c67`
+
 - Nameplate photo: pass the equipment type already picked at the start
   of the flow (RTU/split/furnace/etc.) through as a search hint —
   narrows focus without permitting a guess; a hinted field still comes
