@@ -62,7 +62,10 @@ machine in front of you, don't take it.
 air conditioning and refrigeration: RTUs, splits, VRF/VRV, chillers,
 walk-in/reach-in refrigeration and forced-air furnaces. It does **not**
 cover ultra-low-temperature refrigeration (roughly below -30 °C / -22 °F),
-which has its own failure modes and its own safety rules. RTU content is the
+which has its own failure modes and its own safety rules, and it does
+**not** cover equipment heated by kerosene, diesel, fuel oil, coal, wood,
+wood pellets, or any other solid/liquid/biomass fuel — heating-equipment
+content here assumes gas or electric. RTU content is the
 most thoroughly reviewed; other equipment classes are being brought up to
 the same standard, so treat their advice with extra scepticism and check
 that any component mentioned actually exists on your machine.

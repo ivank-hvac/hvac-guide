@@ -75,6 +75,10 @@ const I18N = {
     nameplateCondenserFanAmpsLabel: "Ток вентилятора конденсатора",
     nameplateBlowerAmpsLabel: "Ток вентилятора/блоуэра",
     nameplateRefrigerantPrefilled: "Заполнено по фото шильдика — проверьте и подтвердите",
+    nameplateSupplyGasPressureLabel: "Давление газа подачи",
+    nameplateManifoldGasPressureLabel: "Давление на коллекторе",
+    nameplateGasTypeLabel: "Тип газа",
+    nameplateDirectFiredPressureDropLabel: "Перепад давления (direct-fired)",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
@@ -200,6 +204,10 @@ const I18N = {
     nameplateCondenserFanAmpsLabel: "Condenser fan amps",
     nameplateBlowerAmpsLabel: "Blower/indoor fan amps",
     nameplateRefrigerantPrefilled: "Filled in from the nameplate photo — check and confirm",
+    nameplateSupplyGasPressureLabel: "Supply gas pressure",
+    nameplateManifoldGasPressureLabel: "Manifold gas pressure",
+    nameplateGasTypeLabel: "Gas type",
+    nameplateDirectFiredPressureDropLabel: "Pressure drop (direct-fired)",
     mfgDocLink: "See also: official {name} technical documentation",
     refrigerantNotSpecified: "— select refrigerant —",
     refrigerantUnknown: "Don't know / can't tell",
@@ -2901,6 +2909,10 @@ function renderManufacturerStep() {
       ["compressor_amps", strings.nameplateCompressorAmpsLabel],
       ["condenser_fan_amps", strings.nameplateCondenserFanAmpsLabel],
       ["blower_amps", strings.nameplateBlowerAmpsLabel],
+      ["supply_gas_pressure", strings.nameplateSupplyGasPressureLabel],
+      ["manifold_gas_pressure", strings.nameplateManifoldGasPressureLabel],
+      ["gas_type", strings.nameplateGasTypeLabel],
+      ["direct_fired_pressure_drop", strings.nameplateDirectFiredPressureDropLabel],
     ];
     const anySpecFound = specFields.some(([field]) => data[field]);
     if (!anySpecFound && !data.brand && !data.model_number) {
