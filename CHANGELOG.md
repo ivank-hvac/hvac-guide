@@ -11,6 +11,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: European gas equipment typically prints millibars,
+  not in.WC; direct_fired_pressure_drop is actually an air-side reading
+  (mm H2O/mmWG in Europe) since direct-fired equipment heats the
+  airstream directly; equipment sold into Canada often prints both unit
+  systems together — record that whole string, don't pick one. #150,
+  `dfd6eec`
+
 - Nameplate photo: clarify voltage/current are always V/A (no regional
   variation), and hint that pressure/temperature units typically follow
   region (psi/°F for North American plates, kPa or bar/°C for European/
