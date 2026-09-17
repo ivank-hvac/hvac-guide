@@ -374,7 +374,16 @@ app.state.limiter = limiter
 # Caddy on the real domains) is still free to set its own values and win --
 # this is a floor, not an override.
 _SECURITY_HEADERS = {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+    # img-src adds blob: on top of the default-src 'self' floor -- needed
+    # for the nameplate-photo resize step (app.js resizeImageForUpload),
+    # which loads the just-selected file into an <img> via
+    # URL.createObjectURL() before drawing it to a canvas. Found live,
+    # 17 Sep 2026: without this, the blob: load was silently blocked by CSP
+    # and the resize step quietly no-op'd (fell back to uploading the
+    # original, unresized file) -- the feature still worked end to end
+    # because of that same fallback, just without the compression benefit
+    # it was built for, and without ANY visible error to the technician.
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
