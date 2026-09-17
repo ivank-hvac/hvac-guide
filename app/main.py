@@ -583,6 +583,7 @@ def init_db() -> None:
         # are for the gas-fired-equipment fields below.
         existing_model_specs_cols = {row[1] for row in conn.execute("PRAGMA table_info(model_specs)")}
         for _col in (
+            "heating_capacity",
             "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
             "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
             "direct_fired_pressure_drop", "source",
@@ -1042,11 +1043,19 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "Ответь ТОЛЬКО одним JSON-объектом, без markdown-обёртки, без текста до "
         "или после, строго такой формы:\n"
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
-        '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
-        '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
+        '"heating_capacity": ..., "seer": ..., "refrigerant": ..., "compressor_type": ..., '
+        '"metering_device": ..., "voltage": ..., "total_amps": ..., "compressor_amps": ..., '
         '"condenser_fan_amps": ..., "blower_amps": ..., "supply_gas_pressure": ..., '
         '"manifold_gas_pressure": ..., "gas_type": ..., "direct_fired_pressure_drop": ..., '
         '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        "Многие RTU/gas-electric юниты печатают ОТДЕЛЬНЫЕ значения "
+        "охлаждения и нагрева — capacity — только охлаждение (или общая "
+        "мощность, если юнит не combo), heating_capacity — отдельно "
+        "нагрев (BTU/hr input и/или output, если оба напечатаны — оба "
+        "числа в одну строку через слэш, например \"120000/96000 BTU/hr\"). "
+        "**НИКОГДА не объединяй два значения в одно поле и не добавляй "
+        "лишний текст вне значения строки** — это ломает JSON. Если нагрева "
+        "нет или юнит не combo, heating_capacity — null.\n\n"
         "total_amps — суммарный ток юнита, как он реально обозначен на "
         "шильдике (MCA/Minimum Circuit Ampacity, либо RLA/FLA, если именно "
         "так подписано — запиши цифру как есть, не пересчитывай и не "
@@ -1090,11 +1099,19 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "Respond with ONLY a single JSON object, no markdown fences, no prose "
         "before or after, matching exactly this shape:\n"
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
-        '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
-        '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
+        '"heating_capacity": ..., "seer": ..., "refrigerant": ..., "compressor_type": ..., '
+        '"metering_device": ..., "voltage": ..., "total_amps": ..., "compressor_amps": ..., '
         '"condenser_fan_amps": ..., "blower_amps": ..., "supply_gas_pressure": ..., '
         '"manifold_gas_pressure": ..., "gas_type": ..., "direct_fired_pressure_drop": ..., '
         '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
+        "Many RTU/gas-electric units print SEPARATE cooling and heating "
+        "ratings — capacity is cooling only (or the unit's overall rating "
+        "if it isn't a combo unit), heating_capacity is the heating rating "
+        "separately (BTU/hr input and/or output, if both are printed, as "
+        "one string, e.g. \"120,000/96,000 BTU/hr\"). **Never merge two "
+        "readings into one field or add stray text outside a string "
+        "value — that breaks the JSON.** heating_capacity is null if "
+        "there's no heating rating or the unit isn't a combo unit.\n\n"
         "total_amps is the unit's total current rating exactly as labeled on "
         "the plate (MCA/Minimum Circuit Ampacity, or RLA/FLA if that's what "
         "it's actually labeled — record the printed number, don't confuse "
@@ -2121,7 +2138,7 @@ def _log_ai_call(
 
 
 _MODEL_SPECS_COLUMNS = [
-    "brand", "equipment_type", "capacity", "seer", "refrigerant",
+    "brand", "equipment_type", "capacity", "heating_capacity", "seer", "refrigerant",
     "compressor_type", "metering_device", "voltage",
     "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
     "supply_gas_pressure", "manifold_gas_pressure", "gas_type", "direct_fired_pressure_drop",
@@ -2145,15 +2162,27 @@ def _store_model_specs(
 ) -> None:
     """Shared by both the model-number (web-search) and nameplate-photo
     lookups — see _MODEL_SPECS_COLUMNS' own comment on why this is one
-    table with a `source` column rather than two. `specs` only needs to
-    carry whatever fields that particular lookup actually produces —
-    missing keys just write NULL, and ON CONFLICT overwrites the whole
-    row with whatever the latest lookup found (a fresher/richer read,
-    photo or web, is assumed better than the fetch it displaces)."""
-    # Values built in exactly _MODEL_SPECS_COLUMNS' own order -- "source" is
-    # a real key in `specs` here (not read from the dict), so it's set
-    # explicitly rather than via .get() like every other column.
-    row_values = [source if col == "source" else specs.get(col) for col in _MODEL_SPECS_COLUMNS]
+    table with a `source` column rather than two.
+
+    A column this particular lookup's schema doesn't even have (e.g. the
+    web-search path has no amps/gas-pressure keys at all) is preserved
+    from whatever's already in the DB, not blanked to NULL — found live
+    17 Sep 2026: without this, photographing a nameplate's rich amps/gas
+    data and then later typing the same model number into the plain
+    model-lookup box would silently wipe those columns back to NULL, since
+    that path's own `specs` dict never carries those keys to begin with.
+    A column the lookup DID attempt (key present, even if the value is
+    None because it genuinely wasn't found) still overwrites — that's a
+    real, current answer for that field, not an absence of an opinion.
+    """
+    existing = _get_cached_model_specs(model_number) or {}
+    merged = {
+        col: specs[col] if col in specs else existing.get(col)
+        for col in _MODEL_SPECS_COLUMNS if col != "source"
+    }
+    merged["source"] = source
+    # Values built in exactly _MODEL_SPECS_COLUMNS' own order.
+    row_values = [merged[col] for col in _MODEL_SPECS_COLUMNS]
     set_clause = ", ".join(f"{col} = excluded.{col}" for col in _MODEL_SPECS_COLUMNS)
     with _db_connect() as conn:
         conn.execute(
@@ -2363,11 +2392,48 @@ def _consume_nameplate_lookup_quota(quota_key: str) -> Dict[str, Any]:
             "limit": NAMEPLATE_LOOKUP_DAILY_LIMIT_PER_USER}
 
 
-_NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity", "seer",
+_NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity",
+                            "heating_capacity", "seer",
                             "refrigerant", "compressor_type", "metering_device", "voltage",
                             "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
                             "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
                             "direct_fired_pressure_drop"]
+
+
+_NAMEPLATE_FIELD_NAMES_PATTERN = "|".join(
+    re.escape(f) for f in _NAMEPLATE_LOOKUP_FIELDS + ["confidence", "note"]
+)
+# Matches one standalone "field": "value" or "field": null token, valid on
+# its own regardless of what's wrong elsewhere in the surrounding document —
+# see _recover_nameplate_fields_by_regex for why that independence is the
+# whole point.
+_NAMEPLATE_FIELD_VALUE_RE = re.compile(
+    r'"(' + _NAMEPLATE_FIELD_NAMES_PATTERN + r')"\s*:\s*(null|"(?:[^"\\]|\\.)*")'
+)
+
+
+def _recover_nameplate_fields_by_regex(text: str) -> Dict[str, Any]:
+    """Best-effort partial recovery when the model's JSON doesn't parse as
+    a whole — found live 17 Sep 2026 on a real gas RTU nameplate: a stray
+    token elsewhere in the response (traced to the model cramming both a
+    cooling and a heating rating into one "capacity" field — see the new
+    heating_capacity field this same fix adds) broke strict `json.loads`
+    even though every individual field was still well-formed JSON on its
+    own. Each regex match is independently valid regardless of what's
+    broken elsewhere, so a handful of bad bytes doesn't have to cost every
+    field that DID come back clean — recovering brand/model_number/etc.
+    is a much better outcome than discarding a real, mostly-good read."""
+    recovered: Dict[str, Any] = {}
+    for m in _NAMEPLATE_FIELD_VALUE_RE.finditer(text):
+        field, raw_value = m.group(1), m.group(2)
+        if raw_value == "null":
+            recovered[field] = None
+            continue
+        try:
+            recovered[field] = json.loads(raw_value)
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return recovered
 
 
 def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
@@ -2383,19 +2449,36 @@ def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
             text = text[4:]
         text = text.strip()
 
-    fallback_note = text[:300].strip() or (
+    # The RAW model text used to be shown to the technician verbatim as
+    # `note` on a full parse failure -- found live 17 Sep 2026: on a real
+    # malformed response this put a wall of unparsed JSON syntax in front
+    # of a field tech instead of a clean message. Kept server-side only
+    # now (docker logs, not the DB -- this is the model's own text
+    # describing nameplate specs, not the photo itself, so logging it here
+    # doesn't reopen the "never persist the image" question).
+    fallback = {f: None for f in _NAMEPLATE_LOOKUP_FIELDS}
+    fallback["confidence"] = "low"
+    fallback["note"] = (
         "Не удалось разобрать ответ модели." if lang == "ru"
         else "Could not parse the model's response."
     )
-    fallback = {f: None for f in _NAMEPLATE_LOOKUP_FIELDS}
-    fallback["confidence"] = "low"
-    fallback["note"] = fallback_note
     fallback["flagged"] = False
 
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, ValueError):
-        return fallback
+        recovered = _recover_nameplate_fields_by_regex(text)
+        if not recovered:
+            logger.warning(
+                "nameplate-lookup: JSON parse failed and no fields were "
+                "recoverable, raw response (truncated): %r", text[:500]
+            )
+            return fallback
+        logger.warning(
+            "nameplate-lookup: JSON parse failed, recovered %d/%d fields via regex",
+            len(recovered), len(_NAMEPLATE_LOOKUP_FIELDS) + 2,
+        )
+        data = recovered
     if not isinstance(data, dict):
         return fallback
 
