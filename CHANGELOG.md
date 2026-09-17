@@ -11,6 +11,11 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Model/nameplate lookup prompts now generate their JSON-schema shape
+  from the same field lists the parsers read, instead of a separately
+  hand-typed copy in each of the four RU/EN prompt strings — removes a
+  silent-drift failure mode. #147, `dc8d065`
+
 - Nameplate photo: recover fields from malformed JSON via regex instead
   of dumping raw text to the technician, split capacity into separate
   cooling/heating fields (the actual cause of a real parse failure seen
