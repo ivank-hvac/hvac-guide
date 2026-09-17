@@ -9,6 +9,16 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-17
+
+- Model-number lookup pilot: new `/model-lookup` page + `/api/model-lookup`
+  endpoint — looks up a unit's specs (brand, equipment type, capacity,
+  SEER, refrigerant, compressor type, metering device, voltage) by model
+  number using Claude's hosted web-search tool, and caches every result
+  permanently so a repeat lookup of the same model is instant and free.
+  Standalone from the main diagnostic graph. Own daily rate-limit/quota,
+  separate from the AI-assist ones. #140, `4854029`
+
 ## 2026-09-11
 
 - SECURITY.md: added a "Known limitations (accepted risk)" section
