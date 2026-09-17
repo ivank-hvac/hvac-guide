@@ -51,6 +51,23 @@ const I18N = {
     jobsiteLabel: "Метка объекта (опционально)",
     jobsitePlaceholder: "Например: RTU-2, склад",
     jobsiteHint: "Только для вас — чтобы найти сессию в истории. Не пишите сюда имена клиентов или адреса.",
+    nameplatePhotoBtn: "📷 Фото шильдика",
+    nameplateWarningTitle: "Перед тем как продолжить",
+    nameplateWarningText: "Фотографируйте только реальный шильдик HVAC/R-оборудования. Любое другое использование этой функции — немедленный и постоянный бан без предупреждения, аккаунт и IP-адрес заносятся в чёрный список. Фото не сохраняется — обрабатывается один раз и сразу удаляется.",
+    nameplateWarningAccept: "Понимаю, продолжить",
+    nameplateWarningCancel: "Отмена",
+    nameplateAnalyzing: "Анализируем фото…",
+    nameplateResultTitle: "Найдено на шильдике",
+    nameplateNotFound: "Не удалось прочитать шильдик на этом фото.",
+    nameplateGenericError: "Не удалось обработать фото. Попробуйте ещё раз.",
+    nameplateConfidenceLow: "Низкая уверенность — сверьте с оборудованием",
+    nameplateEquipmentTypeLabel: "Тип оборудования",
+    nameplateCapacityLabel: "Мощность",
+    nameplateSeerLabel: "SEER",
+    nameplateRefrigerantLabel: "Хладагент",
+    nameplateCompressorTypeLabel: "Тип компрессора",
+    nameplateMeteringDeviceLabel: "Дозирующее устройство",
+    nameplateVoltageLabel: "Напряжение",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
@@ -152,6 +169,23 @@ const I18N = {
     jobsiteLabel: "Jobsite label (optional)",
     jobsitePlaceholder: "e.g. RTU-2, warehouse",
     jobsiteHint: "For you only, to find this session later — don't enter customer names or addresses.",
+    nameplatePhotoBtn: "📷 Nameplate photo",
+    nameplateWarningTitle: "Before you continue",
+    nameplateWarningText: "Only photograph a real HVAC/R equipment nameplate. Any other use of this feature results in an immediate, permanent ban — no warning, account and IP blacklisted. The photo is never stored — it's processed once and discarded immediately.",
+    nameplateWarningAccept: "I understand, continue",
+    nameplateWarningCancel: "Cancel",
+    nameplateAnalyzing: "Analyzing photo…",
+    nameplateResultTitle: "Found on the nameplate",
+    nameplateNotFound: "Could not read a nameplate in this photo.",
+    nameplateGenericError: "Could not process the photo. Try again.",
+    nameplateConfidenceLow: "Low confidence — verify against the unit",
+    nameplateEquipmentTypeLabel: "Equipment type",
+    nameplateCapacityLabel: "Capacity",
+    nameplateSeerLabel: "SEER",
+    nameplateRefrigerantLabel: "Refrigerant",
+    nameplateCompressorTypeLabel: "Compressor type",
+    nameplateMeteringDeviceLabel: "Metering device",
+    nameplateVoltageLabel: "Voltage",
     mfgDocLink: "See also: official {name} technical documentation",
     refrigerantNotSpecified: "— select refrigerant —",
     refrigerantUnknown: "Don't know / can't tell",
@@ -2680,6 +2714,190 @@ function renderManufacturerStep() {
   modelWrap.appendChild(modelInput);
   modelWrap.appendChild(attachCharCounter(modelInput, MAX_ANSWER_FIELD_LEN));
   cardEl.appendChild(modelWrap);
+
+  // --- Nameplate photo pilot (17 Sep 2026) ---------------------------------
+  // Auto-fills manufacturer+model above (and shows the rest as read-only
+  // context) from a nameplate photo via /api/nameplate-lookup. The photo
+  // itself never touches this page's own state or any request other than
+  // that one fetch -- see main.py NAMEPLATE_LOOKUP_RATE_LIMIT's comment for
+  // why nothing about it is ever persisted, success or flagged. The warning
+  // gate is not decorative: a flagged submission bans the IP permanently
+  // (see nameplate_lookup in main.py) -- shown every time this step is
+  // reached, not just once per session, since the button itself only ever
+  // appears here once per session anyway.
+  const nameplateBtn = document.createElement("button");
+  nameplateBtn.type = "button";
+  nameplateBtn.className = "btn input-action";
+  nameplateBtn.textContent = strings.nameplatePhotoBtn;
+  cardEl.appendChild(nameplateBtn);
+
+  const nameplateWarning = document.createElement("div");
+  nameplateWarning.className = "nameplate-warning";
+  nameplateWarning.style.display = "none";
+  const nameplateWarningTitleEl = document.createElement("div");
+  nameplateWarningTitleEl.className = "nameplate-warning-title";
+  nameplateWarningTitleEl.textContent = strings.nameplateWarningTitle;
+  nameplateWarning.appendChild(nameplateWarningTitleEl);
+  const nameplateWarningTextEl = document.createElement("div");
+  nameplateWarningTextEl.textContent = strings.nameplateWarningText;
+  nameplateWarning.appendChild(nameplateWarningTextEl);
+  const nameplateWarningActions = document.createElement("div");
+  nameplateWarningActions.className = "nameplate-warning-actions";
+  const nameplateAcceptBtn = document.createElement("button");
+  nameplateAcceptBtn.type = "button";
+  nameplateAcceptBtn.className = "btn";
+  nameplateAcceptBtn.textContent = strings.nameplateWarningAccept;
+  const nameplateCancelBtn = document.createElement("button");
+  nameplateCancelBtn.type = "button";
+  nameplateCancelBtn.className = "btn";
+  nameplateCancelBtn.textContent = strings.nameplateWarningCancel;
+  nameplateWarningActions.appendChild(nameplateAcceptBtn);
+  nameplateWarningActions.appendChild(nameplateCancelBtn);
+  nameplateWarning.appendChild(nameplateWarningActions);
+  cardEl.appendChild(nameplateWarning);
+
+  const nameplateFileInput = document.createElement("input");
+  nameplateFileInput.type = "file";
+  nameplateFileInput.accept = "image/*";
+  nameplateFileInput.capture = "environment";
+  nameplateFileInput.style.display = "none";
+  cardEl.appendChild(nameplateFileInput);
+
+  const nameplateStatus = document.createElement("div");
+  nameplateStatus.className = "numeric-hint";
+  nameplateStatus.style.display = "none";
+  cardEl.appendChild(nameplateStatus);
+
+  const nameplateResult = document.createElement("div");
+  nameplateResult.className = "nameplate-result";
+  nameplateResult.style.display = "none";
+  cardEl.appendChild(nameplateResult);
+
+  nameplateBtn.addEventListener("click", () => {
+    nameplateWarning.style.display = "block";
+  });
+  nameplateCancelBtn.addEventListener("click", () => {
+    nameplateWarning.style.display = "none";
+  });
+  nameplateAcceptBtn.addEventListener("click", () => {
+    nameplateWarning.style.display = "none";
+    nameplateFileInput.click();
+  });
+
+  function applyNameplateResult(data) {
+    if (data.brand) {
+      const brandLower = data.brand.toLowerCase();
+      const match = (MANUFACTURERS || []).find(
+        (m) => m.name.toLowerCase() === brandLower || m.name.toLowerCase().includes(brandLower)
+      );
+      if (match) {
+        select.value = match.id;
+        otherInput.style.display = "none";
+        otherCounter.style.display = "none";
+      } else {
+        select.value = "other";
+        otherInput.value = data.brand;
+        otherInput.style.display = "block";
+        otherCounter.style.display = "block";
+      }
+    }
+    if (data.model_number) modelInput.value = data.model_number;
+
+    nameplateResult.innerHTML = "";
+    nameplateResult.style.display = "block";
+    const title = document.createElement("div");
+    title.className = "nameplate-warning-title";
+    title.textContent = strings.nameplateResultTitle;
+    nameplateResult.appendChild(title);
+
+    const specFields = [
+      ["equipment_type", strings.nameplateEquipmentTypeLabel],
+      ["capacity", strings.nameplateCapacityLabel],
+      ["seer", strings.nameplateSeerLabel],
+      ["refrigerant", strings.nameplateRefrigerantLabel],
+      ["compressor_type", strings.nameplateCompressorTypeLabel],
+      ["metering_device", strings.nameplateMeteringDeviceLabel],
+      ["voltage", strings.nameplateVoltageLabel],
+    ];
+    const anySpecFound = specFields.some(([field]) => data[field]);
+    if (!anySpecFound && !data.brand && !data.model_number) {
+      const empty = document.createElement("div");
+      empty.textContent = data.note || strings.nameplateNotFound;
+      nameplateResult.appendChild(empty);
+      return;
+    }
+
+    const dl = document.createElement("dl");
+    specFields.forEach(([field, label]) => {
+      if (!data[field]) return;
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = data[field];
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    });
+    if (dl.children.length) nameplateResult.appendChild(dl);
+
+    if (data.confidence === "low") {
+      const conf = document.createElement("div");
+      conf.className = "nameplate-confidence-low";
+      conf.textContent = strings.nameplateConfidenceLow;
+      nameplateResult.appendChild(conf);
+    }
+    if (data.note) {
+      const note = document.createElement("div");
+      note.className = "numeric-hint";
+      note.textContent = data.note;
+      nameplateResult.appendChild(note);
+    }
+  }
+
+  nameplateFileInput.addEventListener("change", async () => {
+    const file = nameplateFileInput.files && nameplateFileInput.files[0];
+    nameplateFileInput.value = "";
+    if (!file) return;
+    nameplateResult.style.display = "none";
+    nameplateStatus.style.display = "block";
+    nameplateStatus.textContent = strings.nameplateAnalyzing;
+    nameplateBtn.disabled = true;
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+      const mediaType = ["image/jpeg", "image/png", "image/webp"].includes(file.type)
+        ? file.type : "image/jpeg";
+
+      const r = await fetch("./api/nameplate-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_base64: base64,
+          media_type: mediaType,
+          lang: LANG,
+          session_id: state.sessionId,
+        }),
+      });
+      const data = await r.json();
+      nameplateStatus.style.display = "none";
+      if (!r.ok) {
+        nameplateResult.style.display = "block";
+        nameplateResult.textContent = data.detail || strings.nameplateGenericError;
+        return;
+      }
+      applyNameplateResult(data);
+    } catch (e) {
+      nameplateStatus.style.display = "none";
+      nameplateResult.style.display = "block";
+      nameplateResult.textContent = strings.nameplateGenericError;
+    } finally {
+      nameplateBtn.disabled = false;
+    }
+  });
 
   // Deliberately separate from manufacturer/model above: this is a personal
   // recall label (see state.jobsite), never pushed into state.answers, so it
