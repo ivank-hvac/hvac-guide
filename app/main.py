@@ -566,6 +566,29 @@ def init_db() -> None:
             )
             """
         )
+        # Added after this table already existed — 17 Sep 2026, per Ivan's
+        # direct request after his first real nameplate-photo test: persist
+        # the DATA read off a nameplate (not the photo itself — see
+        # NAMEPLATE_LOOKUP_RATE_LIMIT's own comment on why the photo stays
+        # ephemeral), so the same model doesn't need re-photographing on a
+        # future visit and the data survives past one session. Reuses this
+        # table rather than a new one — a model number's nameplate specs are
+        # factory-fixed, the same lookup-by-model-number semantics as the
+        # web-search path already here, just from a richer/more trustworthy
+        # source. `source` distinguishes which path populated a row
+        # ("web_search" vs "nameplate_photo") since a photo reading is
+        # generally more trustworthy than a generic web search for the
+        # model. Amperage columns mirror the existing RLA/FLA×SF comparison
+        # already used by the measurement node type; gas-pressure columns
+        # are for the gas-fired-equipment fields below.
+        existing_model_specs_cols = {row[1] for row in conn.execute("PRAGMA table_info(model_specs)")}
+        for _col in (
+            "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
+            "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
+            "direct_fired_pressure_drop", "source",
+        ):
+            if _col not in existing_model_specs_cols:
+                conn.execute(f"ALTER TABLE model_specs ADD COLUMN {_col} TEXT")
         # Quota counters, deliberately a separate table from ai_quota above —
         # see MODEL_LOOKUP_RATE_LIMIT for why this budget line is kept apart
         # from the AI-assist one. Same atomic-increment shape as ai_quota
@@ -1021,8 +1044,9 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
         '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
         '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
-        '"condenser_fan_amps": ..., "blower_amps": ..., "confidence": "high"|"low", '
-        '"note": ..., "flagged": false}\n\n'
+        '"condenser_fan_amps": ..., "blower_amps": ..., "supply_gas_pressure": ..., '
+        '"manifold_gas_pressure": ..., "gas_type": ..., "direct_fired_pressure_drop": ..., '
+        '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
         "total_amps — суммарный ток юнита, как он реально обозначен на "
         "шильдике (MCA/Minimum Circuit Ampacity, либо RLA/FLA, если именно "
         "так подписано — запиши цифру как есть, не пересчитывай и не "
@@ -1032,6 +1056,14 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "мотора. Заполняй только то, что реально отдельно подписано на "
         "шильдике — если конкретного значения нет, null, не выводи его из "
         "других чисел.\n\n"
+        "Для газового оборудования (RTU/печь/MUA с газовым нагревом): "
+        "supply_gas_pressure — давление газа подачи (обычно in.WC, иногда "
+        "psi для пропана — записывай с единицей как на шильдике). "
+        "manifold_gas_pressure — давление на коллекторе, если указано "
+        "(не всегда есть). gas_type — \"natural\" или \"propane\"/\"LP\", "
+        "как написано. direct_fired_pressure_drop — только для direct-fired "
+        "оборудования: перепад давления на горелке, в in.WC. Все четыре — "
+        "null, если оборудование не газовое или значение не напечатано.\n\n"
         "Каждое поле — короткая строка или null. Записывай только то, что "
         "реально написано на шильдике — никогда не угадывай и не выводи "
         "правдоподобное значение того, что не можешь прочитать. confidence — "
@@ -1060,8 +1092,9 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         '{"brand": ..., "model_number": ..., "equipment_type": ..., "capacity": ..., '
         '"seer": ..., "refrigerant": ..., "compressor_type": ..., "metering_device": ..., '
         '"voltage": ..., "total_amps": ..., "compressor_amps": ..., '
-        '"condenser_fan_amps": ..., "blower_amps": ..., "confidence": "high"|"low", '
-        '"note": ..., "flagged": false}\n\n'
+        '"condenser_fan_amps": ..., "blower_amps": ..., "supply_gas_pressure": ..., '
+        '"manifold_gas_pressure": ..., "gas_type": ..., "direct_fired_pressure_drop": ..., '
+        '"confidence": "high"|"low", "note": ..., "flagged": false}\n\n'
         "total_amps is the unit's total current rating exactly as labeled on "
         "the plate (MCA/Minimum Circuit Ampacity, or RLA/FLA if that's what "
         "it's actually labeled — record the printed number, don't confuse "
@@ -1071,6 +1104,15 @@ NAMEPLATE_LOOKUP_SYSTEM_PROMPT = {
         "respective motor's FLA. Only fill in a field that is actually "
         "separately labeled on the nameplate — null if a specific figure "
         "isn't printed, never derive one from the others.\n\n"
+        "For gas-fired equipment (RTU/furnace/MUA with gas heat): "
+        "supply_gas_pressure is the supply/inlet gas pressure (usually "
+        "in.WC, sometimes psi for propane — record it with whatever unit "
+        "is on the plate). manifold_gas_pressure is the manifold pressure, "
+        "if separately printed (not always present). gas_type is "
+        "\"natural\" or \"propane\"/\"LP\", exactly as labeled. "
+        "direct_fired_pressure_drop is only for direct-fired equipment: the "
+        "pressure drop across the burner, in in.WC. All four are null if "
+        "the equipment isn't gas-fired or the value isn't printed.\n\n"
         "Every spec field is a short string or null. Record only what is actually "
         "printed on the nameplate — never guess or infer a plausible-sounding "
         "value for anything you can't actually read. confidence is \"high\" only "
@@ -2078,51 +2120,53 @@ def _log_ai_call(
         )
 
 
+_MODEL_SPECS_COLUMNS = [
+    "brand", "equipment_type", "capacity", "seer", "refrigerant",
+    "compressor_type", "metering_device", "voltage",
+    "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
+    "supply_gas_pressure", "manifold_gas_pressure", "gas_type", "direct_fired_pressure_drop",
+    "confidence", "note", "source",
+]
+
+
 def _get_cached_model_specs(model_number: str) -> Optional[Dict[str, Any]]:
-    cols = ["brand", "equipment_type", "capacity", "seer", "refrigerant",
-            "compressor_type", "metering_device", "voltage", "confidence", "note"]
     with _db_connect() as conn:
         row = conn.execute(
-            f"SELECT {', '.join(cols)} FROM model_specs WHERE model_number = ?",
+            f"SELECT {', '.join(_MODEL_SPECS_COLUMNS)} FROM model_specs WHERE model_number = ?",
             (model_number,),
         ).fetchone()
     if row is None:
         return None
-    return dict(zip(cols, row))
+    return dict(zip(_MODEL_SPECS_COLUMNS, row))
 
 
-def _store_model_specs(model_number: str, specs: Dict[str, Optional[str]], user_id: Optional[int]) -> None:
+def _store_model_specs(
+    model_number: str, specs: Dict[str, Optional[str]], user_id: Optional[int], source: str
+) -> None:
+    """Shared by both the model-number (web-search) and nameplate-photo
+    lookups — see _MODEL_SPECS_COLUMNS' own comment on why this is one
+    table with a `source` column rather than two. `specs` only needs to
+    carry whatever fields that particular lookup actually produces —
+    missing keys just write NULL, and ON CONFLICT overwrites the whole
+    row with whatever the latest lookup found (a fresher/richer read,
+    photo or web, is assumed better than the fetch it displaces)."""
+    # Values built in exactly _MODEL_SPECS_COLUMNS' own order -- "source" is
+    # a real key in `specs` here (not read from the dict), so it's set
+    # explicitly rather than via .get() like every other column.
+    row_values = [source if col == "source" else specs.get(col) for col in _MODEL_SPECS_COLUMNS]
+    set_clause = ", ".join(f"{col} = excluded.{col}" for col in _MODEL_SPECS_COLUMNS)
     with _db_connect() as conn:
         conn.execute(
-            """
+            f"""
             INSERT INTO model_specs
-                (model_number, brand, equipment_type, capacity, seer, refrigerant,
-                 compressor_type, metering_device, voltage, confidence, note,
-                 created_at, created_by_user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (model_number, {', '.join(_MODEL_SPECS_COLUMNS)}, created_at, created_by_user_id)
+            VALUES (?, {', '.join('?' for _ in _MODEL_SPECS_COLUMNS)}, ?, ?)
             ON CONFLICT(model_number) DO UPDATE SET
-                brand = excluded.brand,
-                equipment_type = excluded.equipment_type,
-                capacity = excluded.capacity,
-                seer = excluded.seer,
-                refrigerant = excluded.refrigerant,
-                compressor_type = excluded.compressor_type,
-                metering_device = excluded.metering_device,
-                voltage = excluded.voltage,
-                confidence = excluded.confidence,
-                note = excluded.note,
+                {set_clause},
                 created_at = excluded.created_at,
                 created_by_user_id = excluded.created_by_user_id
             """,
-            (
-                model_number,
-                specs.get("brand"), specs.get("equipment_type"), specs.get("capacity"),
-                specs.get("seer"), specs.get("refrigerant"), specs.get("compressor_type"),
-                specs.get("metering_device"), specs.get("voltage"), specs.get("confidence"),
-                specs.get("note"),
-                datetime.now(timezone.utc).isoformat(),
-                user_id,
-            ),
+            (model_number, *row_values, datetime.now(timezone.utc).isoformat(), user_id),
         )
 
 
@@ -2321,7 +2365,9 @@ def _consume_nameplate_lookup_quota(quota_key: str) -> Dict[str, Any]:
 
 _NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity", "seer",
                             "refrigerant", "compressor_type", "metering_device", "voltage",
-                            "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps"]
+                            "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps",
+                            "supply_gas_pressure", "manifold_gas_pressure", "gas_type",
+                            "direct_fired_pressure_drop"]
 
 
 def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
@@ -2622,7 +2668,7 @@ async def model_lookup(request: Request, response: Response, req: ModelLookupReq
 
     specs = await _fetch_model_specs_via_ai(req.model_number, req.lang)
     await run_in_threadpool(
-        _store_model_specs, req.model_number, specs, user["id"] if user else None
+        _store_model_specs, req.model_number, specs, user["id"] if user else None, "web_search"
     )
     return {**specs, "model_number": req.model_number, "source": "looked_up"}
 
@@ -2632,14 +2678,20 @@ async def model_lookup(request: Request, response: Response, req: ModelLookupReq
 async def nameplate_lookup(request: Request, response: Response, req: NameplateLookupRequest):
     """Pilot feature, 17 Sep 2026 — see CLAUDE.md "Заметка на будущее:
     авто-определение конфигурации оборудования по модели/шильдику". The
-    image is never written to disk, never logged, and never stored in any
-    table by this function on either path (success or flagged) — see
-    NAMEPLATE_LOOKUP_RATE_LIMIT's own comment for why. A flagged result
-    permanently bans the IP via the exact same _is_ip_banned/
-    _record_safety_flag mechanism build_system_prompt's SAFETY_REDIRECT_MESSAGE
-    path already uses for free text — Ivan asked for an immediate ban here,
-    and that mechanism already behaves that way for the first flag, not
-    just the second (see _is_ip_banned's own docstring)."""
+    IMAGE itself is never written to disk, never logged, and never stored
+    in any table on either path (success or flagged) — see
+    NAMEPLATE_LOOKUP_RATE_LIMIT's own comment for why. The extracted DATA
+    (spec fields, not the photo) is a different matter — added same day,
+    per Ivan's explicit request after his first real nameplate test: a
+    successful, unflagged read with a model_number gets persisted into
+    model_specs (source="nameplate_photo") below, same table the model-
+    lookup pilot already writes to, so a model already photographed once
+    doesn't need re-shooting on a later visit. A flagged result permanently
+    bans the IP via the exact same _is_ip_banned/_record_safety_flag
+    mechanism build_system_prompt's SAFETY_REDIRECT_MESSAGE path already
+    uses for free text — Ivan asked for an immediate ban here, and that
+    mechanism already behaves that way for the first flag, not just the
+    second (see _is_ip_banned's own docstring)."""
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail=SETUP_ERROR[req.lang])
 
@@ -2662,6 +2714,26 @@ async def nameplate_lookup(request: Request, response: Response, req: NameplateL
         await run_in_threadpool(_record_safety_flag, ip, req.session_id)
         await _send_safety_alert_email(ip)
         raise HTTPException(status_code=403, detail=SAFETY_REDIRECT_MESSAGE[req.lang])
+
+    # Only the DATA is kept, and only when there's a model_number to key it
+    # by (model_specs.model_number is the table's primary key — a plate
+    # photographed too poorly to read even the model number has nothing
+    # reliable to file this under, so it's just not persisted rather than
+    # inventing a fallback key). Normalized the same way ModelLookupRequest
+    # normalizes a typed-in number, so a later /api/model-lookup for the
+    # same model finds this same row instead of creating a near-duplicate.
+    # MODEL_NUMBER_RE is a real gate here, not just tidying — the model was
+    # told to only report what's actually printed, but this is the one
+    # place that OCR read becomes a raw SQL primary key, so it's worth
+    # confirming it looks like a real model number before trusting it as one.
+    raw_model_number = result.get("model_number")
+    if raw_model_number:
+        normalized_model_number = raw_model_number.strip().upper()
+        if MODEL_NUMBER_RE.match(normalized_model_number):
+            await run_in_threadpool(
+                _store_model_specs, normalized_model_number, result,
+                user["id"] if user else None, "nameplate_photo",
+            )
 
     return {k: v for k, v in result.items() if k != "flagged"}
 
