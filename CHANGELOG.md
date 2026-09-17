@@ -11,6 +11,23 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- `equipment-profiles/` и `component_inventory.md` убраны из публичного
+  репо — переехали в существующий приватный граф-репо (справочник
+  мейнтейнера, приложение их не читает в рантайме, self-host не
+  затронут). #153, `768e532`
+
+- Приватизация системных промптов AI-ассистента, этапы 1+2: механизм
+  оверрайда (`app/prompts_private.py`, тот же принцип доставки, что у
+  `graph.json`) + реальный контент-сплит. Публичные дефолты в коде —
+  рабочие, но обобщённые; более подробный, обкатанный в поле текст
+  (приоритизация WARNING-флагов, детальная дизамбигуация полей шильдика
+  — единицы газового давления, MCA/MOCP, разбивка по моторам) — в
+  приватном граф-репо, доставляется на прод/клон тем же механизмом, что
+  и граф. Safety-критичный текст (LEGAL_DISCLAIMER/REFUSAL_MESSAGE/
+  SAFETY_REDIRECT_MESSAGE/A2L-заметка/CSAM-оговорка на шильдике) никогда
+  не передаётся в приватный оверрайд — всегда подставляется из
+  публичных констант кода, одинаково в обоих вариантах. #154, `0a39cc8`
+
 - Nameplate photo: schema now checks each motor type independently
   (compressor/condenser fan/blower/induced draft fan), null per motor
   if not printed — instead of nameplate motor tables just being an
