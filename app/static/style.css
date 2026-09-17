@@ -164,6 +164,40 @@ body {
 .nameplate-result dd { margin: .1rem 0 0; font-weight: 600; }
 .nameplate-confidence-low { color: var(--warn); font-weight: 600; margin-top: .5rem; }
 
+/* Per-field confidence, 17 Sep 2026: amber (--warn), the same "pay
+   attention" tone as .unit-btn.active, not the alarm red used for
+   .nameplate-warning -- this is "double-check this one," not a safety
+   gate. dd itself gets the tint so the whole cell reads as flagged, not
+   just the input's own border. */
+.nameplate-result dd.nameplate-field-uncertain {
+  background: var(--warn-bg);
+  border: var(--border-width) solid var(--warn);
+  border-radius: 8px;
+  padding: .3rem .5rem;
+}
+.nameplate-result dd.nameplate-field-uncertain input {
+  font-weight: 600;
+  width: 100%;
+  box-sizing: border-box;
+}
+.nameplate-field-uncertain-hint {
+  color: var(--warn);
+  font-size: .72rem;
+  font-weight: 400;
+  margin-top: .2rem;
+}
+
+/* Blue (--accent) is reserved for the OPPOSITE case: a value the nameplate
+   photo was confident about, carried forward into a later step
+   (refrigerant_select's dropdown, the reference fields in
+   renderMeasurement) for the tech to confirm rather than re-type. Never
+   applied on the nameplate result card itself -- that's what
+   .nameplate-field-uncertain/plain text are for. */
+.nameplate-prefilled {
+  border-color: var(--accent) !important;
+  background: var(--accent-bg) !important;
+}
+
 .disclaimer {
   width: 100%;
   box-sizing: border-box;

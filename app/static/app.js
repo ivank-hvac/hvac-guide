@@ -7,6 +7,13 @@ const unitButtons = document.querySelectorAll(".unit-btn");
 const themeButtons = document.querySelectorAll(".theme-btn");
 const disclaimerEl = document.getElementById("disclaimer");
 const langSwitchEl = document.getElementById("langSwitch");
+// RU/EN moved out of #langSwitch into the unit-switch-row, 17 Sep 2026 --
+// Ivan caught them drifting sideways/overflowing under the field theme's
+// wider buttons (theme + 4 icon links + RU/EN all sharing one row). Visual
+// move only: same show/hide rule as #langSwitch (see
+// updateHeaderControlsVisibility), just a separate element to toggle since
+// it no longer lives inside that div.
+const langButtonsGroupEl = document.getElementById("langButtonsGroup");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
 
@@ -76,11 +83,14 @@ const I18N = {
     nameplateCompressorAmpsLabel: "Ток компрессора (RLA)",
     nameplateCondenserFanAmpsLabel: "Ток вентилятора конденсатора",
     nameplateBlowerAmpsLabel: "Ток вентилятора/блоуэра",
+    nameplateInducedDraftFanAmpsLabel: "Ток вентилятора дымоудаления/горелки",
     nameplateRefrigerantPrefilled: "Заполнено по фото шильдика — проверьте и подтвердите",
+    nameplatePrefilledHint: "Заполнено по фото шильдика — проверьте и подтвердите",
     nameplateSupplyGasPressureLabel: "Давление газа подачи",
     nameplateManifoldGasPressureLabel: "Давление на коллекторе",
     nameplateGasTypeLabel: "Тип газа",
     nameplateDirectFiredPressureDropLabel: "Перепад давления (direct-fired)",
+    nameplateUncertainHint: "Не уверен — сверьте с оборудованием и поправьте при необходимости",
     mfgDocLink: "Смотрите также: официальная техническая документация {name}",
     refrigerantNotSpecified: "— выберите хладагент —",
     refrigerantUnknown: "Не знаю / не могу определить",
@@ -207,10 +217,13 @@ const I18N = {
     nameplateCompressorAmpsLabel: "Compressor amps (RLA)",
     nameplateCondenserFanAmpsLabel: "Condenser fan amps",
     nameplateBlowerAmpsLabel: "Blower/indoor fan amps",
+    nameplateInducedDraftFanAmpsLabel: "Induced draft/burner fan amps",
     nameplateRefrigerantPrefilled: "Filled in from the nameplate photo — check and confirm",
+    nameplatePrefilledHint: "Filled in from the nameplate photo — check and confirm",
     nameplateSupplyGasPressureLabel: "Supply gas pressure",
     nameplateManifoldGasPressureLabel: "Manifold gas pressure",
     nameplateGasTypeLabel: "Gas type",
+    nameplateUncertainHint: "Not confident — verify against the unit and correct if needed",
     nameplateDirectFiredPressureDropLabel: "Pressure drop (direct-fired)",
     mfgDocLink: "See also: official {name} technical documentation",
     refrigerantNotSpecified: "— select refrigerant —",
@@ -2533,7 +2546,9 @@ function updateDisclaimerVisibility() {
 // start or starting over — a narrower affordance than before, but none of
 // these are things anyone reaches for mid-diagnosis.
 function updateHeaderControlsVisibility() {
-  langSwitchEl.classList.toggle("hidden", !isEarlySessionScreen());
+  const early = isEarlySessionScreen();
+  langSwitchEl.classList.toggle("hidden", !early);
+  langButtonsGroupEl.classList.toggle("hidden", !early);
 }
 
 function render() {
@@ -2936,6 +2951,7 @@ function renderManufacturerStep() {
       ["compressor_amps", strings.nameplateCompressorAmpsLabel],
       ["condenser_fan_amps", strings.nameplateCondenserFanAmpsLabel],
       ["blower_amps", strings.nameplateBlowerAmpsLabel],
+      ["induced_draft_fan_amps", strings.nameplateInducedDraftFanAmpsLabel],
       ["supply_gas_pressure", strings.nameplateSupplyGasPressureLabel],
       ["manifold_gas_pressure", strings.nameplateManifoldGasPressureLabel],
       ["gas_type", strings.nameplateGasTypeLabel],
@@ -2949,13 +2965,49 @@ function renderManufacturerStep() {
       return;
     }
 
+    // Ivan's per-field confidence idea, 17 Sep 2026: an overall low
+    // confidence used to only produce one blanket note below the whole
+    // card -- now the model tells us WHICH fields it's actually unsure
+    // about (see main.py's low_confidence_fields), so only those get the
+    // amber "not sure, verify" treatment and an inline edit affordance.
+    // Everything else on the card stays plain text, unchanged.
+    const lowConf = new Set(
+      Array.isArray(data.low_confidence_fields) ? data.low_confidence_fields : []
+    );
     const dl = document.createElement("dl");
     specFields.forEach(([field, label]) => {
       if (!data[field]) return;
       const dt = document.createElement("dt");
       dt.textContent = label;
       const dd = document.createElement("dd");
-      dd.textContent = data[field];
+      if (lowConf.has(field)) {
+        dd.classList.add("nameplate-field-uncertain");
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "numeric-input";
+        input.value = data[field];
+        dd.appendChild(input);
+        const hint = document.createElement("div");
+        hint.className = "nameplate-field-uncertain-hint";
+        hint.textContent = strings.nameplateUncertainHint;
+        dd.appendChild(hint);
+        // Editing IS the resolution -- once the tech confirms/corrects the
+        // value, it stops being flagged (in this session's state, not just
+        // visually) so it no longer counts as "uncertain" if it's carried
+        // forward to a later step (see renderMeasurement/renderRefrigerantSelect).
+        input.addEventListener("change", () => {
+          const v = input.value.trim();
+          state.nameplateSpecs[field] = v || null;
+          if (Array.isArray(state.nameplateSpecs.low_confidence_fields)) {
+            state.nameplateSpecs.low_confidence_fields =
+              state.nameplateSpecs.low_confidence_fields.filter((f) => f !== field);
+          }
+          dd.classList.remove("nameplate-field-uncertain");
+          hint.remove();
+        });
+      } else {
+        dd.textContent = data[field];
+      }
       dl.appendChild(dt);
       dl.appendChild(dd);
     });
@@ -3334,6 +3386,42 @@ function renderMeasurement(node) {
     node.unit
   );
 
+  // Pre-fill the nameplate REFERENCE value only -- the tech still has to
+  // measure and type the actual current themselves, this just saves
+  // re-typing a number the photo already read. There's currently exactly
+  // one node of each reference mode in the graph and each is reached via a
+  // motor-specific path (ws_amp_measurement is the compressor's "won't
+  // start" RLA check, fan_amp_measurement is only reached from the blower-
+  // motor-type question) -- see CLAUDE.md "Заметка на будущее: авто-
+  // определение..." 17 Sep 2026 update for why this is a small node-id map
+  // here rather than a new graph-schema field: there's nothing to
+  // generalize yet with just two nodes. Gated by nameplateFieldIsConfident
+  // the same way the refrigerant_select pre-fill is -- an uncertain
+  // nameplate reading stays out of a real diagnostic comparison.
+  const NAMEPLATE_MEASUREMENT_HINTS = {
+    ws_amp_measurement: { mode: "single", field: "compressor_amps" },
+    fan_amp_measurement: { mode: "fla_sf", field: "blower_amps" },
+  };
+  let nameplatePrefilled = false;
+  const npHint = NAMEPLATE_MEASUREMENT_HINTS[nodeId];
+  if (npHint && npHint.mode === mode && nameplateFieldIsConfident(npHint.field)) {
+    const numeric = parseFloat(String(state.nameplateSpecs[npHint.field]).replace(/[^0-9.-]/g, ""));
+    if (!Number.isNaN(numeric)) {
+      const target = mode === "single" ? refInput : flaInput;
+      if (target) {
+        target.value = String(numeric);
+        target.classList.add("nameplate-prefilled");
+        nameplatePrefilled = true;
+      }
+    }
+  }
+  if (nameplatePrefilled) {
+    const prefillHint = document.createElement("div");
+    prefillHint.className = "numeric-hint";
+    prefillHint.textContent = strings.nameplatePrefilledHint;
+    cardEl.appendChild(prefillHint);
+  }
+
   const hint = document.createElement("div");
   hint.className = "numeric-hint";
   cardEl.appendChild(hint);
@@ -3438,7 +3526,14 @@ function renderMeasurement(node) {
   };
 
   validate();
-  (flaInput || refInput || measuredInput).focus();
+  // If the nameplate photo already filled the reference field, put the
+  // cursor wherever the tech still actually needs to type -- SF (fla_sf
+  // has no value for that on a nameplate) or straight to the measured
+  // reading (single mode has nothing left to fill in before that).
+  const focusTarget = nameplatePrefilled
+    ? (mode === "fla_sf" ? sfInput : measuredInput)
+    : (flaInput || refInput || measuredInput);
+  focusTarget.focus();
 }
 
 // A regular graph.json node (unlike the one-time manufacturer step): each
@@ -3667,9 +3762,17 @@ function renderRefrigerantSelect(node) {
   // this one is exactly the wrong place to auto-commit without the tech
   // actually looking at it (wrong unit photographed, low-confidence OCR,
   // etc. would otherwise silently drive the wrong P-T curve).
-  const matched = matchRefrigerantFromNameplate(state.nameplateSpecs && state.nameplateSpecs.refrigerant);
+  // Only pre-fill from a field the model itself was confident about --
+  // Ivan, 17 Sep 2026: an uncertain nameplate reading should never silently
+  // drive a real quantitative step (wrong unit photographed, glare-guessed
+  // digit, etc. would otherwise quietly feed the wrong P-T curve). See
+  // nameplateFieldIsConfident.
+  const matched = nameplateFieldIsConfident("refrigerant")
+    ? matchRefrigerantFromNameplate(state.nameplateSpecs.refrigerant)
+    : null;
   if (matched && !select.value) {
     select.value = matched.id;
+    select.classList.add("nameplate-prefilled");
     nextBtn.disabled = false;
     a2lWarning.style.display = matched.a2l ? "flex" : "none";
     updateFavoriteToggle();
@@ -3697,6 +3800,22 @@ function matchRefrigerantFromNameplate(rawText) {
     return target.includes(idNorm) || target.includes(nameNorm)
       || idNorm.includes(target) || nameNorm.includes(target);
   }) || null;
+}
+
+// Shared gate for every "pre-fill a later step from the nameplate photo"
+// spot (refrigerant_select above, the amps reference fields in
+// renderMeasurement below) -- true only when this session has a nameplate
+// result, that specific field has a real value, AND the model didn't flag
+// it as uncertain (see main.py's low_confidence_fields / applyNameplateResult's
+// inline edit, which clears a field from that list once the tech corrects
+// it). An uncertain field is shown on the nameplate result card itself
+// either way -- it's just not trusted enough to silently populate a
+// downstream diagnostic input.
+function nameplateFieldIsConfident(field) {
+  const specs = state.nameplateSpecs;
+  if (!specs || !specs[field]) return false;
+  const lowConf = Array.isArray(specs.low_confidence_fields) ? specs.low_confidence_fields : [];
+  return !lowConf.includes(field);
 }
 
 // Terminal step of the P-T calculator sequence (refrigerant_select + a
