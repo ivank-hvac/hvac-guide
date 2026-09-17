@@ -1262,6 +1262,17 @@ class NameplateLookupRequest(BaseModel):
     # own session_id. Not required — the manufacturer/model step this button
     # lives on has a session_id in practice, but nothing here depends on it.
     session_id: Optional[str] = Field(default=None, max_length=MAX_SESSION_ID_LEN)
+    # Ivan's extension of the "send the model the field list" idea, 17 Sep
+    # 2026: the technician already picked an equipment type before ever
+    # reaching this step (see the graph's own `start` node options), so
+    # pass it through as a hint about which fields are worth looking for
+    # on the plate — see _equipment_hint_label/_analyze_nameplate_photo.
+    # Literal, matching start's own real equipment keys exactly (not a
+    # free string) — this is a hint fed into a prompt, so it gets the same
+    # narrow-allow-list treatment as model_number/image data above, not a
+    # free-text field.
+    equipment: Optional[Literal["rtu", "split", "furnace", "heat_pump",
+                                 "chiller", "refrigeration", "vrf"]] = None
 
     @field_validator("image_base64")
     @classmethod
@@ -2518,7 +2529,50 @@ def _parse_nameplate_json(raw_text: str, lang: str) -> Dict[str, Any]:
     return result
 
 
-async def _analyze_nameplate_photo(image_base64: str, media_type: str, lang: str) -> Dict[str, Any]:
+def _equipment_hint_label(equipment: Optional[str], lang: str) -> Optional[str]:
+    """Resolves an equipment key (e.g. "rtu") to the exact label text the
+    technician actually saw when picking it on the graph's `start` node —
+    reads graph.json directly rather than a second, separately-maintained
+    copy of those labels that could drift from the real option text (same
+    reasoning as _json_schema_shape above, applied to the graph instead of
+    the field lists)."""
+    if not equipment:
+        return None
+    try:
+        graph = _load_graph()
+    except (OSError, ValueError):
+        return None
+    start = graph.get("nodes", {}).get("start", {})
+    for opt in start.get("options", []) or []:
+        if opt.get("equipment") == equipment:
+            label = opt.get("label") or {}
+            return label.get(lang) or label.get("en")
+    return None
+
+
+_EQUIPMENT_HINT_TEXT = {
+    "ru": 'Техник уже определил тип оборудования как: "{label}". Используй это '
+          "только как подсказку, на какие поля обратить внимание (например, "
+          "газовые поля релевантны для газового RTU/печи, но не для чиллера "
+          "или теплового насоса) — всё равно записывай только то, что реально "
+          "напечатано на шильдике; подсказанное, но не найденное/нечитаемое "
+          "поле всё равно null.",
+    "en": 'The technician has already identified this equipment as: "{label}". '
+          "Use that only as a hint about which fields are worth looking for "
+          "(e.g. gas fields are relevant for a gas-fired RTU/furnace, not for "
+          "a chiller or heat pump) — still report only what is actually "
+          "printed on the plate; a hinted field that isn't there or isn't "
+          "legible is still null.",
+}
+
+
+async def _analyze_nameplate_photo(
+    image_base64: str, media_type: str, lang: str, equipment: Optional[str] = None
+) -> Dict[str, Any]:
+    user_text = "Read this nameplate."
+    equipment_label = _equipment_hint_label(equipment, lang)
+    if equipment_label:
+        user_text += " " + _EQUIPMENT_HINT_TEXT[lang].format(label=equipment_label)
     payload = {
         "model": ANTHROPIC_MODEL,
         "max_tokens": NAMEPLATE_LOOKUP_MAX_TOKENS,
@@ -2527,7 +2581,7 @@ async def _analyze_nameplate_photo(image_base64: str, media_type: str, lang: str
             "role": "user",
             "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_base64}},
-                {"type": "text", "text": "Read this nameplate."},
+                {"type": "text", "text": user_text},
             ],
         }],
     }
@@ -2796,7 +2850,7 @@ async def nameplate_lookup(request: Request, response: Response, req: NameplateL
                   else NAMEPLATE_LOOKUP_USER_LIMIT_ERROR)[req.lang]
         raise HTTPException(status_code=429, detail=detail)
 
-    result = await _analyze_nameplate_photo(req.image_base64, req.media_type, req.lang)
+    result = await _analyze_nameplate_photo(req.image_base64, req.media_type, req.lang, req.equipment)
 
     if result.get("flagged"):
         await run_in_threadpool(_record_safety_flag, ip, req.session_id)

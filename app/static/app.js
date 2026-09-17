@@ -2991,6 +2991,11 @@ function renderManufacturerStep() {
           media_type: mediaType,
           lang: LANG,
           session_id: state.sessionId,
+          // Already known by this point in the flow (picked on `start`,
+          // before the manufacturer/model step) -- passed through as a
+          // hint for what to look for on the plate. See
+          // _equipment_hint_label in main.py.
+          equipment: equipmentKey(),
         }),
         signal: controller.signal,
       });
