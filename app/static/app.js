@@ -56,7 +56,9 @@ const I18N = {
     nameplateWarningText: "Фотографируйте только реальный шильдик HVAC/R-оборудования. Любое другое использование этой функции — немедленный и постоянный бан без предупреждения, аккаунт и IP-адрес заносятся в чёрный список. Фото не сохраняется — обрабатывается один раз и сразу удаляется.",
     nameplateWarningAccept: "Понимаю, продолжить",
     nameplateWarningCancel: "Отмена",
+    nameplateCompressing: "Сжимаем фото…",
     nameplateAnalyzing: "Анализируем фото…",
+    nameplateTimeout: "Загрузка занимает слишком много времени (слабый сигнал?). Попробуйте ещё раз.",
     nameplateResultTitle: "Найдено на шильдике",
     nameplateNotFound: "Не удалось прочитать шильдик на этом фото.",
     nameplateGenericError: "Не удалось обработать фото. Попробуйте ещё раз.",
@@ -174,7 +176,9 @@ const I18N = {
     nameplateWarningText: "Only photograph a real HVAC/R equipment nameplate. Any other use of this feature results in an immediate, permanent ban — no warning, account and IP blacklisted. The photo is never stored — it's processed once and discarded immediately.",
     nameplateWarningAccept: "I understand, continue",
     nameplateWarningCancel: "Cancel",
+    nameplateCompressing: "Compressing photo…",
     nameplateAnalyzing: "Analyzing photo…",
+    nameplateTimeout: "Upload is taking too long (weak signal?). Try again.",
     nameplateResultTitle: "Found on the nameplate",
     nameplateNotFound: "Could not read a nameplate in this photo.",
     nameplateGenericError: "Could not process the photo. Try again.",
@@ -937,6 +941,55 @@ function ui() {
 // is highlighted (see .char-counter) — this is read on a phone, in the
 // field, and a line that grows/shrinks while typing would nudge every tap
 // target below it.
+// Downscales/re-encodes a photo client-side before it ever leaves the
+// device -- added 17 Sep 2026 after a live field test on a weak connection
+// left the nameplate-photo upload stuck for a long time (a raw phone photo
+// is easily several MB; base64 inflates that another ~33% before upload
+// even starts). A 1600px-longest-edge JPEG at quality 0.85 is still
+// comfortably legible for reading printed/stamped nameplate text and is
+// typically 5-10x smaller than an unmodified modern phone photo. Falls back
+// to the original file untouched if canvas/Image loading fails for any
+// reason (very old browser, corrupt file, etc.) rather than blocking the
+// feature entirely on a resize failure.
+function resizeImageForUpload(file, maxDimension, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    const cleanupAndFallback = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width >= height) {
+          height = Math.round(height * (maxDimension / width));
+          width = maxDimension;
+        } else {
+          width = Math.round(width * (maxDimension / height));
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { cleanupAndFallback(); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          resolve(blob || file);
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = cleanupAndFallback;
+    img.src = url;
+  });
+}
+
 function attachCharCounter(el, limit) {
   el.maxLength = limit;
   const counter = document.createElement("div");
@@ -2863,19 +2916,32 @@ function renderManufacturerStep() {
     if (!file) return;
     nameplateResult.style.display = "none";
     nameplateStatus.style.display = "block";
-    nameplateStatus.textContent = strings.nameplateAnalyzing;
+    nameplateStatus.textContent = strings.nameplateCompressing;
     nameplateBtn.disabled = true;
+    // 45s is generous for a compressed photo even on a weak connection —
+    // this is specifically to give a clear "it timed out, try again"
+    // message instead of "Analyzing photo..." hanging forever with no way
+    // out short of reloading the page (found live in the field, 17 Sep:
+    // a raw uncompressed phone photo over a poor connection just sat there
+    // with no feedback at all).
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
     try {
+      const blob = await resizeImageForUpload(file, 1600, 0.85);
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(blob);
       });
       const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-      const mediaType = ["image/jpeg", "image/png", "image/webp"].includes(file.type)
-        ? file.type : "image/jpeg";
+      // Normally always JPEG -- resizeImageForUpload re-encodes via canvas
+      // -- but it falls back to returning the ORIGINAL file untouched if
+      // canvas/Image loading ever fails, so this can't just be hardcoded.
+      const mediaType = ["image/jpeg", "image/png", "image/webp"].includes(blob.type)
+        ? blob.type : "image/jpeg";
 
+      nameplateStatus.textContent = strings.nameplateAnalyzing;
       const r = await fetch("./api/nameplate-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2885,6 +2951,7 @@ function renderManufacturerStep() {
           lang: LANG,
           session_id: state.sessionId,
         }),
+        signal: controller.signal,
       });
       const data = await r.json();
       nameplateStatus.style.display = "none";
@@ -2897,8 +2964,11 @@ function renderManufacturerStep() {
     } catch (e) {
       nameplateStatus.style.display = "none";
       nameplateResult.style.display = "block";
-      nameplateResult.textContent = strings.nameplateGenericError;
+      nameplateResult.textContent = (e && e.name === "AbortError")
+        ? strings.nameplateTimeout
+        : strings.nameplateGenericError;
     } finally {
+      clearTimeout(timeoutId);
       nameplateBtn.disabled = false;
     }
   });
