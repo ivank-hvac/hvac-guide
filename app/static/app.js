@@ -54,7 +54,8 @@ const I18N = {
     nameplatePhotoBtn: "📷 Фото шильдика",
     nameplateWarningTitle: "Перед тем как продолжить",
     nameplateWarningText: "Фотографируйте только реальный шильдик HVAC/R-оборудования. Любое другое использование этой функции — немедленный и постоянный бан без предупреждения, аккаунт и IP-адрес заносятся в чёрный список. Фото не сохраняется — обрабатывается один раз и сразу удаляется.",
-    nameplateWarningAccept: "Понимаю, продолжить",
+    nameplateTakePhoto: "📷 Сделать фото",
+    nameplateChoosePhoto: "🖼 Выбрать с устройства",
     nameplateWarningCancel: "Отмена",
     nameplateCompressing: "Сжимаем фото…",
     nameplateAnalyzing: "Анализируем фото…",
@@ -184,7 +185,8 @@ const I18N = {
     nameplatePhotoBtn: "📷 Nameplate photo",
     nameplateWarningTitle: "Before you continue",
     nameplateWarningText: "Only photograph a real HVAC/R equipment nameplate. Any other use of this feature results in an immediate, permanent ban — no warning, account and IP blacklisted. The photo is never stored — it's processed once and discarded immediately.",
-    nameplateWarningAccept: "I understand, continue",
+    nameplateTakePhoto: "📷 Take Photo",
+    nameplateChoosePhoto: "🖼 Choose from Device",
     nameplateWarningCancel: "Cancel",
     nameplateCompressing: "Compressing photo…",
     nameplateAnalyzing: "Analyzing photo…",
@@ -2822,26 +2824,44 @@ function renderManufacturerStep() {
   const nameplateWarningTextEl = document.createElement("div");
   nameplateWarningTextEl.textContent = strings.nameplateWarningText;
   nameplateWarning.appendChild(nameplateWarningTextEl);
+  // Two explicit buttons instead of relying on one <input type=file> to
+  // surface both a "take a new photo" and a "pick an existing one" option
+  // itself -- found live in the field, 17 Sep 2026: on Ivan's actual
+  // device/browser combo, a single accept="image/*" input (no `capture`)
+  // went straight to a file/gallery browser with no camera option offered
+  // at all. Native "let the user choose the source" behavior for a single
+  // file input is inconsistent across browsers/OS versions and can't be
+  // relied on, so the choice is made explicit in our own UI instead: one
+  // input with capture="environment" (forces the camera), one without
+  // (forces the normal file/gallery chooser) -- both wired to the same
+  // upload/analyze logic below.
   const nameplateWarningActions = document.createElement("div");
   nameplateWarningActions.className = "nameplate-warning-actions";
-  const nameplateAcceptBtn = document.createElement("button");
-  nameplateAcceptBtn.type = "button";
-  nameplateAcceptBtn.className = "btn";
-  nameplateAcceptBtn.textContent = strings.nameplateWarningAccept;
+  const nameplateTakePhotoBtn = document.createElement("button");
+  nameplateTakePhotoBtn.type = "button";
+  nameplateTakePhotoBtn.className = "btn";
+  nameplateTakePhotoBtn.textContent = strings.nameplateTakePhoto;
+  const nameplateChoosePhotoBtn = document.createElement("button");
+  nameplateChoosePhotoBtn.type = "button";
+  nameplateChoosePhotoBtn.className = "btn";
+  nameplateChoosePhotoBtn.textContent = strings.nameplateChoosePhoto;
   const nameplateCancelBtn = document.createElement("button");
   nameplateCancelBtn.type = "button";
   nameplateCancelBtn.className = "btn";
   nameplateCancelBtn.textContent = strings.nameplateWarningCancel;
-  nameplateWarningActions.appendChild(nameplateAcceptBtn);
+  nameplateWarningActions.appendChild(nameplateTakePhotoBtn);
+  nameplateWarningActions.appendChild(nameplateChoosePhotoBtn);
   nameplateWarningActions.appendChild(nameplateCancelBtn);
   nameplateWarning.appendChild(nameplateWarningActions);
   cardEl.appendChild(nameplateWarning);
 
-  // No `capture` attribute on purpose: that hint forces mobile browsers
-  // straight into the camera, skipping the OS picker's other sources.
-  // Leaving it off gives the normal chooser (camera / gallery / files) on
-  // phones and a plain file browse on desktop -- a tech should be able to
-  // use a photo already on the device, not only a fresh live shot.
+  const nameplateCameraInput = document.createElement("input");
+  nameplateCameraInput.type = "file";
+  nameplateCameraInput.accept = "image/*";
+  nameplateCameraInput.capture = "environment";
+  nameplateCameraInput.style.display = "none";
+  cardEl.appendChild(nameplateCameraInput);
+
   const nameplateFileInput = document.createElement("input");
   nameplateFileInput.type = "file";
   nameplateFileInput.accept = "image/*";
@@ -2864,7 +2884,11 @@ function renderManufacturerStep() {
   nameplateCancelBtn.addEventListener("click", () => {
     nameplateWarning.style.display = "none";
   });
-  nameplateAcceptBtn.addEventListener("click", () => {
+  nameplateTakePhotoBtn.addEventListener("click", () => {
+    nameplateWarning.style.display = "none";
+    nameplateCameraInput.click();
+  });
+  nameplateChoosePhotoBtn.addEventListener("click", () => {
     nameplateWarning.style.display = "none";
     nameplateFileInput.click();
   });
@@ -2951,9 +2975,7 @@ function renderManufacturerStep() {
     }
   }
 
-  nameplateFileInput.addEventListener("change", async () => {
-    const file = nameplateFileInput.files && nameplateFileInput.files[0];
-    nameplateFileInput.value = "";
+  async function processNameplatePhoto(file) {
     if (!file) return;
     nameplateResult.style.display = "none";
     nameplateStatus.style.display = "block";
@@ -3017,6 +3039,17 @@ function renderManufacturerStep() {
       clearTimeout(timeoutId);
       nameplateBtn.disabled = false;
     }
+  }
+
+  nameplateCameraInput.addEventListener("change", () => {
+    const file = nameplateCameraInput.files && nameplateCameraInput.files[0];
+    nameplateCameraInput.value = "";
+    processNameplatePhoto(file);
+  });
+  nameplateFileInput.addEventListener("change", () => {
+    const file = nameplateFileInput.files && nameplateFileInput.files[0];
+    nameplateFileInput.value = "";
+    processNameplatePhoto(file);
   });
 
   // Deliberately separate from manufacturer/model above: this is a personal
