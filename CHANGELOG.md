@@ -11,6 +11,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate-photo lookup pilot: new 📷 button on the manufacturer/model
+  step — reads brand/model/specs from a nameplate photo via Claude's
+  vision input, auto-fills the two fields on that step. Gated behind an
+  explicit misuse warning; the photo is never persisted anywhere on
+  either path. A flagged result permanently bans the IP and emails an
+  alert. #141, `5b11f26`
+
 - Model-number lookup pilot: new `/model-lookup` page + `/api/model-lookup`
   endpoint — looks up a unit's specs (brand, equipment type, capacity,
   SEER, refrigerant, compressor type, metering device, voltage) by model
