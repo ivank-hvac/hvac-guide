@@ -65,6 +65,15 @@ ROADMAP-internal.md
 /app/graph_src/
 /app/static/graph.json
 
+# Maintainer-only domain-knowledge reference docs (never read by the app
+# at runtime) - moved 17 Sep 2026 into the same private graph repo as
+# app/graph_src/ above, same reasoning: real accumulated expertise a
+# fork/competitor could otherwise copy for free via `git clone`. Live at
+# app/graph_src/equipment-profiles/ and app/graph_src/component_inventory.md
+# on a maintainer's machine (see that repo's own README.md).
+/equipment-profiles/
+/component_inventory.md
+
 # Python
 __pycache__/
 *.py[cod]
