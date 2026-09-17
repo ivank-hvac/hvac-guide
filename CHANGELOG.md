@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-17
 
+- Nameplate photo: extract amperage fields (total unit MCA/RLA,
+  compressor RLA, condenser fan and blower FLA) and pre-fill the later
+  refrigerant_select step from the photo's reading (with a "check and
+  confirm" hint, not an auto-skip). Both found live testing on the
+  clone with a real nameplate. #144, `3ea7c67`
+
 - Nameplate photo: compress client-side (canvas resize to 1600px/JPEG
   0.85) before upload, plus a 45s upload timeout with a clear message.
   Found live in the field — an uncompressed phone photo over a weak
