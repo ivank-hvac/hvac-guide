@@ -20,6 +20,8 @@
     try { lang = localStorage.getItem("hvac_lang"); } catch (e) {}
     var historyLink = document.getElementById("historyLink");
     if (historyLink) historyLink.title = lang === "ru" ? "История сессий" : "Session history";
+    var modelLookupLink = document.getElementById("modelLookupLink");
+    if (modelLookupLink) modelLookupLink.title = lang === "ru" ? "Поиск по модели" : "Model lookup";
     var inviteLink = document.getElementById("inviteLink");
     if (inviteLink) inviteLink.title = lang === "ru" ? "Пригласить" : "Invite a colleague";
     var adminLink = document.getElementById("adminLink");

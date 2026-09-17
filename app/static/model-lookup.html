@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>HVAC DiagTree — model lookup</title>
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="./icon-512.png" sizes="512x512">
+<link rel="stylesheet" href="./style.css">
+<style>
+.landing { max-width: 640px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+.landing h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+.landing p.sub { line-height: 1.5; color: var(--muted); font-size: .9rem; margin: 0 0 1.5rem; }
+.lang-switch { display: flex; gap: .4rem; justify-content: flex-end; margin-bottom: 1rem; }
+.lang-switch button {
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
+.lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+[data-lang-block] { display: none; }
+[data-lang-block].shown { display: block; }
+.lookup-row { display: flex; gap: .5rem; margin-bottom: .3rem; }
+.lookup-row input {
+  flex: 1; min-width: 0; background: var(--input-bg); color: var(--text);
+  border: var(--border-width) solid var(--panel-border); border-radius: 10px;
+  padding: .7rem .8rem; font: inherit; font-family: var(--mono);
+}
+.lookup-row button {
+  background: var(--accent); color: var(--bg); border: none; border-radius: 10px;
+  padding: .7rem 1.1rem; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.lookup-row button:disabled { opacity: .6; cursor: default; }
+.lookup-hint { font-size: .8rem; color: var(--muted); margin: 0 0 1.2rem; }
+.lookup-status { font-size: .88rem; color: var(--muted); padding: .5rem 0; min-height: 1.4em; }
+.lookup-card {
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px;
+  padding: 1rem 1.1rem; display: none;
+}
+.lookup-card.shown { display: block; }
+.lookup-card-top { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .3rem; }
+.lookup-model { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
+.lookup-source { font-size: .74rem; padding: .12rem .5rem; border-radius: 6px; background: var(--btn-bg); color: var(--muted); }
+.lookup-spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; margin: .8rem 0; }
+.lookup-spec-grid dt { font-size: .78rem; color: var(--muted); margin: 0; }
+.lookup-spec-grid dd { margin: .1rem 0 0; font-weight: 600; }
+.lookup-spec-grid dd.empty { color: var(--muted); font-weight: 400; font-style: italic; }
+.lookup-note { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
+.lookup-disclaimer {
+  background: var(--disclaimer-bg); border-radius: 10px; padding: .6rem .8rem;
+  font-size: .78rem; line-height: 1.4; margin-top: .8rem;
+}
+.lookup-confidence-low { color: var(--warn); font-weight: 600; }
+.lookup-confidence-high { color: var(--ok); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="landing">
+  <div class="lang-switch">
+    <button type="button" data-set-lang="en">EN</button>
+    <button type="button" data-set-lang="ru">RU</button>
+  </div>
+
+  <section data-lang-block="en">
+    <h1>Model number lookup</h1>
+    <p class="sub">Pilot feature — look up a unit's specs by model number. First lookup for a model uses AI + web search and gets saved; every lookup after that for the same model is instant.</p>
+    <div class="lookup-row">
+      <input type="text" id="input-en" placeholder="e.g. 24ACC636A003" maxlength="64" autocomplete="off">
+      <button type="button" id="btn-en">Look up</button>
+    </div>
+    <p class="lookup-hint">Not a database of real equipment — an estimate from published specs. Always verify against the actual nameplate before relying on it.</p>
+    <div class="lookup-status" id="status-en"></div>
+    <div class="lookup-card" id="card-en"></div>
+  </section>
+
+  <section data-lang-block="ru">
+    <h1>Поиск по номеру модели</h1>
+    <p class="sub">Пилотная функция — поиск спеков оборудования по номеру модели. Первый поиск конкретной модели идёт через AI + веб-поиск и сохраняется; каждый следующий поиск той же модели — мгновенный.</p>
+    <div class="lookup-row">
+      <input type="text" id="input-ru" placeholder="например 24ACC636A003" maxlength="64" autocomplete="off">
+      <button type="button" id="btn-ru">Найти</button>
+    </div>
+    <p class="lookup-hint">Это не база реального оборудования, а оценка по опубликованным данным. Всегда сверяйтесь с настоящим шильдиком, прежде чем полагаться на эти цифры.</p>
+    <div class="lookup-status" id="status-ru"></div>
+    <div class="lookup-card" id="card-ru"></div>
+  </section>
+</div>
+<script src="./landing.js"></script>
+<script src="./model-lookup.js"></script>
+</body>
+</html>
