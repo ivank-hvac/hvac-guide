@@ -3957,6 +3957,11 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
         else ""
     )
 
+    # Found missing entirely alongside logout itself (18 Sep 2026) -- this
+    # page had no way back into the app short of the browser's own back
+    # button. Plain <a>, no form/JS needed, unlike logout.
+    back_link_html = '<a href="/diagnose" class="back-link">← Back to diagnose</a>'
+
     users_section_html = ""
     if stats["users"]:
         user_rows = []
@@ -4042,10 +4047,13 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
   .user-form.danger button {{ color: #ff7a7f; border-color: #4a2226; }}
   .logout-form {{ display: inline; }}
   .logout-form button {{
-    background: none; border: none; padding: 0; margin-top: .4rem;
+    background: none; border: none; padding: 0;
     color: #8b93a1; text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer;
   }}
   .logout-form button:hover {{ color: #cdd3dc; }}
+  .top-links {{ display: flex; gap: 1.2rem; margin-top: .4rem; margin-bottom: 1rem; }}
+  .top-links a.back-link {{ color: #6fb1ff; text-decoration: none; font-size: .85rem; }}
+  .top-links a.back-link:hover {{ text-decoration: underline; }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
   .stat {{ min-width: 140px; }}
   .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
@@ -4073,7 +4081,7 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
 <div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
-{logout_html}
+<div class="top-links">{back_link_html}{logout_html}</div>
 {banned_section_html}
 {flagged_section_html}
 {users_section_html}

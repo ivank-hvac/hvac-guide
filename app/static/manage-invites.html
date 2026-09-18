@@ -18,7 +18,11 @@
   border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
 }
 .lang-switch button.active { color: var(--accent); border-color: var(--accent); }
-.lang-switch #logoutBtn { margin-right: auto; }
+.lang-switch #backLink {
+  margin-right: auto; text-decoration: none; display: inline-flex; align-items: center;
+  background: transparent; color: var(--muted); border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
+}
 [data-lang-block] { display: none; }
 [data-lang-block].shown { display: block; }
 button.submit {
@@ -47,6 +51,7 @@ button.submit:disabled { opacity: .6; cursor: default; }
 <body>
 <div class="landing">
   <div class="lang-switch">
+    <a id="backLink" href="/diagnose" title="Back to diagnose">🏠</a>
     <button type="button" id="logoutBtn" title="Log out">🚪</button>
     <button type="button" data-set-lang="en">EN</button>
     <button type="button" data-set-lang="ru">RU</button>
