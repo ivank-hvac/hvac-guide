@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- Default dark theme: main text pushed to pure white (was #eceff4 — the
+  in-between steps toward white turned out imperceptible, already well
+  past WCAG AAA contrast) and the panel background darkened ~8% with its
+  blue cast almost fully neutralized (warmer, more neutral grey). Field
+  theme untouched. #162
+
 - `/panel`'s back-to-diagnose link — first made to look like the
   page's other buttons (bordered, same as "Download statistics")
   instead of plain underlined text, then switched to the same 🏠 icon

@@ -11,11 +11,21 @@
      tones — Ivan's direct feedback after the first pass was that the
      stock Nord hues read as barely-visible against the panel background
      in a real screenshot. See CLAUDE.md "Тема интерфейса..." for the
-     comparison screenshots this was picked from. */
+     comparison screenshots this was picked from.
+
+     18 Sep 2026 follow-up: --panel darkened ~8% and its blue cast almost
+     fully neutralized (was a cool blue-grey, now nearly neutral warm-grey
+     — Ivan's own read: default dark theme's body text wasn't legible
+     enough, and a slightly-too-blue panel was part of why). --text pushed
+     all the way to pure white — the intermediate steps toward it from the
+     old #eceff4 were empirically imperceptible (WCAG contrast against the
+     panel already exceeded the 7:1 AAA threshold before this change;
+     see the comparison artifact referenced in CLAUDE.md), so there was no
+     reason to stop short of #ffffff once brighter was the goal. */
   --bg: #2e3440;
-  --panel: #3b4252;
+  --panel: #3a3d44;
   --panel-border: #4c566a;
-  --text: #eceff4;
+  --text: #ffffff;
   --muted: #a6adbb;
   --accent: #6dd3ee;
   --ok: #7ee08f;
