@@ -1,8 +1,12 @@
 // Shows the "invite a friend" link for accounts with can_invite set (see
-// /panel "Invite-gate accounts"), the "session history" and "log out"
-// links for any logged-in account, and the "admin panel" link for accounts
-// with is_admin set (see /panel — login+is_admin gated when AUTH_ENABLED,
-// same as everything else in this file). Kept separate from app.js on purpose:
+// /panel "Invite-gate accounts"), the "session history" link for any
+// logged-in account, and the "admin panel" link for accounts with
+// is_admin set (see /panel — login+is_admin gated when AUTH_ENABLED, same
+// as everything else in this file). The logout wiring below is still
+// live, but #logoutLink itself is commented out in tool.html (18 Sep
+// 2026, Ivan: accidental-tap risk sitting right next to other buttons in
+// this same row) -- this code is a harmless no-op until that element
+// comes back. Kept separate from app.js on purpose:
 // this is the only place in the tool that needs to know about login state,
 // and app.js is already large enough without a new concern threaded
 // through it.

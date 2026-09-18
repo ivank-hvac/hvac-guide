@@ -27,7 +27,14 @@
           <a id="modelLookupLink" href="/model-lookup" class="lang-btn invite-link">🏷️</a>
           <a id="inviteLink" href="/manage-invites" class="lang-btn invite-link" style="display:none">👥</a>
           <a id="adminLink" href="/panel" class="lang-btn invite-link" style="display:none">⚙️</a>
-          <a id="logoutLink" href="#" class="lang-btn invite-link" style="display:none">🚪</a>
+          <!-- Logout commented out for now (18 Sep 2026, Ivan): a phone's
+               field-theme tap target sits right next to it in this same
+               row, and an accidental tap has real cost (signed out mid-
+               job). me.js's wiring for #logoutLink is left in place and
+               is a no-op without this element -- re-enabling later is
+               just uncommenting the line below, once there's a safer
+               (e.g. confirm-before-logout) design. -->
+          <!-- <a id="logoutLink" href="#" class="lang-btn invite-link" style="display:none">🚪</a> -->
         </div>
       </div>
       <div class="unit-switch-row">

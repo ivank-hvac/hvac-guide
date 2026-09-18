@@ -3946,21 +3946,19 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
 
     download_href = "?download=1" if auth_mode else f"?token={_esc(MONITOR_PANEL_TOKEN)}&download=1"
 
-    # Only meaningful under AUTH_ENABLED -- the token-mode install has no
-    # login session at all, just the query-string token comparison, so
-    # there's nothing here to log out of.
-    logout_html = (
-        '<form method="post" action="/api/logout" class="logout-form">'
-        '<button type="submit">Log out</button>'
-        "</form>"
-        if auth_mode
-        else ""
-    )
-
-    # Found missing entirely alongside logout itself (18 Sep 2026) -- this
-    # page had no way back into the app short of the browser's own back
-    # button. Plain <a>, no form/JS needed, unlike logout.
+    # Found missing entirely (18 Sep 2026) -- this page had no way back
+    # into the app short of the browser's own back button. Plain <a>, no
+    # form/JS needed.
     back_link_html = '<a href="/diagnose" class="back-link">← Back to diagnose</a>'
+
+    # Logout was here too, briefly (18 Sep 2026) -- Ivan pulled it back out
+    # same day: he wants logout confined to a single place at most
+    # (/diagnose's header row), and even that one commented out for now
+    # over accidental-tap risk. /api/logout itself is untouched (still a
+    # real POST route, just nothing in the UI links to it from here
+    # anymore) -- restoring this button, if that ever changes, is just
+    # re-adding the <form> below.
+    logout_html = ""
 
     users_section_html = ""
     if stats["users"]:
