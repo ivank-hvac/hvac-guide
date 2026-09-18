@@ -62,7 +62,13 @@
   --accent-active-text: #b6e9f7;
   --warn-active-bg: #5d5846;
   --warn-active-text: #ffe48d;
-  --btn-bg: #414a5a;
+  /* Was #414a5a -- lighter AND bluer than --panel (#3a3d44), a leftover
+     from before the 18 Sep 2026 warm/dark panel change that made plain
+     option buttons (equipment list, symptom menus) barely stand out
+     from the panel behind them. Ivan's ask: noticeably darker than the
+     panel, not just a shade off it. --btn-hover-bg stays as-is (lighter
+     on hover reads as "lifting", same direction as before). */
+  --btn-bg: #242830;
   --btn-hover-bg: #4c566a;
   --input-hover-bg: #4a3324;
   --na-active-bg: #3f4759;

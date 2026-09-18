@@ -11,6 +11,11 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- Default dark theme: plain option buttons (equipment list, symptom
+  menus, etc.) darkened well below the panel background instead of
+  sitting slightly lighter/bluer than it (a leftover from before the
+  panel color change) — Ivan caught it on a live screenshot. #164
+
 - Default dark theme: active-button borders (accent/ok/warn/crit) all
   brightened, and active-button fills/text split into their own tokens
   (`--accent-active-bg`/`-text`, `--warn-active-bg`/`-text`) so buttons
