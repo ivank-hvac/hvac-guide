@@ -11,6 +11,10 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- `/panel`'s back-to-diagnose link now looks like the page's other
+  buttons (bordered, same as "Download statistics") instead of a
+  plain underlined text link. #160, `0866de9`
+
 - Logout pulled back to a single place (`/diagnose`'s header row) and
   commented out there too, for now — accidental-tap risk sitting in
   the same row as other buttons on a field phone. Removed from
