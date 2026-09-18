@@ -27,10 +27,10 @@
   --panel-border: #4c566a;
   --text: #ffffff;
   --muted: #a6adbb;
-  --accent: #6dd3ee;
-  --ok: #7ee08f;
-  --warn: #ffd54f;
-  --crit: #ff6b72;
+  --accent: #a0e2f4;
+  --ok: #bff0c7;
+  --warn: #ffdd72;
+  --crit: #ff9fa3;
   --input-accent: #ffa057;
   --input-accent-bg: #3a2c22;
   --step-text: #ffc199;
@@ -46,8 +46,22 @@
   --disclaimer-bg: #332a1e;
   --warn-bg: #3a3220;
   --crit-bg: #3a1f22;
-  --accent-bg: #22333c;
+  --accent-bg: #18242a;
   --accent-hover-bg: #294050;
+  /* Active/highlighted-BUTTON fill+text, split out from the plain
+     --accent/--warn tokens above (18 Sep 2026 follow-up): those two now
+     also serve genuinely darker/dimmer FIELD contexts (--accent-bg for
+     .badge.info/the nameplate "confident" box; --warn-bg for the
+     nameplate warning box/.badge.warning) that Ivan deliberately wanted
+     to move in the opposite direction from buttons -- darker, not
+     brighter. A real active button (.lang-btn.active, .btn.ai,
+     .intake-toggle-btn.active, .unit-btn.active) needs its own brighter
+     fill/text pair instead of inheriting whichever direction the field
+     tokens happened to move. */
+  --accent-active-bg: #435863;
+  --accent-active-text: #b6e9f7;
+  --warn-active-bg: #5d5846;
+  --warn-active-text: #ffe48d;
   --btn-bg: #414a5a;
   --btn-hover-bg: #4c566a;
   --input-hover-bg: #4a3324;
@@ -58,7 +72,7 @@
   --quota-crit-bg: rgba(255, 107, 114, 0.18);
   --quota-crit-border: rgba(255, 107, 114, 0.55);
   --crit-text: #ffd9dc;
-  --crit-active-text: #ffb3b8;
+  --crit-active-text: #ff9fa3;
   --ok-tint-bg: rgba(126, 224, 143, 0.12);
   --crit-tint-bg: rgba(255, 107, 114, 0.12);
   --input-tint-bg: rgba(255, 160, 87, 0.12);
@@ -117,6 +131,17 @@
   --crit-bg: #fbdedc;
   --accent-bg: #b8dcff;
   --accent-hover-bg: #c6ddfa;
+  /* Mirrors this theme's own --accent/--warn exactly (not the dark
+     theme's new brighter-active-button values) — .lang-btn.active/
+     .btn.ai/.intake-toggle-btn.active/.unit-btn.active now read these
+     instead of --accent-bg/--warn-bg/--accent/--warn directly (see the
+     18 Sep 2026 comment on the dark theme's copy of these tokens), and
+     without an override here they'd silently fall back to the dark
+     theme's values instead of staying untouched. */
+  --accent-active-bg: #b8dcff;
+  --accent-active-text: #0055c8;
+  --warn-active-bg: #fbdba3;
+  --warn-active-text: #8a5300;
   --btn-bg: #ffffff;
   --btn-hover-bg: #eef2f6;
   --input-hover-bg: #fbdecb;
@@ -380,10 +405,10 @@ header h1 {
 .lang-btn:hover { color: var(--text); border-color: var(--accent); }
 
 .lang-btn.active {
-  color: var(--accent);
+  color: var(--accent-active-text);
   border-color: var(--accent);
   border-width: var(--active-border-width);
-  background: var(--accent-bg);
+  background: var(--accent-active-bg);
 }
 
 /* Session-only unit preference (°F/°C, psig/kPa) — same button look as the
@@ -404,10 +429,10 @@ header h1 {
    you're reading" signal, not a neutral preference like language, so it
    gets the same warm accent used for attention states elsewhere (--warn). */
 .unit-btn.active {
-  color: var(--warn);
+  color: var(--warn-active-text);
   border-color: var(--warn);
   border-width: var(--active-border-width);
-  background: var(--warn-bg);
+  background: var(--warn-active-bg);
 }
 
 .unit-switch {
@@ -518,9 +543,13 @@ header h1 {
 .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
 
 .btn.ai {
+  /* A persistently-highlighted button, not a field/box -- same
+     accent-active pair as .lang-btn.active/.intake-toggle-btn.active,
+     not the darker --accent-bg field tint (see the comment at that
+     token's definition). */
   border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-bg);
+  color: var(--accent-active-text);
+  background: var(--accent-active-bg);
 }
 
 .btn.ai:hover { background: var(--accent-hover-bg); }
@@ -895,7 +924,7 @@ textarea {
    good/bad judgment, just an explicit confirmation) and as the base for
    select's normal/abnormal variants below. */
 .intake-toggle-btn.active {
-  background: var(--accent-bg);
+  background: var(--accent-active-bg);
   border-color: var(--accent);
   border-width: var(--active-border-width);
   color: var(--text);

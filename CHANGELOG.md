@@ -11,6 +11,14 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- Default dark theme: active-button borders (accent/ok/warn/crit) all
+  brightened, and active-button fills/text split into their own tokens
+  (`--accent-active-bg`/`-text`, `--warn-active-bg`/`-text`) so buttons
+  can get brighter independently of field/alert-box tints, which move
+  the other way (`--accent-bg` darkened) — buttons pop, info/warning
+  boxes recede. Field theme mirrors its own unchanged values into the
+  new tokens so it renders byte-identical to before. #163
+
 - Default dark theme: main text pushed to pure white (was #eceff4 — the
   in-between steps toward white turned out imperceptible, already well
   past WCAG AAA contrast) and the panel background darkened ~8% with its
