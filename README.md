@@ -571,6 +571,23 @@ column) and terminology (furnace, breaker, disconnect, etc.). The model is
 set via `ANTHROPIC_MODEL` (default `claude-sonnet-5`), the key via
 `ANTHROPIC_API_KEY`.
 
+**The system prompt text above is the public default, not necessarily
+what this project's own production deployment sends.** Same reasoning as
+`graph.json`/`graph.demo.json` above: the maintainer's private repo holds a
+fuller, field-tested version of the diagnostic instructions and the
+nameplate/model-lookup prompts, delivered to a running container as
+`app/prompts_private.py` (gitignored — absent on a fresh clone). If that
+file exists, `main.py` loads it at startup and swaps in its text; if it
+doesn't, the prompts defined directly in `main.py` are used exactly as
+shown here, no error, no missing functionality — just less-detailed
+guidance on a few specific judgment calls. Safety-critical text
+(the legal disclaimer, the injection-refusal line, and the CSAM-related
+safety redirect) is never part of that override — it's always the fixed
+string `main.py` defines, regardless of which prompt variant is active. A
+self-hoster who wants their own private-prompt layer can write a Python
+module with the same three function signatures `main.py`'s loader expects
+(see `_load_private_prompt_overrides()`) and drop it in at that path.
+
 Response length is capped by `AI_ASSIST_MAX_TOKENS` (default 2048,
 configurable via env) — this is a ceiling, not a target: the prompt already
 asks the model for a no-filler answer, so real responses tend to come in
