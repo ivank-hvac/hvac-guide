@@ -1,8 +1,8 @@
 // Shows the "invite a friend" link for accounts with can_invite set (see
-// /panel "Invite-gate accounts"), the "session history" link for any
-// logged-in account, and the "admin panel" link for accounts with
-// is_admin set (see /panel — login+is_admin gated when AUTH_ENABLED, same
-// as everything else in this file). Kept separate from app.js on purpose:
+// /panel "Invite-gate accounts"), the "session history" and "log out"
+// links for any logged-in account, and the "admin panel" link for accounts
+// with is_admin set (see /panel — login+is_admin gated when AUTH_ENABLED,
+// same as everything else in this file). Kept separate from app.js on purpose:
 // this is the only place in the tool that needs to know about login state,
 // and app.js is already large enough without a new concern threaded
 // through it.
@@ -26,6 +26,8 @@
     if (inviteLink) inviteLink.title = lang === "ru" ? "Пригласить" : "Invite a colleague";
     var adminLink = document.getElementById("adminLink");
     if (adminLink) adminLink.title = lang === "ru" ? "Панель администратора" : "Admin panel";
+    var logoutLink = document.getElementById("logoutLink");
+    if (logoutLink) logoutLink.title = lang === "ru" ? "Выйти" : "Log out";
   }
 
   document.querySelectorAll("[data-lang]").forEach(function (btn) {
@@ -46,6 +48,21 @@
       if (me.is_admin) {
         var adminLink = document.getElementById("adminLink");
         if (adminLink) adminLink.style.display = "";
+      }
+      if (me.logged_in) {
+        var logoutLink = document.getElementById("logoutLink");
+        if (logoutLink) {
+          logoutLink.style.display = "";
+          // A real click handler, not just an href -- logout has to be a
+          // POST (see /api/logout's own reasoning), and this row's other
+          // icons are already <a> tags for visual consistency, not <button>.
+          logoutLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            fetch("/api/logout", { method: "POST" }).finally(function () {
+              window.location.href = "/login";
+            });
+          });
+        }
       }
       applyIconTitles();
     })

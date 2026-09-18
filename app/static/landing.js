@@ -31,4 +31,21 @@
   document.querySelectorAll("[data-set-lang]").forEach(function (b) {
     b.onclick = function () { apply(b.getAttribute("data-set-lang")); };
   });
+
+  // Shared logout button for the standalone auth-gated pages that load this
+  // file (history.html, manage-invites.html) -- found missing entirely (18
+  // Sep 2026), same gap as /panel's own logout link. POST rather than a
+  // plain <a href>, matching /api/logout's own reasoning (no GET-triggered
+  // state change from a prefetch/crawler); the redirect happens here
+  // regardless of whether the request itself succeeds, so a network blip
+  // still lands the technician on /login rather than a page that silently
+  // kept working with a stale session.
+  var logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.onclick = function () {
+      fetch("/api/logout", { method: "POST" }).finally(function () {
+        window.location.href = "/login";
+      });
+    };
+  }
 })();

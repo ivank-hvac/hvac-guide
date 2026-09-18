@@ -3369,6 +3369,32 @@ async def me(request: Request, response: Response):
     }
 
 
+# Found missing entirely (18 Sep 2026) -- there was no way to end a login
+# session short of letting the 30-day cookie expire on its own or clearing
+# browser cookies by hand. A single POST, reused from three call sites:
+# the icon-only header row on /diagnose (via a fetch() in me.js, matching
+# how that row already handles history/invite/admin links), and plain
+# <form>-based logout links on /panel, /history, and /manage-invites.
+# Always redirects to /login rather than returning JSON, so a plain HTML
+# <form method="post"> works without any JS at all (matches /panel's own
+# no-JS philosophy) -- a fetch()-based caller still gets a normal 303 it
+# can follow (or ignore and just navigate itself, which is what me.js does).
+@app.post("/api/logout")
+async def logout(request: Request):
+    if not AUTH_ENABLED:
+        raise HTTPException(status_code=404)
+    raw_cookie = request.cookies.get(LOGIN_COOKIE_NAME)
+    if raw_cookie:
+        with _db_connect() as conn:
+            conn.execute(
+                "DELETE FROM login_sessions WHERE session_token_hash = ?",
+                (_hash_token(raw_cookie),),
+            )
+    redirect = RedirectResponse(url="/login", status_code=303)
+    redirect.delete_cookie(LOGIN_COOKIE_NAME, path="/")
+    return redirect
+
+
 def _load_intake_phases() -> List[Dict[str, Any]]:
     # graph.json lives in the static dir served to the frontend — read
     # directly rather than duplicating its content, so a phase added/removed
@@ -3920,6 +3946,17 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
 
     download_href = "?download=1" if auth_mode else f"?token={_esc(MONITOR_PANEL_TOKEN)}&download=1"
 
+    # Only meaningful under AUTH_ENABLED -- the token-mode install has no
+    # login session at all, just the query-string token comparison, so
+    # there's nothing here to log out of.
+    logout_html = (
+        '<form method="post" action="/api/logout" class="logout-form">'
+        '<button type="submit">Log out</button>'
+        "</form>"
+        if auth_mode
+        else ""
+    )
+
     users_section_html = ""
     if stats["users"]:
         user_rows = []
@@ -3945,12 +3982,17 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
                 f'<form method="post" action="{_panel_form_action("/panel/toggle-admin", u["id"])}" class="user-form">'
                 f'<button type="submit">{admin_action}</button>'
                 f"</form>"
+                f'<form method="post" action="{_panel_form_action("/panel/delete-user", u["id"])}" '
+                f"class=\"user-form danger\" onsubmit=\"return confirm('Delete this account and revoke its "
+                f"access? This cannot be undone.')\">"
+                f'<button type="submit">Delete</button>'
+                f"</form>"
                 f"</div>"
             )
         users_section_html = f"""
 <section>
   <h2>Invite-gate accounts ({_esc(len(stats['users']))})</h2>
-  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">"Grant" lets an account create up to {_esc(INVITE_DAILY_LIMIT_PER_USER)} invite links/day at /manage-invites. "Make admin" lets an account reach /panel itself — the last remaining admin can't revoke their own.</p>
+  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">"Grant" lets an account create up to {_esc(INVITE_DAILY_LIMIT_PER_USER)} invite links/day at /manage-invites. "Make admin" lets an account reach /panel itself — the last remaining admin can't revoke their own, and "Delete" refuses the same way. "Delete" also revokes that account's unused invite links, but leaves their diagnostic history and already-used invites alone.</p>
   {"".join(user_rows)}
 </section>
 """
@@ -3997,6 +4039,13 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
     background: transparent; color: #6fb1ff; border: 1px solid #35405a;
     border-radius: 6px; padding: .3rem .7rem; font: inherit; cursor: pointer;
   }}
+  .user-form.danger button {{ color: #ff7a7f; border-color: #4a2226; }}
+  .logout-form {{ display: inline; }}
+  .logout-form button {{
+    background: none; border: none; padding: 0; margin-top: .4rem;
+    color: #8b93a1; text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer;
+  }}
+  .logout-form button:hover {{ color: #cdd3dc; }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
   .stat {{ min-width: 140px; }}
   .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
@@ -4024,6 +4073,7 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
 <div class="wrap">
 <h1>hvac-guide — dev panel</h1>
 <div class="meta">Generated {_esc(generated_at)} · build {_esc(GIT_COMMIT)}</div>
+{logout_html}
 {banned_section_html}
 {flagged_section_html}
 {users_section_html}
@@ -4152,6 +4202,62 @@ def _set_is_admin(user_id: int, is_admin: bool) -> None:
 def _admin_count() -> int:
     with _db_connect() as conn:
         return conn.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetchone()[0]
+
+
+# Removing an account (18 Sep 2026, found missing entirely -- there was no
+# way to remove one at all). Cleans up everything that would otherwise
+# dangle in a way that matters: nothing in this schema declares a real FK
+# (added incrementally via ALTER over the project's history), so an orphaned
+# user_id elsewhere is harmless on its own -- SELECTs already treat a
+# nonexistent/NULL user_id as "no bucket" rather than a fake one (same
+# principle as sessions.ip before that column existed). What's NOT
+# harmless: leaving the deleted account's login machinery live would let a
+# still-valid cookie or a not-yet-expired magic-link keep authenticating as
+# them, and leaving their unused invite codes redeemable would let someone
+# register through a door the admin just tried to close. Historical
+# diagnostic data (sessions/checklist_sessions rows, already-used invites,
+# model_specs provenance) is left with a dangling user_id/created_by on
+# purpose -- that's a product record of what happened, not an access
+# grant, and matches this project's general "keep the history, just don't
+# let it grant anything" stance elsewhere (see _save_session's redaction
+# instead of deletion for flagged content).
+def _delete_user(user_id: int) -> None:
+    with _db_connect() as conn:
+        conn.execute("DELETE FROM login_sessions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM login_tokens WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM session_takeover_tokens WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM invite_quota WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM invites WHERE created_by = ? AND used_by IS NULL", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+# Same pattern as toggle-admin (guard against deleting the last remaining
+# admin, so a solo admin can't lock everyone out of /panel with one click),
+# plus one guard toggle-admin doesn't need: refuse to let an admin delete
+# the account they're currently logged in as -- their own cookie would
+# still sit in the browser afterward, now pointing at nothing, which reads
+# as a confusing half-broken state rather than a clean logout. In token
+# mode (AUTH_ENABLED=false) there's no "currently logged in as" concept at
+# all, so that check is skipped there -- irrelevant, since the users table
+# this route acts on is invite-gate-only and stays empty without AUTH_ENABLED.
+@app.post("/panel/delete-user", include_in_schema=False)
+async def delete_user_route(request: Request, token: str = "", user_id: int = 0):
+    raw_cookie = await _panel_admin_guard(request, token)
+    with _db_connect() as conn:
+        row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404)
+    if row[0] and await run_in_threadpool(_admin_count) <= 1:
+        raise HTTPException(status_code=400, detail="cannot delete the last remaining admin")
+    if AUTH_ENABLED:
+        acting_user = await run_in_threadpool(_get_user_by_session_cookie, raw_cookie)
+        if acting_user and acting_user["id"] == user_id:
+            raise HTTPException(status_code=400, detail="cannot delete the account you're currently logged in as")
+    await run_in_threadpool(_delete_user, user_id)
+    redirect = RedirectResponse(url=_panel_redirect_url(token), status_code=303)
+    if AUTH_ENABLED:
+        _set_session_cookie(redirect, raw_cookie)
+    return redirect
 
 
 # Flips can_invite for one account from the panel's user list. Query-string

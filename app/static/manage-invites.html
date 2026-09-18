@@ -18,6 +18,7 @@
   border-radius: 8px; padding: .35rem .7rem; cursor: pointer; font: inherit;
 }
 .lang-switch button.active { color: var(--accent); border-color: var(--accent); }
+.lang-switch #logoutBtn { margin-right: auto; }
 [data-lang-block] { display: none; }
 [data-lang-block].shown { display: block; }
 button.submit {
@@ -46,6 +47,7 @@ button.submit:disabled { opacity: .6; cursor: default; }
 <body>
 <div class="landing">
   <div class="lang-switch">
+    <button type="button" id="logoutBtn" title="Log out">🚪</button>
     <button type="button" data-set-lang="en">EN</button>
     <button type="button" data-set-lang="ru">RU</button>
   </div>
