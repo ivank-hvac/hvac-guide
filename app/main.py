@@ -4049,9 +4049,12 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
     color: #8b93a1; text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer;
   }}
   .logout-form button:hover {{ color: #cdd3dc; }}
-  .top-links {{ display: flex; gap: 1.2rem; margin-top: .4rem; margin-bottom: 1rem; }}
-  .top-links a.back-link {{ color: #6fb1ff; text-decoration: none; font-size: .85rem; }}
-  .top-links a.back-link:hover {{ text-decoration: underline; }}
+  .top-links {{ display: flex; gap: .8rem; margin-top: .4rem; margin-bottom: 1rem; }}
+  .top-links a.back-link {{
+    display: inline-block; color: #6fb1ff; text-decoration: none;
+    border: 1px solid #35405a; border-radius: 6px; padding: .5rem 1rem; font-size: .85rem;
+  }}
+  .top-links a.back-link:hover {{ border-color: #6fb1ff; }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
   .stat {{ min-width: 140px; }}
   .stat .n {{ font-size: 1.6rem; font-weight: 600; color: #6fb1ff; }}
