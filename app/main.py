@@ -3948,8 +3948,13 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
 
     # Found missing entirely (18 Sep 2026) -- this page had no way back
     # into the app short of the browser's own back button. Plain <a>, no
-    # form/JS needed.
-    back_link_html = '<a href="/diagnose" class="back-link">← Back to diagnose</a>'
+    # form/JS needed. Icon rather than text (Ivan, after seeing the text
+    # version live) to match the same 🏠 used on /history/
+    # /manage-invites/#model-lookup's own back link -- one convention
+    # everywhere the icon fits, not text on this page and an icon
+    # elsewhere just because this page's other buttons happen to be
+    # textual.
+    back_link_html = '<a href="/diagnose" class="back-link" title="Back to diagnose">🏠</a>'
 
     # Logout was here too, briefly (18 Sep 2026) -- Ivan pulled it back out
     # same day: he wants logout confined to a single place at most
@@ -4051,8 +4056,8 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
   .logout-form button:hover {{ color: #cdd3dc; }}
   .top-links {{ display: flex; gap: .8rem; margin-top: .4rem; margin-bottom: 1rem; }}
   .top-links a.back-link {{
-    display: inline-block; color: #6fb1ff; text-decoration: none;
-    border: 1px solid #35405a; border-radius: 6px; padding: .5rem 1rem; font-size: .85rem;
+    display: inline-flex; align-items: center; text-decoration: none;
+    border: 1px solid #35405a; border-radius: 6px; padding: .35rem .6rem; font-size: 1.1rem;
   }}
   .top-links a.back-link:hover {{ border-color: #6fb1ff; }}
   .stat-grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1rem; }}
