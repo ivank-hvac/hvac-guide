@@ -11,6 +11,12 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- Logout pulled back to a single place (`/diagnose`'s header row) and
+  commented out there too, for now — accidental-tap risk sitting in
+  the same row as other buttons on a field phone. Removed from
+  `/panel`/`/history`/`/manage-invites`/`/model-lookup` entirely; the
+  back-to-diagnose link on all of them stays. #159, `7a52e28`
+
 - `/model-lookup` — added the back-to-diagnose link and logout button
   too (only page of the four that had missed both); logout hides
   itself when not actually logged in, since this page stays reachable
