@@ -9,6 +9,27 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-18
+
+- Account logout (was missing entirely) — new icon on `/diagnose`'s
+  header row plus plain form-based links on `/panel`, `/history`, and
+  `/manage-invites`; ends the login session server-side, not just the
+  browser cookie. Admin panel got a "Delete" button per account
+  (also missing entirely) — revokes login sessions/tokens and unused
+  invite codes, guarded against deleting the last remaining admin or
+  the account you're currently logged in as; diagnostic history and
+  already-used invites are left alone as product record, not access.
+  #156, `c3673b1`
+
+- Default theme repainted — Nord-inspired palette (brighter severity
+  colors than stock Nord, per live feedback that the muted version was
+  hard to read), replacing the old dark-navy + bright-blue set that had
+  become its own kind of generic look. Found and fixed two real layout
+  bugs along the way: field theme's icon row could overflow off the
+  right edge of a real phone screen instead of wrapping, and RU/EN had
+  no fixed position in their row. Field theme's own palette untouched.
+  #156, `c3673b1`
+
 ## 2026-09-17
 
 - README/README.ru: новый абзац в секции "AI assistant" объясняет, что
