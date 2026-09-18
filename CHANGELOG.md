@@ -11,6 +11,10 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-18
 
+- `/panel`, `/history`, `/manage-invites` — added a back-to-diagnose
+  link (also missing entirely, caught right after logout shipped to
+  the same three pages). Plain link, no JS. #157, `4e4f902`
+
 - Account logout (was missing entirely) — new icon on `/diagnose`'s
   header row plus plain form-based links on `/panel`, `/history`, and
   `/manage-invites`; ends the login session server-side, not just the
