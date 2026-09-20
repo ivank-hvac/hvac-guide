@@ -14,6 +14,7 @@ const langSwitchEl = document.getElementById("langSwitch");
 // updateHeaderControlsVisibility), just a separate element to toggle since
 // it no longer lives inside that div.
 const langButtonsGroupEl = document.getElementById("langButtonsGroup");
+const headerTitleLinkEl = document.getElementById("headerTitleLink");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
 
@@ -2551,6 +2552,17 @@ function updateHeaderControlsVisibility() {
   const early = isEarlySessionScreen();
   langSwitchEl.classList.toggle("hidden", !early);
   langButtonsGroupEl.classList.toggle("hidden", !early);
+  // "HVAC Troubleshooting Guide" in the header -- a live link back to the
+  // landing page only on the very first screen (same criterion as
+  // everything else in this function), plain non-interactive text once a
+  // session is underway, so it can't undo diagnostic progress by habit.
+  // Removing href (not just a CSS class) is deliberate: leaves it
+  // unfocusable/untappable, not just visually inert.
+  if (headerTitleLinkEl) {
+    headerTitleLinkEl.classList.toggle("static", !early);
+    if (early) headerTitleLinkEl.setAttribute("href", "/");
+    else headerTitleLinkEl.removeAttribute("href");
+  }
 }
 
 function render() {
