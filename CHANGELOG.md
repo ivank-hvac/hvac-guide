@@ -11,6 +11,21 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-19
 
+- Landing page: new looping phone mockup showing the actual shape of a
+  session — equipment pick, a chain of diagnostic questions, a result,
+  the AI second opinion, and a real chunk of the "Deeper diagnosis"
+  checklist (that button shown, never simulated as tapped) — one of 3
+  randomized fault scenarios per page load. Moved to sit right after the
+  second paragraph, with "Start a diagnosis" immediately after it; the
+  "available in English and Russian" line moved into the footer byline.
+  Two real bugs found and fixed while reviewing it against the live app:
+  the CSP's `img-src` didn't allow `data:`, so the real `.ai-response`
+  "AI GENERATED" watermark had been silently non-functional since it
+  shipped; and the header title link plus the footer logout button both
+  stayed live on every screen of a session instead of only the first one
+  (now gated by the same `isEarlySessionScreen()` the language/theme row
+  already uses). #170
+
 - `/diagnose`'s plain "Model" text field (manufacturer step) now checks
   the model_specs cache on blur and shows a read-only "already in our
   database" line when there's an exact match — new
