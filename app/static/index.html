@@ -50,6 +50,112 @@
 .lang-switch button.active { color: var(--accent); border-color: var(--accent); }
 [data-lang-block] { display: none; }
 [data-lang-block].shown { display: block; }
+
+/* Landing-only "мультик" (Ivan's own word for it): a tiny looping phone
+   mockup echoing the actual 3-step shape of a real session — equipment ->
+   question -> result — so a first-time visitor sees the workflow before
+   reading a word of the prose around it. Pure CSS, no video/GIF/JS: three
+   slides cross-fade on a fixed 9s loop. One markup copy per language
+   section (matches every other block on this page) rather than one shared
+   widget with JS-swapped text — the existing [data-lang-block] display:none
+   toggle means the hidden language's copy runs zero animation frames for
+   free, no extra wiring needed. aria-hidden since it only restates what the
+   surrounding paragraphs already say in words. */
+.phone-demo { display: flex; justify-content: center; margin: 1.4rem 0 2rem; }
+.phone-demo__frame {
+  width: 190px; padding: 11px 9px; border-radius: 30px;
+  /* Bezel chrome, not a themed content surface -- a literal near-black
+     here (rather than a --bg/--panel token) is the same kind of one-off
+     the project already accepts for e.g. the .enter button's drop shadow
+     just below. */
+  background: #08090a; border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+}
+.phone-demo__screen {
+  position: relative; height: 300px; border-radius: 20px;
+  overflow: hidden; background: var(--bg);
+}
+.phone-demo__screen::before {
+  /* Just enough of a speaker notch to read as "phone screen" at a glance --
+     not a literal render of any real device. */
+  content: ""; position: absolute; top: 8px; left: 50%;
+  width: 44px; height: 4px; border-radius: 3px;
+  background: var(--panel-border); transform: translateX(-50%);
+}
+.demo-slide {
+  position: absolute; inset: 24px 14px 14px; opacity: 0;
+  animation-duration: 9s; animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.demo-slide--1 { animation-name: demoSlide1; }
+.demo-slide--2 { animation-name: demoSlide2; }
+.demo-slide--3 { animation-name: demoSlide3; display: flex; flex-direction: column; gap: .5rem; }
+.demo-eyebrow { font-size: .72rem; line-height: 1.35; color: var(--muted); margin: 0 0 .7rem; font-weight: 600; }
+.demo-btn-list { display: flex; flex-direction: column; gap: .4rem; }
+.demo-btn-list--row { flex-direction: row; }
+.demo-btn {
+  border: var(--border-width) solid var(--panel-border); background: var(--btn-bg);
+  color: var(--text); border-radius: 7px; padding: .5rem .55rem; font-size: .72rem;
+}
+.demo-btn--half { flex: 1; text-align: center; }
+.demo-btn--tap1 { animation: demoTap1 9s ease-in-out infinite; }
+.demo-btn--tap2 { animation: demoTap2 9s ease-in-out infinite; }
+.demo-badge {
+  align-self: flex-start; font-family: var(--mono); font-size: .62rem;
+  text-transform: uppercase; letter-spacing: .06em;
+  background: var(--accent-bg); color: var(--accent); padding: 2px 7px; border-radius: 5px;
+}
+.demo-result-text { font-size: .74rem; line-height: 1.45; color: var(--text); margin: 0; }
+
+/* Each slide fades/slides in for its third of the 9s loop and back out --
+   percentages line up 1:1 with wall-clock seconds (33% = 3s) since the
+   loop is exactly 9s long. */
+@keyframes demoSlide1 {
+  0% { opacity: 0; transform: translateY(4px); }
+  4% { opacity: 1; transform: translateY(0); }
+  29% { opacity: 1; transform: translateY(0); }
+  33% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide2 {
+  0% { opacity: 0; transform: translateY(4px); }
+  33% { opacity: 0; transform: translateY(4px); }
+  37% { opacity: 1; transform: translateY(0); }
+  62% { opacity: 1; transform: translateY(0); }
+  66% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide3 {
+  0% { opacity: 0; transform: translateY(4px); }
+  66% { opacity: 0; transform: translateY(4px); }
+  70% { opacity: 1; transform: translateY(0); }
+  96% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+/* A brief "tap" flash on the button being picked, timed to land right
+   before its slide fades out -- reads as cause (tap) then effect
+   (transition to the next screen). Two separate keyframe sets (not one
+   shared animation with a negative delay) because each has to land inside
+   its own slide's active window on the same 9s clock. */
+@keyframes demoTap1 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  20% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  24% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  28% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@keyframes demoTap2 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  53% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  57% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  61% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-slide, .demo-btn--tap1, .demo-btn--tap2 { animation: none; }
+  .demo-slide--1 { opacity: 1; }
+  .demo-slide--2, .demo-slide--3 { display: none; }
+}
 </style>
 </head>
 <body>
@@ -63,6 +169,32 @@
   <section data-lang-block="en">
     <h1>HVAC Troubleshooting Guide</h1>
     <p class="tagline">A structured fault-finding checklist for HVAC/R equipment.</p>
+
+    <div class="phone-demo" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Pick equipment</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Split system</div>
+              <div class="demo-btn demo-btn--tap1">Rooftop unit</div>
+              <div class="demo-btn">Chiller</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Thermostat calling for cooling?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <span class="demo-badge">Result</span>
+            <p class="demo-result-text">Contactor not pulling in — check 24V at the coil.</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <p>This tool walks a technician through diagnosis one question at a time —
     rooftop units, split systems, VRF/VRV, chillers, commercial refrigeration and
@@ -107,6 +239,32 @@
   <section data-lang-block="ru">
     <h1>HVAC Troubleshooting Guide</h1>
     <p class="tagline">Структурированный чек-лист поиска неисправностей в HVAC/R.</p>
+
+    <div class="phone-demo" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Выбор оборудования</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Сплит-система</div>
+              <div class="demo-btn demo-btn--tap1">RTU</div>
+              <div class="demo-btn">Чиллер</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Термостат подаёт команду на охлаждение?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <span class="demo-badge">Результат</span>
+            <p class="demo-result-text">Контактор не втягивается — проверьте 24В на катушке.</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <p>Инструмент ведёт техника по диагностике вопрос за вопросом — RTU, сплит-системы,
     VRF/VRV, чиллеры, коммерческое холодильное оборудование и печи. Его задача — сделать
