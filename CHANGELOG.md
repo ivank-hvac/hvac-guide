@@ -19,7 +19,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
   strict-JSON output this endpoint asks for, only to prose — so this is
   self-reported by the model like every other field here, same
   null-unless-real-manufacturer-page discipline, not independently
-  verified. #167
+  verified. Live-testing this on the clone also caught a real,
+  pre-existing truncation bug unrelated to source_url itself: a model
+  number needing 3 search iterations can burn through the whole 1024-
+  token output budget on search reasoning before finishing the JSON,
+  cutting the response off mid-field (`stop_reason: "max_tokens"`) and
+  losing every field, not just source_url — `MODEL_LOOKUP_MAX_TOKENS`
+  default raised 1024→2048 in both compose files + .env.example. #167
 
 - `/history`: manufacturer/model (captured during the one-time
   manufacturer step, previously only visible inside an expanded
