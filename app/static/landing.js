@@ -31,4 +31,20 @@
   document.querySelectorAll("[data-set-lang]").forEach(function (b) {
     b.onclick = function () { apply(b.getAttribute("data-set-lang")); };
   });
+
+  // Picks one of the phone-demo fault scenarios at random per page load
+  // (Ivan: "нагенерить штук несколько и рандомно показывать"). .phone-demo
+  // starts display:none in style.css and only .demo-active gets
+  // display:flex, so this has to run for anything to show at all -- there
+  // is no CSS-only fallback if this file somehow fails to load, same
+  // tradeoff the language switch above already accepts. Picked once per
+  // load, not re-rolled on language switch: both language copies share the
+  // same data-variant markup, so [data-lang-block] alone decides which of
+  // the now-chosen variant's two copies is visible.
+  // Update this count when adding/removing a scenario in index.html.
+  var DEMO_VARIANT_COUNT = 3;
+  var variant = 1 + Math.floor(Math.random() * DEMO_VARIANT_COUNT);
+  document.querySelectorAll('.phone-demo[data-variant="' + variant + '"]').forEach(function (el) {
+    el.classList.add("demo-active");
+  });
 })();
