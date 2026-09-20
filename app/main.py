@@ -375,16 +375,25 @@ app.state.limiter = limiter
 # Caddy on the real domains) is still free to set its own values and win --
 # this is a floor, not an override.
 _SECURITY_HEADERS = {
-    # img-src adds blob: on top of the default-src 'self' floor -- needed
-    # for the nameplate-photo resize step (app.js resizeImageForUpload),
-    # which loads the just-selected file into an <img> via
-    # URL.createObjectURL() before drawing it to a canvas. Found live,
-    # 17 Sep 2026: without this, the blob: load was silently blocked by CSP
-    # and the resize step quietly no-op'd (fell back to uploading the
-    # original, unresized file) -- the feature still worked end to end
+    # img-src adds blob: and data: on top of the default-src 'self' floor.
+    # blob: -- needed for the nameplate-photo resize step (app.js
+    # resizeImageForUpload), which loads the just-selected file into an
+    # <img> via URL.createObjectURL() before drawing it to a canvas. Found
+    # live, 17 Sep 2026: without this, the blob: load was silently blocked
+    # by CSP and the resize step quietly no-op'd (fell back to uploading
+    # the original, unresized file) -- the feature still worked end to end
     # because of that same fallback, just without the compression benefit
     # it was built for, and without ANY visible error to the technician.
-    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:",
+    # data: -- same silent-failure shape, found 19 Sep 2026 while testing
+    # an unrelated landing-page change: the tiled "AI GENERATED" watermark
+    # on .ai-response (style.css, inline data:image/svg+xml background)
+    # had been silently blocked by this same CSP since the day it shipped
+    # -- the response text itself still rendered fine (watermark is a
+    # decorative ::before layer, not load-bearing), so nothing looked
+    # broken to a technician and no console a technician would see ever
+    # surfaced it. data: URIs can't execute script, so this is a narrow,
+    # low-risk addition, same reasoning as blob: above.
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
