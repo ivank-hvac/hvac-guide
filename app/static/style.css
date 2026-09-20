@@ -345,9 +345,23 @@ header h1 {
   text-underline-offset: 3px;
 }
 
-.header-title-link:hover {
+.header-title-link:not(.static):hover {
   text-decoration-color: var(--accent);
   opacity: 0.85;
+}
+
+/* Applied (plus href removed, see updateHeaderControlsVisibility in
+   app.js) once a session has moved past the very first screen -- the
+   title reads as plain text, not a live link back to the landing page,
+   so it can't be tapped away from mid-diagnosis by habit. Found live 20
+   Sep 2026: the icon/title split (19 Sep) only ever made the icon always
+   point at /diagnose -- the title text was still a permanent link to "/"
+   on every screen, not just the start screen, the same gap
+   isEarlySessionScreen() already closed for the language/theme row and
+   the disclaimer banner. */
+.header-title-link.static {
+  text-decoration: none;
+  cursor: default;
 }
 
 .header-icon {

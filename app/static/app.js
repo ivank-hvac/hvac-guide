@@ -14,6 +14,8 @@ const langSwitchEl = document.getElementById("langSwitch");
 // updateHeaderControlsVisibility), just a separate element to toggle since
 // it no longer lives inside that div.
 const langButtonsGroupEl = document.getElementById("langButtonsGroup");
+const headerTitleLinkEl = document.getElementById("headerTitleLink");
+const logoutFooterBtnEl = document.getElementById("logoutFooterBtn");
 const footerDisclaimerEl = document.getElementById("footerDisclaimer");
 const versionInfoEl = document.getElementById("versionInfo");
 
@@ -2551,6 +2553,28 @@ function updateHeaderControlsVisibility() {
   const early = isEarlySessionScreen();
   langSwitchEl.classList.toggle("hidden", !early);
   langButtonsGroupEl.classList.toggle("hidden", !early);
+  // "HVAC Troubleshooting Guide" in the header -- a live link back to the
+  // landing page only on the very first screen (same criterion as
+  // everything else in this function), plain non-interactive text once a
+  // session is underway, so it can't undo diagnostic progress by habit.
+  // Removing href (not just a CSS class) is deliberate: leaves it
+  // unfocusable/untappable, not just visually inert.
+  if (headerTitleLinkEl) {
+    headerTitleLinkEl.classList.toggle("static", !early);
+    if (early) headerTitleLinkEl.setAttribute("href", "/");
+    else headerTitleLinkEl.removeAttribute("href");
+  }
+  // Same "only at the very start" criterion, now applied to the footer's
+  // logout button too -- Ivan caught it live (screenshot) still sitting in
+  // the footer several questions deep into a session, right next to the
+  // breadcrumb showing how far in he already was. This class is the
+  // early-session half of an AND gate; me.js owns the other half (clearing
+  // the button's inline display:none once /api/me confirms a login) --
+  // same two-mechanism pattern already used for historyLink/inviteLink/
+  // adminLink (their own inline style plus #langSwitch's parent-level
+  // .hidden), just flattened onto one element since this button isn't
+  // inside that same header row.
+  if (logoutFooterBtnEl) logoutFooterBtnEl.classList.toggle("hidden", !early);
 }
 
 function render() {

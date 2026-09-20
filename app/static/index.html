@@ -50,6 +50,278 @@
 .lang-switch button.active { color: var(--accent); border-color: var(--accent); }
 [data-lang-block] { display: none; }
 [data-lang-block].shown { display: block; }
+
+/* Landing-only "мультик" (Ivan's own word for it): a tiny looping phone
+   mockup echoing the actual shape of a real session -- equipment pick ->
+   a short chain of questions -> result -> AI second opinion -> a peek at
+   the deeper checklist -- so a first-time visitor sees the workflow
+   (including what the AI assistant and the "Deeper diagnosis" checklist
+   button actually look like, AND a piece of what that button leads to)
+   before reading a word of the prose around it. Pure CSS, no video/GIF
+   for the animation itself: eight slides cross-fade on a fixed 24s loop
+   (3s each, 12.5% of the timeline per slide). Widened from an earlier
+   3-slide/9s, then 5-slide/15s, then 7-slide/21s version, each round
+   adding one more beat of the real diagnostic shape at Ivan's request
+   rather than just lengthening the same beats.
+
+   Three separate fault scenarios (data-variant="1|2|3" below), one picked
+   at random per page load by the tiny script at the bottom of landing.js
+   -- Ivan's ask ("нагенерить штук несколько и рандомно показывать"). All
+   three variants share these exact same @keyframes (the pacing is
+   scenario-agnostic, only the text/tap-targets differ per variant), so
+   adding a variant costs markup, not new CSS. .phone-demo starts
+   display:none and only .demo-active gets display:flex -- the landing.js
+   script adds that class to whichever variant number it rolled, so
+   nothing flashes all three at once before the script runs.
+
+   One markup copy per language section per variant (matches every other
+   block on this page) rather than one shared widget with JS-swapped text
+   -- the existing [data-lang-block] display:none toggle means a hidden
+   language's (or non-chosen variant's) copy runs zero animation frames
+   for free, no extra wiring needed. aria-hidden since it only restates
+   what the surrounding paragraphs already say in words. */
+.phone-demo { display: none; justify-content: center; margin: 1.4rem 0 2rem; }
+.phone-demo.demo-active { display: flex; }
+.phone-demo__frame {
+  width: 190px; padding: 11px 9px; border-radius: 30px;
+  /* Bezel chrome, not a themed content surface -- a literal near-black
+     here (rather than a --bg/--panel token) is the same kind of one-off
+     the project already accepts for e.g. the .enter button's drop shadow
+     just below. */
+  background: #08090a; border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+}
+.phone-demo__screen {
+  position: relative; height: 300px; border-radius: 20px;
+  overflow: hidden; background: var(--bg);
+}
+.phone-demo__screen::before {
+  /* Just enough of a speaker notch to read as "phone screen" at a glance --
+     not a literal render of any real device. */
+  content: ""; position: absolute; top: 8px; left: 50%;
+  width: 44px; height: 4px; border-radius: 3px;
+  background: var(--panel-border); transform: translateX(-50%);
+}
+.demo-slide {
+  position: absolute; inset: 24px 14px 14px; opacity: 0;
+  animation-duration: 24s; animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.demo-slide--1 { animation-name: demoSlide1; }
+.demo-slide--2 { animation-name: demoSlide2; }
+.demo-slide--3 { animation-name: demoSlide3; }
+.demo-slide--4 { animation-name: demoSlide4; }
+.demo-slide--5 { animation-name: demoSlide5; }
+.demo-slide--6 { animation-name: demoSlide6; display: flex; flex-direction: column; gap: .4rem; }
+.demo-slide--7 { animation-name: demoSlide7; display: flex; flex-direction: column; gap: .45rem; }
+.demo-slide--8 { animation-name: demoSlide8; display: flex; flex-direction: column; gap: .5rem; }
+.demo-eyebrow { font-size: .72rem; line-height: 1.35; color: var(--muted); margin: 0 0 .7rem; font-weight: 600; }
+.demo-btn-list { display: flex; flex-direction: column; gap: .4rem; }
+.demo-btn-list--row { flex-direction: row; }
+.demo-btn {
+  border: var(--border-width) solid var(--panel-border); background: var(--btn-bg);
+  color: var(--text); border-radius: 7px; padding: .5rem .55rem; font-size: .72rem;
+}
+.demo-btn--half { flex: 1; text-align: center; }
+.demo-btn--tap1 { animation: demoTap1 24s ease-in-out infinite; }
+.demo-btn--tap2 { animation: demoTap2 24s ease-in-out infinite; }
+.demo-btn--tap3 { animation: demoTap3 24s ease-in-out infinite; }
+.demo-btn--tap4 { animation: demoTap4 24s ease-in-out infinite; }
+.demo-btn--tap5 { animation: demoTap5 24s ease-in-out infinite; }
+.demo-badge {
+  align-self: flex-start; font-family: var(--mono); font-size: .62rem;
+  text-transform: uppercase; letter-spacing: .06em;
+  background: var(--accent-bg); color: var(--accent); padding: 2px 7px; border-radius: 5px;
+}
+.demo-result-text { font-size: .74rem; line-height: 1.45; color: var(--text); margin: 0; }
+/* Mirrors .btn.ai in style.css (same --accent-active-bg/-text pair) rather
+   than the plain .demo-btn tokens -- on the real result screen the "Ask
+   AI" button is already accent-highlighted at rest, it doesn't wait for a
+   tap to change color. So its own tap (demoTapAskAI below) is a scale
+   press, not a color flash like the five question/equipment buttons. */
+.demo-btn--ai {
+  border: var(--border-width) solid var(--accent);
+  background: var(--accent-active-bg); color: var(--accent-active-text);
+  border-radius: 7px; padding: .45rem .55rem; font-size: .68rem;
+  align-self: flex-start; animation: demoTapAskAI 24s ease-in-out infinite;
+}
+/* Mirrors .btn.ghost -- the "Deeper diagnosis" trigger sits right under
+   Ask AI on a real result screen (see buildIntakeTriggerButton in app.js),
+   so it's shown here too, in the same spot. Deliberately never animated --
+   Ivan's own ask was to show it without simulating a tap on it, so it just
+   sits there in its normal at-rest look the whole time this slide is up. */
+.demo-btn--ghost {
+  background: transparent; color: var(--muted);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 7px; padding: .45rem .55rem; font-size: .64rem; line-height: 1.35;
+  align-self: flex-start;
+}
+/* The AI reply itself, styled to match .ai-label/.ai-response in
+   style.css as closely as the smaller scale allows -- same border/
+   background tokens, same tiled "AI GENERATED" watermark (just a smaller
+   tile so it still reads as a pattern, not one giant diagonal word, at
+   this size). */
+.demo-ai-recap { font-size: .66rem; line-height: 1.4; color: var(--muted); margin: 0; }
+.demo-ai-label {
+  font-family: var(--mono); font-size: .6rem; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.demo-ai-response {
+  position: relative; overflow: hidden;
+  background: var(--input-bg); border: var(--border-width) solid var(--ai-border);
+  border-radius: 8px; padding: 8px 9px; font-size: .66rem; line-height: 1.45; color: var(--text);
+}
+.demo-ai-response::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='58'%3E%3Ctext x='-8' y='36' font-family='monospace' font-size='9' font-weight='700' letter-spacing='1' fill='%23808080' transform='rotate(-25 45 29)'%3EAI GENERATED%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+/* Closing beat: a chunk of the "Deeper diagnosis" checklist the previous
+   slide's ghost button leads to -- mirrors .intake-progress/.q-text/
+   .intake-item/.intake-toggle-btn in style.css at the smaller scale, same
+   tokens throughout (including the real --ok-active-bg/--ok-tint-bg pair
+   for a normal-reading item), so it reads as the same UI, not a redrawn
+   one. Static content, same as the ghost button itself one slide back --
+   this is what it leads to, not a recorded interaction with it. */
+.demo-intake-progress {
+  font-family: var(--mono); font-size: .58rem; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.demo-intake-title { font-size: .8rem; font-weight: 600; line-height: 1.3; }
+.demo-intake-item {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 6px 7px 7px; border-radius: 7px; border: var(--border-width) solid transparent;
+}
+.demo-intake-item--normal { border-color: var(--ok); background: var(--ok-tint-bg); }
+.demo-intake-item-label { font-size: .66rem; line-height: 1.3; }
+.demo-intake-toggle-group { display: flex; gap: 5px; flex-wrap: wrap; }
+.demo-intake-toggle-btn {
+  border: var(--border-width) solid var(--panel-border); background: var(--btn-bg);
+  color: var(--muted); border-radius: 6px; padding: .3rem .4rem; font-size: .6rem; font-weight: 600;
+}
+.demo-intake-toggle-btn--active { background: var(--accent-active-bg); border-color: var(--accent); color: var(--text); }
+.demo-intake-toggle-btn--normal { background: var(--ok-active-bg); border-color: var(--ok); color: var(--ok); }
+
+/* Each slide fades/slides in for its eighth of the 24s loop and back out
+   -- percentages line up 1:1 with wall-clock seconds (12.5% = 3s) since
+   the loop is exactly 24s long. */
+@keyframes demoSlide1 {
+  0% { opacity: 0; transform: translateY(4px); }
+  2.4% { opacity: 1; transform: translateY(0); }
+  10.1% { opacity: 1; transform: translateY(0); }
+  12.5% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide2 {
+  0% { opacity: 0; transform: translateY(4px); }
+  12.5% { opacity: 0; transform: translateY(4px); }
+  14.9% { opacity: 1; transform: translateY(0); }
+  22.6% { opacity: 1; transform: translateY(0); }
+  25% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide3 {
+  0% { opacity: 0; transform: translateY(4px); }
+  25% { opacity: 0; transform: translateY(4px); }
+  27.4% { opacity: 1; transform: translateY(0); }
+  35.1% { opacity: 1; transform: translateY(0); }
+  37.5% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide4 {
+  0% { opacity: 0; transform: translateY(4px); }
+  37.5% { opacity: 0; transform: translateY(4px); }
+  39.9% { opacity: 1; transform: translateY(0); }
+  47.6% { opacity: 1; transform: translateY(0); }
+  50% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide5 {
+  0% { opacity: 0; transform: translateY(4px); }
+  50% { opacity: 0; transform: translateY(4px); }
+  52.4% { opacity: 1; transform: translateY(0); }
+  60.1% { opacity: 1; transform: translateY(0); }
+  62.5% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide6 {
+  0% { opacity: 0; transform: translateY(4px); }
+  62.5% { opacity: 0; transform: translateY(4px); }
+  64.9% { opacity: 1; transform: translateY(0); }
+  72.6% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide7 {
+  0% { opacity: 0; transform: translateY(4px); }
+  75% { opacity: 0; transform: translateY(4px); }
+  77.4% { opacity: 1; transform: translateY(0); }
+  85.1% { opacity: 1; transform: translateY(0); }
+  87.5% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide8 {
+  0% { opacity: 0; transform: translateY(4px); }
+  87.5% { opacity: 0; transform: translateY(4px); }
+  89.9% { opacity: 1; transform: translateY(0); }
+  97.6% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+/* A brief "tap" flash on the button being picked, timed to land inside its
+   own slide's fully-opaque plateau, well before that slide starts fading
+   out -- reads as cause (tap) then effect (transition to the next screen).
+   Five separate keyframe sets (not one shared animation with a negative
+   delay) because each has to land inside a different slide's window on
+   the same 24s clock. */
+@keyframes demoTap1 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  4.1% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  6.6% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  8.6% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@keyframes demoTap2 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  16.6% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  19.1% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  21.1% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@keyframes demoTap3 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  29.1% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  31.6% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  33.6% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@keyframes demoTap4 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  41.6% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  44.1% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  46.1% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+@keyframes demoTap5 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  54.1% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  56.6% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  58.6% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+/* Scale-press, not a color flash -- .demo-btn--ai is already
+   accent-styled at rest (see the comment on that rule above). */
+@keyframes demoTapAskAI {
+  0% { transform: scale(1); }
+  66.6% { transform: scale(1); }
+  69.1% { transform: scale(.94); }
+  71.1% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-slide, .demo-btn--tap1, .demo-btn--tap2, .demo-btn--tap3, .demo-btn--tap4, .demo-btn--tap5, .demo-btn--ai { animation: none; }
+  .demo-slide--1 { opacity: 1; }
+  .demo-slide--2, .demo-slide--3, .demo-slide--4, .demo-slide--5, .demo-slide--6, .demo-slide--7, .demo-slide--8 { display: none; }
+}
 </style>
 </head>
 <body>
@@ -72,10 +344,232 @@
     <p>It does not tell you what is wrong. It narrows the search and keeps the
     order honest; the conclusion stays with the technician.</p>
 
+    <div class="phone-demo" data-variant="1" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Pick equipment</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Split system</div>
+              <div class="demo-btn demo-btn--tap1">Rooftop unit</div>
+              <div class="demo-btn">Chiller</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Power confirmed at the disconnect?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Thermostat calling for cooling?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Evaporator fan running?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Contactor pulled in?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Yes</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap5">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Result</span>
+            <p class="demo-result-text">Contactor not pulling in — check 24V at the coil.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Ask AI</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Deeper diagnosis (full checklist)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">Contactor not pulling in — check 24V at the coil.</p>
+            <div class="demo-ai-label">AI Analysis</div>
+            <div class="demo-ai-response">Check the 24V fuse and the transformer's output before condemning the contactor — a blown fuse looks identical from here.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Phase 1 of 4</div>
+            <div class="demo-intake-title">Visual inspection</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">Economizer damper OK?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Yes</div>
+                <div class="demo-intake-toggle-btn">No</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Air filter condition</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Clean</div>
+                <div class="demo-intake-toggle-btn">Dirty/restricted</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-demo" data-variant="2" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Pick equipment</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Split system</div>
+              <div class="demo-btn demo-btn--tap1">Furnace</div>
+              <div class="demo-btn">Chiller</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Thermostat calling for heat?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Draft inducer running?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Gas valve energized?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Igniter glowing hot?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Yes</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap5">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Result</span>
+            <p class="demo-result-text">Igniter not glowing — check its continuity and 120V supply.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Ask AI</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Deeper diagnosis (full checklist)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">Igniter not glowing — check its continuity and 120V supply.</p>
+            <div class="demo-ai-label">AI Analysis</div>
+            <div class="demo-ai-response">If the igniter reads open, replace it — but check the ignition board's 120V output first, a shorted board can take out igniters repeatedly.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Phase 1 of 4</div>
+            <div class="demo-intake-title">Visual inspection</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">Economizer damper OK?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Yes</div>
+                <div class="demo-intake-toggle-btn">No</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Air filter condition</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Clean</div>
+                <div class="demo-intake-toggle-btn">Dirty/restricted</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-demo" data-variant="3" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Pick equipment</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Rooftop unit</div>
+              <div class="demo-btn demo-btn--tap1">Chiller</div>
+              <div class="demo-btn">Refrigeration equipment</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Condenser fans running?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Condenser coil clean?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Liquid-line solenoid cycling normally (no sticking)?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Standing pressure above the P-T chart at ambient?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap5">Yes</div>
+              <div class="demo-btn demo-btn--half">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Result</span>
+            <p class="demo-result-text">High head pressure — non-condensables likely, recovery and recharge needed.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Ask AI</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Deeper diagnosis (full checklist)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">High head pressure — non-condensables likely, recovery and recharge needed.</p>
+            <div class="demo-ai-label">AI Analysis</div>
+            <div class="demo-ai-response">Before a full recovery, run a standing-pressure test against the P-T chart at ambient — confirms non-condensables without opening the circuit.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Phase 4 of 4</div>
+            <div class="demo-intake-title">Refrigeration circuit (follow-up)</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">No oil spots at fittings (leak check)?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Yes</div>
+                <div class="demo-intake-toggle-btn">No</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Moisture indicator reading</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Dry</div>
+                <div class="demo-intake-toggle-btn">Wet</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a class="enter" href="/diagnose">Start a diagnosis →</a>
+
     <p>It runs on a fixed question graph, not a chat — every path is
     deterministic and reviewable. An AI assistant steps in only afterward,
-    for a second opinion once the graph runs out of structured questions.
-    Available in English and Russian.</p>
+    for a second opinion once the graph runs out of structured questions.</p>
 
     <div class="card beta">
       <p><strong>Public beta.</strong> Content is being reviewed equipment type
@@ -83,8 +577,6 @@
       may be incomplete or wrong. Treat every suggestion as a lead to verify, not
       an instruction to follow.</p>
     </div>
-
-    <a class="enter" href="/diagnose">Start a diagnosis →</a>
 
     <h2>Safety</h2>
     <p>Diagnosis means live circuits, systems under pressure and, on gas
@@ -115,18 +607,238 @@
     <p>Он не называет неисправность. Он сужает поиск и удерживает порядок проверок;
     вывод остаётся за техником.</p>
 
+    <div class="phone-demo" data-variant="1" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Выбор оборудования</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Сплит-система</div>
+              <div class="demo-btn demo-btn--tap1">RTU</div>
+              <div class="demo-btn">Чиллер</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Питание подтверждено на дисконнекте?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Термостат подаёт команду на охлаждение?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Вентилятор испарителя работает?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Контактор втянут?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Да</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap5">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Результат</span>
+            <p class="demo-result-text">Контактор не втягивается — проверьте 24В на катушке.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Спросить ИИ</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Углублённая диагностика (полный чек-лист)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">Контактор не втягивается — проверьте 24В на катушке.</p>
+            <div class="demo-ai-label">AI-анализ</div>
+            <div class="demo-ai-response">Проверьте предохранитель на 24В и выход трансформатора, прежде чем менять контактор — перегоревший предохранитель даёт ту же картину.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Фаза 1 из 4</div>
+            <div class="demo-intake-title">Визуальный осмотр</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">Заслонка экономайзера в порядке?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Да</div>
+                <div class="demo-intake-toggle-btn">Нет</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Состояние воздушного фильтра</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Чистый</div>
+                <div class="demo-intake-toggle-btn">Грязный/забит</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-demo" data-variant="2" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Выбор оборудования</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">Сплит-система</div>
+              <div class="demo-btn demo-btn--tap1">Печь</div>
+              <div class="demo-btn">Чиллер</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Термостат подаёт команду на нагрев?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Вентилятор дымоудаления работает?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Газовый клапан под напряжением?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Розжигатель накаляется?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Да</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap5">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Результат</span>
+            <p class="demo-result-text">Розжигатель не накаляется — проверьте его целостность и питание 120В.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Спросить ИИ</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Углублённая диагностика (полный чек-лист)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">Розжигатель не накаляется — проверьте его целостность и питание 120В.</p>
+            <div class="demo-ai-label">AI-анализ</div>
+            <div class="demo-ai-response">Если розжигатель обрывается на прозвонке — замените, но сначала проверьте 120В на выходе платы розжига: КЗ на плате может сжигать розжигатели повторно.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Фаза 1 из 4</div>
+            <div class="demo-intake-title">Визуальный осмотр</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">Заслонка экономайзера в порядке?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Да</div>
+                <div class="demo-intake-toggle-btn">Нет</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Состояние воздушного фильтра</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Чистый</div>
+                <div class="demo-intake-toggle-btn">Грязный/забит</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-demo" data-variant="3" aria-hidden="true">
+      <div class="phone-demo__frame">
+        <div class="phone-demo__screen">
+          <div class="demo-slide demo-slide--1">
+            <p class="demo-eyebrow">Выбор оборудования</p>
+            <div class="demo-btn-list">
+              <div class="demo-btn">RTU</div>
+              <div class="demo-btn demo-btn--tap1">Чиллер</div>
+              <div class="demo-btn">Холодильное оборудование</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--2">
+            <p class="demo-eyebrow">Вентиляторы конденсатора работают?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap2">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Конденсатор чистый?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
+            <p class="demo-eyebrow">Соленоид жидкостной линии переключается нормально (не залипает)?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap4">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-eyebrow">Давление в покое выше P-T таблицы при текущей температуре?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half demo-btn--tap5">Да</div>
+              <div class="demo-btn demo-btn--half">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--6">
+            <span class="demo-badge">Результат</span>
+            <p class="demo-result-text">Высокое давление конденсации — вероятны неконденсирующиеся газы, нужны рекавери и перезаправка.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Спросить ИИ</div>
+            <div class="demo-btn demo-btn--ghost">🔍 Углублённая диагностика (полный чек-лист)</div>
+          </div>
+          <div class="demo-slide demo-slide--7">
+            <p class="demo-ai-recap">Высокое давление конденсации — вероятны неконденсирующиеся газы, нужны рекавери и перезаправка.</p>
+            <div class="demo-ai-label">AI-анализ</div>
+            <div class="demo-ai-response">Прежде чем делать полную рекавери — снимите давление в покое и сверьте с P-T таблицей при текущей температуре: подтверждает неконденсирующиеся газы, не вскрывая контур.</div>
+          </div>
+          <div class="demo-slide demo-slide--8">
+            <div class="demo-intake-progress">Фаза 4 из 4</div>
+            <div class="demo-intake-title">Холодильный контур (уточнения)</div>
+            <div class="demo-intake-item">
+              <div class="demo-intake-item-label">Масляных следов на соединениях нет (проверка утечки)?</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active">Да</div>
+                <div class="demo-intake-toggle-btn">Нет</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+            <div class="demo-intake-item demo-intake-item--normal">
+              <div class="demo-intake-item-label">Показание moisture indicator</div>
+              <div class="demo-intake-toggle-group">
+                <div class="demo-intake-toggle-btn demo-intake-toggle-btn--active demo-intake-toggle-btn--normal">Dry</div>
+                <div class="demo-intake-toggle-btn">Wet</div>
+                <div class="demo-intake-toggle-btn">N/A</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a class="enter" href="/diagnose">Начать диагностику →</a>
+
     <p>В основе — фиксированное дерево вопросов, а не чат: каждый путь
     детерминирован и проверяем. AI-ассистент подключается только потом,
-    вторым мнением, когда структурированные вопросы исчерпаны. Доступно на
-    английском и русском.</p>
+    вторым мнением, когда структурированные вопросы исчерпаны.</p>
 
     <div class="card beta">
       <p><strong>Публичная бета.</strong> Контент выверяется по типам оборудования,
       начиная с RTU. Для остального советы могут быть неполными или неверными.
       Считайте любую подсказку поводом проверить, а не указанием к действию.</p>
     </div>
-
-    <a class="enter" href="/diagnose">Начать диагностику →</a>
 
     <h2>Безопасность</h2>
     <p>Диагностика — это цепи под напряжением, системы под давлением, а на газовом
@@ -151,10 +863,10 @@
   <p class="foot">
     <span data-lang-block="en" class="shown">Open source under AGPL-3.0 —
       <a href="https://github.com/ivank-hvac/hvac-guide">source code</a>.
-      Built by an HVAC enthusiast in Winnipeg.</span>
+      Built by an HVAC enthusiast in Winnipeg. Available in English and Russian.</span>
     <span data-lang-block="ru">Открытый исходный код под AGPL-3.0 —
       <a href="https://github.com/ivank-hvac/hvac-guide">исходники</a>.
-      Сделано HVAC-энтузиастом в Виннипеге.</span>
+      Сделано HVAC-энтузиастом в Виннипеге. Доступно на английском и русском.</span>
   </p>
 </div>
 
