@@ -536,16 +536,13 @@ header h1 {
   font-weight: 600;
 }
 
-.q-text-with-refrigerant {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.q-refrigerant-chip {
-  flex-shrink: 0;
-  font-weight: 400;
+/* Inline prefix on .q-text ("R-410A — Pressure compared to..."), not a
+   separate flex-positioned chip -- see the comment on buildQuestionHeader
+   in app.js for why that broke on a wrapped heading. Plain color, not the
+   accent, on purpose: this reads as part of the question's own text, not
+   a separate UI control. */
+.q-refrigerant-inline.a2l {
+  color: var(--crit);
 }
 
 .options {

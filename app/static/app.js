@@ -2649,18 +2649,25 @@ function render() {
 // that comparison is against right next to the question, not just up in
 // the breadcrumb where it's easy to lose track of. Shared by both
 // renderQuestion and renderDualPressureCheck.
+//
+// Was a separate flex-positioned chip floating at the top-right of the
+// heading — Ivan caught it live (screenshot) visually slicing through the
+// wrapped question text on a narrow phone screen ("Pressure compared to
+// the P-\nT chart..." with the chip jammed mid-word between the two
+// lines): a flex sibling next to wrapping text doesn't reserve its own
+// space the way inline content does, so the two can end up overlapping
+// once the heading wraps past one line. Now an inline bold prefix inside
+// the same text flow instead — ordinary text wrapping handles it
+// correctly by construction, no flex layout needed for this at all.
 function buildQuestionHeader(node) {
   const q = document.createElement("div");
   q.className = "q-text";
   if (node.showRefrigerant && state.refrigerant && state.refrigerant.id !== "unknown") {
-    q.classList.add("q-text-with-refrigerant");
-    const label = document.createElement("span");
-    label.textContent = t(node.text);
-    const refChip = document.createElement("span");
-    refChip.className = "chip q-refrigerant-chip" + (isA2LRefrigerant() ? " badge a2l" : "");
-    refChip.textContent = state.refrigerant.name;
-    q.appendChild(label);
-    q.appendChild(refChip);
+    const refPrefix = document.createElement("strong");
+    refPrefix.className = "q-refrigerant-inline" + (isA2LRefrigerant() ? " a2l" : "");
+    refPrefix.textContent = state.refrigerant.name;
+    q.appendChild(refPrefix);
+    q.appendChild(document.createTextNode(" — " + t(node.text)));
   } else {
     q.textContent = t(node.text);
   }
