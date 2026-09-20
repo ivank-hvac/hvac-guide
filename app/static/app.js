@@ -55,6 +55,7 @@ const I18N = {
     modelLabel: "Модель оборудования (опционально)",
     manufacturerModelQuestion: "Модель оборудования",
     modelPlaceholder: "Например, 48TC-A12...",
+    modelKnownLabel: "ℹ️ Уже есть в базе:",
     jobsiteLabel: "Метка объекта (опционально)",
     jobsitePlaceholder: "Например: RTU-2, склад",
     jobsiteHint: "Только для вас — чтобы найти сессию в истории. Не пишите сюда имена клиентов или адреса.",
@@ -189,6 +190,7 @@ const I18N = {
     modelLabel: "Equipment model (optional)",
     manufacturerModelQuestion: "Equipment model",
     modelPlaceholder: "e.g. 48TC-A12...",
+    modelKnownLabel: "ℹ️ Already in our database:",
     jobsiteLabel: "Jobsite label (optional)",
     jobsitePlaceholder: "e.g. RTU-2, warehouse",
     jobsiteHint: "For you only, to find this session later — don't enter customer names or addresses.",
@@ -2811,6 +2813,38 @@ function renderManufacturerStep() {
   modelInput.placeholder = strings.modelPlaceholder;
   modelWrap.appendChild(modelInput);
   modelWrap.appendChild(attachCharCounter(modelInput, MAX_ANSWER_FIELD_LEN));
+
+  // 19 Sep 2026, Ivan: the plain-text model field here and the model_specs
+  // cache (built by /model-lookup and the nameplate-photo button) used to
+  // be two totally unrelated things -- typing a model number never checked
+  // what the app might already know about it. This is deliberately the
+  // NARROW half of that ask only: exact cache lookup on blur, no fuzzy/
+  // prefix matching, and crucially no AI fallback on a miss (see
+  // /api/model-lookup/cached's own comment) -- filling in a model on a
+  // normal diagnose session must never silently spend AI lookup quota in
+  // the background. Purely informational: never overwrites what the
+  // technician typed or the manufacturer dropdown above.
+  const modelKnownBox = document.createElement("div");
+  modelKnownBox.className = "numeric-hint";
+  modelKnownBox.style.display = "none";
+  modelWrap.appendChild(modelKnownBox);
+
+  const MODEL_KNOWN_FIELD_ORDER = ["brand", "equipment_type", "capacity", "seer",
+                                   "refrigerant", "compressor_type", "metering_device", "voltage"];
+  modelInput.addEventListener("blur", () => {
+    const typed = modelInput.value.trim();
+    if (!typed) { modelKnownBox.style.display = "none"; return; }
+    fetch("/api/model-lookup/cached?model_number=" + encodeURIComponent(typed))
+      .then((r) => (r.ok ? r.json() : { found: false }))
+      .then((data) => {
+        if (!data.found) { modelKnownBox.style.display = "none"; return; }
+        const parts = MODEL_KNOWN_FIELD_ORDER.map((f) => data[f]).filter(Boolean);
+        if (!parts.length) { modelKnownBox.style.display = "none"; return; }
+        modelKnownBox.textContent = strings.modelKnownLabel + " " + parts.join(" · ");
+        modelKnownBox.style.display = "block";
+      })
+      .catch(() => { modelKnownBox.style.display = "none"; });
+  });
   cardEl.appendChild(modelWrap);
 
   // --- Nameplate photo pilot (17 Sep 2026) ---------------------------------

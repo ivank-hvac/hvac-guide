@@ -2955,6 +2955,42 @@ async def ai_assist(request: Request, response: Response, req: AssistRequest):
     }
 
 
+@app.get("/api/model-lookup/cached")
+@limiter.limit(SESSION_RATE_LIMIT)
+async def model_lookup_cached_only(request: Request, response: Response, model_number: str = ""):
+    """DB-only companion to /api/model-lookup, for the plain "Model" text
+    field on the diagnose flow's manufacturer step (see Ivan's 19 Sep ask —
+    that field and the model_specs cache used to be two completely
+    unrelated things: typing a model there never checked what the app
+    might already know about it, and the only way to actually look
+    something up was the separate /model-lookup page or a nameplate
+    photo). Deliberately narrower than /api/model-lookup: exact cache
+    match only, no fuzzy/prefix matching (see CLAUDE.md — the earlier
+    conversation about this explicitly ruled that out as a bigger,
+    separate feature), and on a cache MISS this returns {"found": false}
+    rather than falling through to a real AI web-search call the way
+    /api/model-lookup does — the whole point is that filling in a model
+    number during a normal diagnose session should never silently spend
+    lookup quota/money in the background. Same auth/ban gating as the
+    rest of this surface, but its own (unmetered, no-cost) rate limit
+    rather than MODEL_LOOKUP_RATE_LIMIT's quota, since it never touches
+    the AI provider at all."""
+    normalized = model_number.strip().upper()
+    if not normalized or not MODEL_NUMBER_RE.match(normalized):
+        return {"found": False}
+
+    await _require_login(request, response)
+
+    ip = client_key(request)
+    if await run_in_threadpool(_is_ip_banned, ip):
+        raise HTTPException(status_code=403, detail="banned")
+
+    cached = await run_in_threadpool(_get_cached_model_specs, normalized)
+    if cached is None:
+        return {"found": False}
+    return {"found": True, **cached, "model_number": normalized}
+
+
 @app.post("/api/model-lookup")
 @limiter.limit(MODEL_LOOKUP_RATE_LIMIT)
 async def model_lookup(request: Request, response: Response, req: ModelLookupRequest):

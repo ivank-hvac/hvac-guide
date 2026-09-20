@@ -11,6 +11,16 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-19
 
+- `/diagnose`'s plain "Model" text field (manufacturer step) now checks
+  the model_specs cache on blur and shows a read-only "already in our
+  database" line when there's an exact match — new
+  `GET /api/model-lookup/cached`, deliberately narrower than
+  `/api/model-lookup`: exact match only, no fuzzy/prefix search, and no
+  AI fallback on a miss (a normal diagnose session typing a model number
+  must never silently spend lookup quota). Closes the gap Ivan pointed
+  out: this field and the model-lookup cache used to be two completely
+  unrelated things. #169
+
 - `/diagnose`: logout is back, redesigned per Ivan's own spec after the
   18 Sep header-icon attempt was pulled for accidental-tap risk — now a
   real labeled button in the footer, same row as Start Over, pinned to
