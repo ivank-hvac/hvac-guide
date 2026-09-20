@@ -21,8 +21,17 @@
      old #eceff4 were empirically imperceptible (WCAG contrast against the
      panel already exceeded the 7:1 AAA threshold before this change;
      see the comparison artifact referenced in CLAUDE.md), so there was no
-     reason to stop short of #ffffff once brighter was the goal. */
-  --bg: #2e3440;
+     reason to stop short of #ffffff once brighter was the goal.
+
+     19 Sep 2026 follow-up: --bg pushed much darker (near-black, same
+     hue direction as --panel just scaled down) -- Ivan's own read on
+     his phone: the page background and the panel cards it holds were
+     close enough in value that the layout was hard to parse until
+     opened on a bigger screen. --input-bg intentionally left at its
+     old literal value (not re-synced to --bg) -- it still sits between
+     --bg and --panel, which keeps numeric inputs reading as recessed
+     relative to the panel around them. */
+  --bg: #0f1012;
   --panel: #3a3d44;
   --panel-border: #4c566a;
   --text: #ffffff;

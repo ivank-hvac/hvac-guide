@@ -9,6 +9,14 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-19
+
+- Default dark theme: page background pushed to near-black (`#0f1012`,
+  was `#2e3440`) — on a phone it was too close in value to the panel
+  cards sitting on it to read the layout clearly. `--input-bg` left at
+  its old value on purpose, so numeric inputs still read as recessed
+  relative to the panel. #165
+
 ## 2026-09-18
 
 - Default dark theme: plain option buttons (equipment list, symptom
