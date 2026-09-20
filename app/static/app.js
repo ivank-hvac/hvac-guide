@@ -2825,7 +2825,7 @@ function renderManufacturerStep() {
   // the background. Purely informational: never overwrites what the
   // technician typed or the manufacturer dropdown above.
   const modelKnownBox = document.createElement("div");
-  modelKnownBox.className = "numeric-hint";
+  modelKnownBox.className = "numeric-hint model-known-hint";
   modelKnownBox.style.display = "none";
   modelWrap.appendChild(modelKnownBox);
 
