@@ -52,12 +52,16 @@
 [data-lang-block].shown { display: block; }
 
 /* Landing-only "мультик" (Ivan's own word for it): a tiny looping phone
-   mockup echoing the actual 3-step shape of a real session — equipment ->
-   question -> result — so a first-time visitor sees the workflow before
-   reading a word of the prose around it. Pure CSS, no video/GIF/JS: three
-   slides cross-fade on a fixed 9s loop. One markup copy per language
-   section (matches every other block on this page) rather than one shared
-   widget with JS-swapped text — the existing [data-lang-block] display:none
+   mockup echoing the actual shape of a real session -- equipment pick ->
+   two questions -> result -> AI second opinion -- so a first-time visitor
+   sees the workflow (including what the AI assistant actually looks like)
+   before reading a word of the prose around it. Pure CSS, no video/GIF/JS:
+   five slides cross-fade on a fixed 15s loop (3s each, 20% of the timeline
+   per slide -- widened from an earlier 3-slide/9s version at Ivan's request
+   to also show a question the graph asks mid-diagnosis and the AI-assist
+   box, not just pick+result). One markup copy per language section
+   (matches every other block on this page) rather than one shared widget
+   with JS-swapped text -- the existing [data-lang-block] display:none
    toggle means the hidden language's copy runs zero animation frames for
    free, no extra wiring needed. aria-hidden since it only restates what the
    surrounding paragraphs already say in words. */
@@ -84,12 +88,14 @@
 }
 .demo-slide {
   position: absolute; inset: 24px 14px 14px; opacity: 0;
-  animation-duration: 9s; animation-iteration-count: infinite;
+  animation-duration: 15s; animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
 }
 .demo-slide--1 { animation-name: demoSlide1; }
 .demo-slide--2 { animation-name: demoSlide2; }
-.demo-slide--3 { animation-name: demoSlide3; display: flex; flex-direction: column; gap: .5rem; }
+.demo-slide--3 { animation-name: demoSlide3; }
+.demo-slide--4 { animation-name: demoSlide4; display: flex; flex-direction: column; gap: .5rem; }
+.demo-slide--5 { animation-name: demoSlide5; display: flex; flex-direction: column; gap: .45rem; }
 .demo-eyebrow { font-size: .72rem; line-height: 1.35; color: var(--muted); margin: 0 0 .7rem; font-weight: 600; }
 .demo-btn-list { display: flex; flex-direction: column; gap: .4rem; }
 .demo-btn-list--row { flex-direction: row; }
@@ -98,63 +104,128 @@
   color: var(--text); border-radius: 7px; padding: .5rem .55rem; font-size: .72rem;
 }
 .demo-btn--half { flex: 1; text-align: center; }
-.demo-btn--tap1 { animation: demoTap1 9s ease-in-out infinite; }
-.demo-btn--tap2 { animation: demoTap2 9s ease-in-out infinite; }
+.demo-btn--tap1 { animation: demoTap1 15s ease-in-out infinite; }
+.demo-btn--tap2 { animation: demoTap2 15s ease-in-out infinite; }
+.demo-btn--tap3 { animation: demoTap3 15s ease-in-out infinite; }
 .demo-badge {
   align-self: flex-start; font-family: var(--mono); font-size: .62rem;
   text-transform: uppercase; letter-spacing: .06em;
   background: var(--accent-bg); color: var(--accent); padding: 2px 7px; border-radius: 5px;
 }
 .demo-result-text { font-size: .74rem; line-height: 1.45; color: var(--text); margin: 0; }
+/* Mirrors .btn.ai in style.css (same --accent-active-bg/-text pair) rather
+   than the plain .demo-btn tokens -- on the real result screen the "Ask
+   AI" button is already accent-highlighted at rest, it doesn't wait for a
+   tap to change color. So its own tap (.demo-btn--tap4 below) is a scale
+   press, not a color flash like the other three buttons. */
+.demo-btn--ai {
+  border: var(--border-width) solid var(--accent);
+  background: var(--accent-active-bg); color: var(--accent-active-text);
+  border-radius: 7px; padding: .45rem .55rem; font-size: .68rem;
+  align-self: flex-start; animation: demoTap4 15s ease-in-out infinite;
+}
+/* The AI reply itself, styled to match .ai-label/.ai-response in
+   style.css as closely as the smaller scale allows -- same border/
+   background tokens, same tiled "AI GENERATED" watermark (just a smaller
+   tile so it still reads as a pattern, not one giant diagonal word, at
+   this size). */
+.demo-ai-recap { font-size: .66rem; line-height: 1.4; color: var(--muted); margin: 0; }
+.demo-ai-label {
+  font-family: var(--mono); font-size: .6rem; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.demo-ai-response {
+  position: relative; overflow: hidden;
+  background: var(--input-bg); border: var(--border-width) solid var(--ai-border);
+  border-radius: 8px; padding: 8px 9px; font-size: .66rem; line-height: 1.45; color: var(--text);
+}
+.demo-ai-response::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='58'%3E%3Ctext x='-8' y='36' font-family='monospace' font-size='9' font-weight='700' letter-spacing='1' fill='%23808080' transform='rotate(-25 45 29)'%3EAI GENERATED%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
 
-/* Each slide fades/slides in for its third of the 9s loop and back out --
-   percentages line up 1:1 with wall-clock seconds (33% = 3s) since the
-   loop is exactly 9s long. */
+/* Each slide fades/slides in for its fifth of the 15s loop and back out --
+   percentages line up 1:1 with wall-clock seconds (20% = 3s) since the
+   loop is exactly 15s long. */
 @keyframes demoSlide1 {
   0% { opacity: 0; transform: translateY(4px); }
   4% { opacity: 1; transform: translateY(0); }
-  29% { opacity: 1; transform: translateY(0); }
-  33% { opacity: 0; transform: translateY(-4px); }
+  16% { opacity: 1; transform: translateY(0); }
+  20% { opacity: 0; transform: translateY(-4px); }
   100% { opacity: 0; transform: translateY(-4px); }
 }
 @keyframes demoSlide2 {
   0% { opacity: 0; transform: translateY(4px); }
-  33% { opacity: 0; transform: translateY(4px); }
-  37% { opacity: 1; transform: translateY(0); }
-  62% { opacity: 1; transform: translateY(0); }
-  66% { opacity: 0; transform: translateY(-4px); }
+  20% { opacity: 0; transform: translateY(4px); }
+  24% { opacity: 1; transform: translateY(0); }
+  36% { opacity: 1; transform: translateY(0); }
+  40% { opacity: 0; transform: translateY(-4px); }
   100% { opacity: 0; transform: translateY(-4px); }
 }
 @keyframes demoSlide3 {
   0% { opacity: 0; transform: translateY(4px); }
-  66% { opacity: 0; transform: translateY(4px); }
-  70% { opacity: 1; transform: translateY(0); }
+  40% { opacity: 0; transform: translateY(4px); }
+  44% { opacity: 1; transform: translateY(0); }
+  56% { opacity: 1; transform: translateY(0); }
+  60% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide4 {
+  0% { opacity: 0; transform: translateY(4px); }
+  60% { opacity: 0; transform: translateY(4px); }
+  64% { opacity: 1; transform: translateY(0); }
+  76% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes demoSlide5 {
+  0% { opacity: 0; transform: translateY(4px); }
+  80% { opacity: 0; transform: translateY(4px); }
+  84% { opacity: 1; transform: translateY(0); }
   96% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-4px); }
 }
-/* A brief "tap" flash on the button being picked, timed to land right
-   before its slide fades out -- reads as cause (tap) then effect
-   (transition to the next screen). Two separate keyframe sets (not one
-   shared animation with a negative delay) because each has to land inside
-   its own slide's active window on the same 9s clock. */
+/* A brief "tap" flash on the button being picked, timed to land inside its
+   own slide's fully-opaque plateau, well before that slide starts fading
+   out -- reads as cause (tap) then effect (transition to the next screen).
+   Four separate keyframe sets (not one shared animation with a negative
+   delay) because each has to land inside a different slide's window on
+   the same 15s clock. */
 @keyframes demoTap1 {
   0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
-  20% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
-  24% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
-  28% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  7% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  11% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  15% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
   100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
 }
 @keyframes demoTap2 {
   0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
-  53% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
-  57% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
-  61% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  27% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  31% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  35% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
   100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
 }
+@keyframes demoTap3 {
+  0% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  47% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  51% { background: var(--accent-active-bg); border-color: var(--accent); color: var(--accent-active-text); }
+  55% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+  100% { background: var(--btn-bg); border-color: var(--panel-border); color: var(--text); }
+}
+/* Scale-press, not a color flash -- .demo-btn--ai is already
+   accent-styled at rest (see the comment on that rule above). */
+@keyframes demoTap4 {
+  0% { transform: scale(1); }
+  67% { transform: scale(1); }
+  71% { transform: scale(.94); }
+  75% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .demo-slide, .demo-btn--tap1, .demo-btn--tap2 { animation: none; }
+  .demo-slide, .demo-btn--tap1, .demo-btn--tap2, .demo-btn--tap3, .demo-btn--ai { animation: none; }
   .demo-slide--1 { opacity: 1; }
-  .demo-slide--2, .demo-slide--3 { display: none; }
+  .demo-slide--2, .demo-slide--3, .demo-slide--4, .demo-slide--5 { display: none; }
 }
 </style>
 </head>
@@ -189,8 +260,21 @@
             </div>
           </div>
           <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Contactor pulled in?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Yes</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap3">No</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
             <span class="demo-badge">Result</span>
             <p class="demo-result-text">Contactor not pulling in — check 24V at the coil.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Ask AI</div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-ai-recap">Contactor not pulling in — check 24V at the coil.</p>
+            <div class="demo-ai-label">AI Analysis</div>
+            <div class="demo-ai-response">Low airflow across the evaporator can cause the same symptom — worth checking the filter before condemning the contactor.</div>
           </div>
         </div>
       </div>
@@ -259,8 +343,21 @@
             </div>
           </div>
           <div class="demo-slide demo-slide--3">
+            <p class="demo-eyebrow">Контактор втянут?</p>
+            <div class="demo-btn-list demo-btn-list--row">
+              <div class="demo-btn demo-btn--half">Да</div>
+              <div class="demo-btn demo-btn--half demo-btn--tap3">Нет</div>
+            </div>
+          </div>
+          <div class="demo-slide demo-slide--4">
             <span class="demo-badge">Результат</span>
             <p class="demo-result-text">Контактор не втягивается — проверьте 24В на катушке.</p>
+            <div class="demo-btn demo-btn--ai">🤖 Спросить ИИ</div>
+          </div>
+          <div class="demo-slide demo-slide--5">
+            <p class="demo-ai-recap">Контактор не втягивается — проверьте 24В на катушке.</p>
+            <div class="demo-ai-label">AI-анализ</div>
+            <div class="demo-ai-response">Низкий расход воздуха через испаритель может давать тот же симптом — проверьте фильтр, прежде чем менять контактор.</div>
           </div>
         </div>
       </div>
