@@ -11,6 +11,25 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-20
 
+- Graph content: new configuration question before branching into a
+  furnace's symptom menu — heat-only (unchanged), heat + cool via a
+  separate A/C, or heat + cool via a heat-pump add-on (dual-fuel). Ivan
+  caught a real gap live: `furnace_symptom` never offered a cooling
+  complaint at all, though a furnace paired with an add-on A-coil and
+  outdoor condenser is routine, and the furnace's own nameplate won't
+  tell you the coil/condenser exist (often added later, separately).
+  Both cooling variants route "No cooling" to the same shared
+  refrigerant-circuit entry RTU/split already use. `main` @ `4dff493`
+  (unrelated app-code fix below), private graph repo `3782b06`. #173
+
+- `/diagnose`: the refrigerant name on the dual-pressure P-T comparison
+  question (`nc_fans_ok`) no longer breaks the heading's text wrapping —
+  Ivan caught it live (screenshot): it used to be a separate flex-
+  positioned chip next to the question, which sliced through the
+  wrapped heading mid-word on a narrow phone. Now an inline bold prefix
+  in the same text flow ("R-410A — Pressure compared to..."), per
+  Ivan's own suggestion. `main` @ `4dff493`. #172
+
 - Graph content: the "No heat" branch for rooftop units no longer offers
   "Heat pump (reverse cycle)" as a heat source — Ivan, from field
   experience, has never seen a reverse-cycle heat pump on a packaged RTU
