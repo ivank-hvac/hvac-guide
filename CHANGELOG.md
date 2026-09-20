@@ -11,6 +11,16 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-19
 
+- Model number lookup: a direct link to the manufacturer's own spec
+  sheet/PDF now shows at the bottom of the result card, when the model
+  actually found one via web search (new `source_url` field, gated
+  behind `confidence: "high"` on the frontend too). Live-tested first:
+  citations from Anthropic's web-search tool don't attach to the
+  strict-JSON output this endpoint asks for, only to prose — so this is
+  self-reported by the model like every other field here, same
+  null-unless-real-manufacturer-page discipline, not independently
+  verified. #167
+
 - `/history`: manufacturer/model (captured during the one-time
   manufacturer step, previously only visible inside an expanded
   session's Q&A) now shown right on the list row, when present.

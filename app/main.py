@@ -595,6 +595,14 @@ def init_db() -> None:
             # non-scalar column here) — see _get_cached_model_specs/
             # _store_model_specs for the encode/decode this needs.
             "induced_draft_fan_amps", "low_confidence_fields",
+            # 19 Sep 2026: direct link to the manufacturer's own spec sheet/
+            # PDF, when the model-number (web-search) lookup actually found
+            # one -- see MODEL_LOOKUP_SYSTEM_PROMPT's source_url paragraph.
+            # Nameplate-photo lookups never populate this (no web_search
+            # tool in that path) -- _store_model_specs' merge logic already
+            # preserves whatever's here across paths, same as the amps/gas
+            # columns above.
+            "source_url",
         ):
             if _col not in existing_model_specs_cols:
                 conn.execute(f"ALTER TABLE model_specs ADD COLUMN {_col} TEXT")
@@ -993,7 +1001,7 @@ def build_system_prompt(lang: str, refrigerant_a2l: bool = False) -> str:
 # etc.) — those still need a human judgment call every time a field is
 # added, the same as heating_capacity was earlier today.
 _MODEL_LOOKUP_FIELDS = ["brand", "equipment_type", "capacity", "seer", "refrigerant",
-                        "compressor_type", "metering_device", "voltage"]
+                        "compressor_type", "metering_device", "voltage", "source_url"]
 _NAMEPLATE_LOOKUP_FIELDS = ["brand", "model_number", "equipment_type", "capacity",
                             "heating_capacity", "seer",
                             "refrigerant", "compressor_type", "metering_device", "voltage",
@@ -1037,7 +1045,11 @@ MODEL_LOOKUP_SYSTEM_PROMPT = {
         "не является документацией самого производителя; \"high\" — только если "
         "нашёл фирменный спек-лист именно для этой модели. note — короткая строка "
         "только если нужна оговорка (например, \"специфика похожей модели, точная "
-        "модель не найдена\"), иначе null.\n\n"
+        "модель не найдена\"), иначе null. source_url — прямая ссылка на найденную "
+        "страницу, только если это официальная страница или PDF самого производителя "
+        "(не сайт продавца/агрегатора запчастей) и ты реально нашёл её через поиск, "
+        "а не предполагаешь, что она существует; иначе null, даже если confidence "
+        "\"high\" по остальным полям.\n\n"
         "Если ввод вообще не похож на реальный номер модели HVAC/R-оборудования — "
         "поставь null во все поля спеков, confidence \"low\", note с коротким "
         "объяснением."
@@ -1061,7 +1073,12 @@ MODEL_LOOKUP_SYSTEM_PROMPT = {
         "source that isn't the manufacturer's own documentation; \"high\" only when "
         "you found the manufacturer's own spec sheet for this exact model. note is "
         "an optional short string only when something needs qualifying (e.g. "
-        "\"specs for a related model, exact model not found\"), otherwise null.\n\n"
+        "\"specs for a related model, exact model not found\"), otherwise null. "
+        "source_url is a direct link to the page you found, only when it's the "
+        "manufacturer's own official page or PDF (not a retailer/parts-aggregator "
+        "site) and you actually found it via search, not one you're assuming "
+        "exists; otherwise null, even if confidence is \"high\" for the other "
+        "fields.\n\n"
         "If the input does not look like a real HVAC/R equipment model number at "
         "all, set every spec field to null, confidence to \"low\", and note to a "
         "short explanation."
@@ -2280,7 +2297,7 @@ _MODEL_SPECS_COLUMNS = [
     "compressor_type", "metering_device", "voltage",
     "total_amps", "compressor_amps", "condenser_fan_amps", "blower_amps", "induced_draft_fan_amps",
     "supply_gas_pressure", "manifold_gas_pressure", "gas_type", "direct_fired_pressure_drop",
-    "confidence", "note", "source", "low_confidence_fields",
+    "confidence", "note", "source", "low_confidence_fields", "source_url",
 ]
 
 
@@ -2441,15 +2458,27 @@ def _parse_model_lookup_json(raw_text: str, lang: str) -> Dict[str, Optional[str
             value = str(value)
         if isinstance(value, str):
             value = value.strip()
-            # note is explanatory prose (can genuinely run long); the spec
+            # note is explanatory prose (can genuinely run long); source_url
+            # gets the same longer cap since a real manufacturer spec-sheet
+            # PDF path can easily run past 100 chars. The rest of the spec
             # fields are short values by design, so a much tighter cap on
             # those is a real anti-abuse limit, not just tidiness. Trailing
             # "…" on a cut note is honest about being cut, not silently
-            # mid-sentence.
-            cap = 300 if field == "note" else 100
+            # mid-sentence -- a truncated URL wouldn't resolve anyway, so
+            # that one gets dropped outright by the scheme check below
+            # instead of shipping a broken link.
+            cap = 300 if field in ("note", "source_url") else 100
             if len(value) > cap:
                 value = value[:cap - 1].rstrip() + "…"
             value = value or None
+            # Cheap defense-in-depth, not the model's only guardrail: even
+            # a well-behaved model occasionally answers "see the Carrier
+            # website" instead of an actual link, and a malicious model
+            # response is untrusted output same as anything else here --
+            # only ever render this field as a link if it actually looks
+            # like one.
+            if field == "source_url" and value and not value.startswith(("http://", "https://")):
+                value = None
         result[field] = value
     confidence = data.get("confidence")
     result["confidence"] = confidence if confidence in ("high", "low") else "low"

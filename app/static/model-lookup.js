@@ -13,6 +13,7 @@
       empty: "—",
       confidenceHigh: "High confidence — found the manufacturer's own spec sheet",
       confidenceLow: "Low confidence — verify against the nameplate",
+      sourceLink: "🔗 Open the manufacturer's spec sheet",
       rateLimited: "Too many lookups — try again in a minute.",
       dailyLimit: "Today's lookup limit is used up. Try again tomorrow.",
       genericError: "Could not look this up. Try again in a moment.",
@@ -30,6 +31,7 @@
       empty: "—",
       confidenceHigh: "Высокая уверенность — найден фирменный спек-лист",
       confidenceLow: "Низкая уверенность — сверьте с шильдиком",
+      sourceLink: "🔗 Открыть спек-лист производителя",
       rateLimited: "Слишком много запросов — попробуйте через минуту.",
       dailyLimit: "Дневной лимит поиска исчерпан. Попробуйте завтра.",
       genericError: "Не удалось найти. Попробуйте ещё раз чуть позже.",
@@ -90,6 +92,21 @@
       note.className = "lookup-note";
       note.textContent = data.note;
       card.appendChild(note);
+    }
+
+    // Gated on confidence==="high" too, not just source_url's presence --
+    // belt-and-suspenders with the backend's own null-unless-manufacturer's-
+    // own-page discipline (see MODEL_LOOKUP_SYSTEM_PROMPT's source_url
+    // paragraph). A plain <a>, not a button -- this is navigation to a
+    // real external page, not an in-app action.
+    if (data.confidence === "high" && data.source_url) {
+      var sourceLink = document.createElement("a");
+      sourceLink.className = "lookup-source-link";
+      sourceLink.href = data.source_url;
+      sourceLink.target = "_blank";
+      sourceLink.rel = "noopener noreferrer";
+      sourceLink.textContent = msgs.sourceLink;
+      card.appendChild(sourceLink);
     }
 
     var disclaimer = document.createElement("div");
