@@ -321,17 +321,31 @@ header h1 {
   letter-spacing: 0.2px;
 }
 
-.header-home-link {
+/* Split into two separate links (19 Sep 2026, Ivan): the icon always goes
+   to /diagnose (this page is already /diagnose, so it's a same-page link
+   here -- the same 🏠 convention as /panel/history/manage-invites/
+   model-lookup's own back-link), while the title text is the one that
+   goes to the marketing landing page. Used to be one <a> for both,
+   pointing only at landing. */
+.header-home-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-icon-link {
+  display: flex;
+  line-height: 0;
+}
+
+.header-title-link {
   color: inherit;
   text-decoration: underline;
   text-decoration-color: var(--muted);
   text-underline-offset: 3px;
 }
 
-.header-home-link:hover {
+.header-title-link:hover {
   text-decoration-color: var(--accent);
   opacity: 0.85;
 }
@@ -1119,6 +1133,12 @@ footer {
   justify-content: space-between;
   gap: 8px;
 }
+
+/* Auto margin absorbs the free space justify-content:space-between would
+   otherwise have distributed -- backBtn/restartBtn stay packed on the
+   left as before, this one alone gets pinned to the far right, whether
+   or not backBtn happens to be hidden. */
+#logoutFooterBtn { margin-left: auto; }
 
 .footer-disclaimer {
   font-size: 0.68rem;

@@ -4043,11 +4043,21 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
                 f"</form>"
                 f"</div>"
             )
+        # <details> not a JS toggle -- stays inside the page's existing
+        # zero-client-side-JS philosophy (see the comment on the panel's
+        # forms above). Collapsed by default (no `open` attribute): Ivan's
+        # catch, this section sits right above Session funnel/the rest of
+        # the actual stats, and as the account list grows it pushes those
+        # further down the page every time -- closed by default means the
+        # numbers are visible without scrolling past a growing account
+        # list first, expand only when actually managing accounts.
         users_section_html = f"""
 <section>
-  <h2>Invite-gate accounts ({_esc(len(stats['users']))})</h2>
-  <p style="font-size:.85rem;color:#8b93a1;margin-top:0">"Grant" lets an account create up to {_esc(INVITE_DAILY_LIMIT_PER_USER)} invite links/day at /manage-invites. "Make admin" lets an account reach /panel itself — the last remaining admin can't revoke their own, and "Delete" refuses the same way. "Delete" also revokes that account's unused invite links, but leaves their diagnostic history and already-used invites alone.</p>
-  {"".join(user_rows)}
+  <details>
+    <summary><h2 style="display:inline">Invite-gate accounts ({_esc(len(stats['users']))})</h2></summary>
+    <p style="font-size:.85rem;color:#8b93a1;margin-top:.75rem">"Grant" lets an account create up to {_esc(INVITE_DAILY_LIMIT_PER_USER)} invite links/day at /manage-invites. "Make admin" lets an account reach /panel itself — the last remaining admin can't revoke their own, and "Delete" refuses the same way. "Delete" also revokes that account's unused invite links, but leaves their diagnostic history and already-used invites alone.</p>
+    {"".join(user_rows)}
+  </details>
 </section>
 """
 
@@ -4071,6 +4081,9 @@ def _render_panel_html(token: str, auth_mode: bool) -> str:
     padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
   }}
   h2 {{ font-size: 1rem; margin: 0 0 1rem; color: #cdd3dc; }}
+  summary {{ cursor: pointer; margin-bottom: .25rem; }}
+  summary h2 {{ margin: 0; display: inline; }}
+  summary::marker {{ color: #8b93a1; }}
   section.flagged {{ border-color: #e5484d; background: #2a1518; }}
   section.flagged h2 {{ color: #ff7a7f; }}
   .flagged-row {{

@@ -15,7 +15,10 @@
   <div class="wrap">
     <header>
       <div class="header-top">
-        <h1><a class="header-home-link" href="/"><img class="header-icon" src="./icon-512.png" alt="">HVAC Troubleshooting Guide</a></h1>
+        <h1 class="header-home-row">
+          <a class="header-icon-link" href="/diagnose" title="Diagnose"><img class="header-icon" src="./icon-512.png" alt=""></a>
+          <a class="header-title-link" href="/">HVAC Troubleshooting Guide</a>
+        </h1>
       </div>
       <div class="controls-row-top" id="langSwitch">
         <div class="unit-switch" aria-label="Display theme">
@@ -27,14 +30,6 @@
           <a id="modelLookupLink" href="/model-lookup" class="lang-btn invite-link">🏷️</a>
           <a id="inviteLink" href="/manage-invites" class="lang-btn invite-link" style="display:none">👥</a>
           <a id="adminLink" href="/panel" class="lang-btn invite-link" style="display:none">⚙️</a>
-          <!-- Logout commented out for now (18 Sep 2026, Ivan): a phone's
-               field-theme tap target sits right next to it in this same
-               row, and an accidental tap has real cost (signed out mid-
-               job). me.js's wiring for #logoutLink is left in place and
-               is a no-op without this element -- re-enabling later is
-               just uncommenting the line below, once there's a safer
-               (e.g. confirm-before-logout) design. -->
-          <!-- <a id="logoutLink" href="#" class="lang-btn invite-link" style="display:none">🚪</a> -->
         </div>
       </div>
       <div class="unit-switch-row">
@@ -58,6 +53,14 @@
     <footer>
       <button id="backBtn" class="btn ghost" style="display:none"></button>
       <button id="restartBtn" class="btn ghost"></button>
+      <!-- 19 Sep 2026, Ivan's redesign of the 18 Sep header-icon attempt
+           (pulled back then over accidental-tap risk, see CLAUDE.md): same
+           row as Start Over, pinned to the far right via margin-left:auto
+           (me.js only un-hides this when logged in), guarded by three
+           sequential confirm()s wired in me.js -- deliberately more
+           friction than the single confirm() the standing rule asked for,
+           by Ivan's own explicit request. -->
+      <button id="logoutFooterBtn" class="btn ghost" style="display:none"></button>
     </footer>
     <div id="breadcrumb" class="breadcrumb"></div>
     <div id="footerDisclaimer" class="footer-disclaimer"></div>

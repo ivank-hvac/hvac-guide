@@ -11,6 +11,22 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-19
 
+- `/diagnose`: logout is back, redesigned per Ivan's own spec after the
+  18 Sep header-icon attempt was pulled for accidental-tap risk — now a
+  real labeled button in the footer, same row as Start Over, pinned to
+  the far right, guarded by three sequential confirm()s (any Cancel
+  aborts, no logout), the last one reminding a registered account can
+  always get a new login link. Header's `<h1>` icon+title split into two
+  separate links: the icon always goes to `/diagnose` (matching the 🏠
+  convention on /panel/history/manage-invites/model-lookup), only the
+  title text still goes to the landing page. #168
+
+- `/panel`: "Invite-gate accounts" is now a native `<details>` toggle
+  (no JS, matches this page's zero-client-side-JS design), collapsed by
+  default — it sat right above the actual stats, and a growing account
+  list was pushing Session funnel/everything else further down the page
+  every time. #168
+
 - Model number lookup: a direct link to the manufacturer's own spec
   sheet/PDF now shows at the bottom of the result card, when the model
   actually found one via web search (new `source_url` field, gated
