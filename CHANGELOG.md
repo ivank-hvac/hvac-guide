@@ -11,6 +11,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-19
 
+- `/history`: manufacturer/model (captured during the one-time
+  manufacturer step, previously only visible inside an expanded
+  session's Q&A) now shown right on the list row, when present.
+  Newest-first sort and the jobsite badge on the row were already
+  there — Ivan's other two asks (date-range filter, multi-word jobsite
+  search) logged as backlog wishlist items, not built yet. #166
+
 - Default dark theme: page background pushed to near-black (`#0f1012`,
   was `#2e3440`) — on a phone it was too close in value to the panel
   cards sitting on it to read the layout clearly. `--input-bg` left at

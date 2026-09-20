@@ -79,6 +79,13 @@
       equip.textContent = s.equipment_type || msgs.noEquipment;
       row.appendChild(equip);
 
+      if (s.manufacturer || s.model) {
+        var mfg = document.createElement("div");
+        mfg.className = "hist-manufacturer";
+        mfg.textContent = [s.manufacturer, s.model].filter(Boolean).join(" · ");
+        row.appendChild(mfg);
+      }
+
       var meta = document.createElement("div");
       meta.className = "hist-meta";
       if (s.jobsite) {

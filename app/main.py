@@ -1585,7 +1585,7 @@ def _list_user_sessions(user_id: int) -> List[Dict[str, Any]]:
         rows = conn.execute(
             """
             SELECT session_id, created_at, updated_at, lang, equipment_type,
-                   final_node_id, severity, jobsite, ai_used
+                   final_node_id, severity, jobsite, ai_used, answers_json
             FROM checklist_sessions
             WHERE user_id = ?
             ORDER BY updated_at DESC
@@ -1593,7 +1593,24 @@ def _list_user_sessions(user_id: int) -> List[Dict[str, Any]]:
             """,
             (user_id,),
         ).fetchall()
-    return [dict(r) for r in rows]
+    results = []
+    for row in rows:
+        result = dict(row)
+        # manufacturer/model live inside answers_json (the one-time
+        # manufacturer step pushes them there as regular answer entries,
+        # field="manufacturer"/"model" -- see app.js's MANUFACTURER_STEP_ID),
+        # not their own columns. Pulled out here and the raw array dropped
+        # again so the list response stays small -- the full Q&A only needs
+        # to travel once a row is actually expanded, via /api/history/{id}.
+        answers = json.loads(result.pop("answers_json") or "[]")
+        result["manufacturer"] = next(
+            (a.get("value") for a in answers if a.get("field") == "manufacturer" and a.get("value")), None
+        )
+        result["model"] = next(
+            (a.get("value") for a in answers if a.get("field") == "model" and a.get("value")), None
+        )
+        results.append(result)
+    return results
 
 
 def _get_user_session_detail(session_id: str, user_id: int) -> Optional[Dict[str, Any]]:
