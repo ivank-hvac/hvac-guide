@@ -9,6 +9,17 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-20
+
+- Graph content: the "No heat" branch for rooftop units no longer offers
+  "Heat pump (reverse cycle)" as a heat source — Ivan, from field
+  experience, has never seen a reverse-cycle heat pump on a packaged RTU
+  (gas or electric strip only). The option stays for split systems,
+  where heat-pump-as-heat-source is genuinely common (ductless
+  mini-splits) — new `nh_type_rtu` node (gas/electric only) takes over
+  `rtu_symptom`'s edge, `split_symptom` keeps pointing at the original
+  3-option `nh_type`. Private graph repo `9adc103`. #171
+
 ## 2026-09-19
 
 - Landing page: new looping phone mockup showing the actual shape of a
