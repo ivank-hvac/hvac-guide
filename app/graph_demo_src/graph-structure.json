@@ -841,17 +841,10 @@
      "label": {
       "$text": "nodes.start.options[3].label"
      },
-     "next": "chiller_symptom",
+     "next": "chiller_compressor_type",
      "equipment": "chiller"
     }
    ]
-  },
-  "precise_sh_sc_refrigerant": {
-   "type": "refrigerant_select",
-   "text": {
-    "$text": "nodes.precise_sh_sc_refrigerant.text"
-   },
-   "next": "pt_suction_pressure"
   },
   "pt_suction_pressure": {
    "type": "numeric_input",
@@ -863,6 +856,13 @@
    "min": -10,
    "max": 500,
    "next": "pt_suction_temp"
+  },
+  "precise_sh_sc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "$text": "nodes.precise_sh_sc_refrigerant.text"
+   },
+   "next": "pt_suction_pressure"
   },
   "rtu_symptom": {
    "type": "question",
@@ -880,7 +880,7 @@
      "label": {
       "$text": "nodes.rtu_symptom.options[1].label"
      },
-     "next": "nh_type"
+     "next": "nh_type_rtu"
     },
     {
      "label": {
@@ -1000,65 +1000,17 @@
     }
    ]
   },
-  "chiller_symptom": {
+  "chiller_compressor_type": {
    "type": "question",
    "text": {
-    "$text": "nodes.chiller_symptom.text"
+    "$text": "nodes.chiller_compressor_type.text"
    },
    "options": [
     {
      "label": {
-      "$text": "nodes.chiller_symptom.options[0].label"
+      "$text": "nodes.chiller_compressor_type.options[0].label"
      },
-     "next": "nc_refrigerant"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[1].label"
-     },
-     "next": "ws_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[2].label"
-     },
-     "next": "hp_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[3].label"
-     },
-     "next": "lp_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[4].label"
-     },
-     "next": "ice_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[5].label"
-     },
-     "next": "leak_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[6].label"
-     },
-     "next": "noise_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[8].label"
-     },
-     "next": "ai_freeform"
-    },
-    {
-     "label": {
-      "$text": "nodes.chiller_symptom.options[9].label"
-     },
-     "next": "txv_hunting_result"
+     "next": "chiller_symptom"
     }
    ]
   },
@@ -1080,27 +1032,21 @@
    },
    "next": "nc_start"
   },
-  "nh_type": {
+  "nh_type_rtu": {
    "type": "question",
    "text": {
-    "$text": "nodes.nh_type.text"
+    "$text": "nodes.nh_type_rtu.text"
    },
    "options": [
     {
      "label": {
-      "$text": "nodes.nh_type.options[0].label"
-     },
-     "next": "nh_hp_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.nh_type.options[1].label"
+      "$text": "nodes.nh_type_rtu.options[0].label"
      },
      "next": "gas_start"
     },
     {
      "label": {
-      "$text": "nodes.nh_type.options[2].label"
+      "$text": "nodes.nh_type_rtu.options[1].label"
      },
      "next": "nh_electric_result"
     }
@@ -1283,6 +1229,94 @@
     }
    ]
   },
+  "nh_type": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_type.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[0].label"
+     },
+     "next": "nh_hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[1].label"
+     },
+     "next": "gas_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_type.options[2].label"
+     },
+     "next": "nh_electric_result"
+    }
+   ]
+  },
+  "chiller_symptom": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.chiller_symptom.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[0].label"
+     },
+     "next": "nc_refrigerant"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[1].label"
+     },
+     "next": "ws_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[2].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[3].label"
+     },
+     "next": "lp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[4].label"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[5].label"
+     },
+     "next": "leak_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[6].label"
+     },
+     "next": "noise_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[8].label"
+     },
+     "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "$text": "nodes.chiller_symptom.options[9].label"
+     },
+     "next": "txv_hunting_result"
+    }
+   ]
+  },
   "pt_head_pressure": {
    "type": "numeric_input",
    "role": "head_pressure",
@@ -1311,26 +1345,6 @@
       "$text": "nodes.nc_start.options[1].label"
      },
      "next": "ws_start"
-    }
-   ]
-  },
-  "nh_hp_start": {
-   "type": "question",
-   "text": {
-    "$text": "nodes.nh_hp_start.text"
-   },
-   "options": [
-    {
-     "label": {
-      "$text": "nodes.nh_hp_start.options[0].label"
-     },
-     "next": "nh_hp_2"
-    },
-    {
-     "label": {
-      "$text": "nodes.nh_hp_start.options[1].label"
-     },
-     "next": "nh_hp_novalve"
     }
    ]
   },
@@ -1599,6 +1613,26 @@
     "$text": "nodes.noise_vibration.text"
    }
   },
+  "nh_hp_start": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_hp_start.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_hp_start.options[0].label"
+     },
+     "next": "nh_hp_2"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_start.options[1].label"
+     },
+     "next": "nh_hp_novalve"
+    }
+   ]
+  },
   "pt_liquid_temp": {
    "type": "numeric_input",
    "role": "liquid_temp",
@@ -1629,40 +1663,6 @@
      "next": "nc_no_condfan"
     }
    ]
-  },
-  "nh_hp_2": {
-   "type": "question",
-   "text": {
-    "$text": "nodes.nh_hp_2.text"
-   },
-   "options": [
-    {
-     "label": {
-      "$text": "nodes.nh_hp_2.options[0].label"
-     },
-     "next": "nh_hp_ok"
-    },
-    {
-     "label": {
-      "$text": "nodes.nh_hp_2.options[1].label"
-     },
-     "next": "hp_start"
-    },
-    {
-     "label": {
-      "$text": "nodes.nh_hp_2.options[2].label"
-     },
-     "next": "lp_start"
-    }
-   ]
-  },
-  "nh_hp_novalve": {
-   "type": "result",
-   "severity": "critical",
-   "ai": true,
-   "text": {
-    "$text": "nodes.nh_hp_novalve.text"
-   }
   },
   "gas_lights_no_heat": {
    "type": "result",
@@ -1834,6 +1834,40 @@
     "$text": "nodes.leak_condensate_clog.text"
    }
   },
+  "nh_hp_2": {
+   "type": "question",
+   "text": {
+    "$text": "nodes.nh_hp_2.text"
+   },
+   "options": [
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[0].label"
+     },
+     "next": "nh_hp_ok"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[1].label"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "$text": "nodes.nh_hp_2.options[2].label"
+     },
+     "next": "lp_start"
+    }
+   ]
+  },
+  "nh_hp_novalve": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nh_hp_novalve.text"
+   }
+  },
   "pt_calc_result": {
    "type": "pt_calc",
    "text": {
@@ -1906,14 +1940,6 @@
    "ai": true,
    "text": {
     "$text": "nodes.nc_no_condfan.text"
-   }
-  },
-  "nh_hp_ok": {
-   "type": "result",
-   "severity": "warning",
-   "ai": true,
-   "text": {
-    "$text": "nodes.nh_hp_ok.text"
    }
   },
   "gas_no_power": {
@@ -2225,6 +2251,14 @@
      "$text": "nodes.lp_rapid_trip_result_rtu.related_checks[2]"
     }
    ]
+  },
+  "nh_hp_ok": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "$text": "nodes.nh_hp_ok.text"
+   }
   },
   "nc_suction_high": {
    "type": "question",

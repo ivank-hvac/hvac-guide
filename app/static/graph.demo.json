@@ -948,18 +948,10 @@
       "ru": "Чиллер (Chiller)",
       "en": "Chiller"
      },
-     "next": "chiller_symptom",
+     "next": "chiller_compressor_type",
      "equipment": "chiller"
     }
    ]
-  },
-  "precise_sh_sc_refrigerant": {
-   "type": "refrigerant_select",
-   "text": {
-    "ru": "Какой хладагент в системе?",
-    "en": "What refrigerant is in the system?"
-   },
-   "next": "pt_suction_pressure"
   },
   "pt_suction_pressure": {
    "type": "numeric_input",
@@ -972,6 +964,14 @@
    "min": -10,
    "max": 500,
    "next": "pt_suction_temp"
+  },
+  "precise_sh_sc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "ru": "Какой хладагент в системе?",
+    "en": "What refrigerant is in the system?"
+   },
+   "next": "pt_suction_pressure"
   },
   "rtu_symptom": {
    "type": "question",
@@ -992,7 +992,7 @@
       "ru": "Нет обогрева",
       "en": "No heat"
      },
-     "next": "nh_type"
+     "next": "nh_type_rtu"
     },
     {
      "label": {
@@ -1131,75 +1131,19 @@
     }
    ]
   },
-  "chiller_symptom": {
+  "chiller_compressor_type": {
    "type": "question",
    "text": {
-    "ru": "Какой основной симптом?",
-    "en": "What's the main symptom?"
+    "ru": "Какой тип компрессора у этого чиллера?",
+    "en": "What type of compressor does this chiller use?"
    },
    "options": [
     {
      "label": {
-      "ru": "Недостаточное охлаждение / низкая производительность",
-      "en": "Insufficient cooling / low capacity"
+      "ru": "Scroll (спиральный)",
+      "en": "Scroll"
      },
-     "next": "nc_refrigerant"
-    },
-    {
-     "label": {
-      "ru": "Не запускается",
-      "en": "Won't start"
-     },
-     "next": "ws_start"
-    },
-    {
-     "label": {
-      "ru": "Высокое давление / защита",
-      "en": "High pressure / safety trip"
-     },
-     "next": "hp_start"
-    },
-    {
-     "label": {
-      "ru": "Низкое давление / защита",
-      "en": "Low pressure / safety trip"
-     },
-     "next": "lp_start"
-    },
-    {
-     "label": {
-      "ru": "Наледь на испарителе",
-      "en": "Ice on the evaporator"
-     },
-     "next": "ice_start"
-    },
-    {
-     "label": {
-      "ru": "Течь воды",
-      "en": "Water leak"
-     },
-     "next": "leak_start"
-    },
-    {
-     "label": {
-      "ru": "Шум / вибрация",
-      "en": "Noise / vibration"
-     },
-     "next": "noise_start"
-    },
-    {
-     "label": {
-      "ru": "Другое / сложный случай",
-      "en": "Other / complex case"
-     },
-     "next": "ai_freeform"
-    },
-    {
-     "label": {
-      "ru": "Давление всасывания и superheat колеблются вместе циклично, головное давление не при чём (ТРВ «охотится»)",
-      "en": "Suction pressure and superheat oscillate together in a cycle, head pressure not involved (TXV hunting)"
-     },
-     "next": "txv_hunting_result"
+     "next": "chiller_symptom"
     }
    ]
   },
@@ -1223,20 +1167,13 @@
    },
    "next": "nc_start"
   },
-  "nh_type": {
+  "nh_type_rtu": {
    "type": "question",
    "text": {
     "ru": "Тип отопления на этом оборудовании?",
     "en": "What type of heat does this unit have?"
    },
    "options": [
-    {
-     "label": {
-      "ru": "Тепловой насос (реверс цикла)",
-      "en": "Heat pump (reverse cycle)"
-     },
-     "next": "nh_hp_start"
-    },
     {
      "label": {
       "ru": "Газовое отопление",
@@ -1457,6 +1394,108 @@
     }
    ]
   },
+  "nh_type": {
+   "type": "question",
+   "text": {
+    "ru": "Тип отопления на этом оборудовании?",
+    "en": "What type of heat does this unit have?"
+   },
+   "options": [
+    {
+     "label": {
+      "ru": "Тепловой насос (реверс цикла)",
+      "en": "Heat pump (reverse cycle)"
+     },
+     "next": "nh_hp_start"
+    },
+    {
+     "label": {
+      "ru": "Газовое отопление",
+      "en": "Gas heat"
+     },
+     "next": "gas_start"
+    },
+    {
+     "label": {
+      "ru": "Электрический ТЭН (electric strip)",
+      "en": "Electric heat strips"
+     },
+     "next": "nh_electric_result"
+    }
+   ]
+  },
+  "chiller_symptom": {
+   "type": "question",
+   "text": {
+    "ru": "Какой основной симптом?",
+    "en": "What's the main symptom?"
+   },
+   "options": [
+    {
+     "label": {
+      "ru": "Недостаточное охлаждение / низкая производительность",
+      "en": "Insufficient cooling / low capacity"
+     },
+     "next": "nc_refrigerant"
+    },
+    {
+     "label": {
+      "ru": "Не запускается",
+      "en": "Won't start"
+     },
+     "next": "ws_start"
+    },
+    {
+     "label": {
+      "ru": "Высокое давление / защита",
+      "en": "High pressure / safety trip"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "ru": "Низкое давление / защита",
+      "en": "Low pressure / safety trip"
+     },
+     "next": "lp_start"
+    },
+    {
+     "label": {
+      "ru": "Наледь на испарителе",
+      "en": "Ice on the evaporator"
+     },
+     "next": "ice_start"
+    },
+    {
+     "label": {
+      "ru": "Течь воды",
+      "en": "Water leak"
+     },
+     "next": "leak_start"
+    },
+    {
+     "label": {
+      "ru": "Шум / вибрация",
+      "en": "Noise / vibration"
+     },
+     "next": "noise_start"
+    },
+    {
+     "label": {
+      "ru": "Другое / сложный случай",
+      "en": "Other / complex case"
+     },
+     "next": "ai_freeform"
+    },
+    {
+     "label": {
+      "ru": "Давление всасывания и superheat колеблются вместе циклично, головное давление не при чём (ТРВ «охотится»)",
+      "en": "Suction pressure and superheat oscillate together in a cycle, head pressure not involved (TXV hunting)"
+     },
+     "next": "txv_hunting_result"
+    }
+   ]
+  },
   "pt_head_pressure": {
    "type": "numeric_input",
    "role": "head_pressure",
@@ -1489,29 +1528,6 @@
       "en": "No, it doesn't start"
      },
      "next": "ws_start"
-    }
-   ]
-  },
-  "nh_hp_start": {
-   "type": "question",
-   "text": {
-    "ru": "Реверсивный клапан переключается? (слышен щелчок при смене режима охлаждение/обогрев)",
-    "en": "Does the reversing valve shift? (you should hear a click when switching cooling/heating)"
-   },
-   "options": [
-    {
-     "label": {
-      "ru": "Да, переключается",
-      "en": "Yes, it shifts"
-     },
-     "next": "nh_hp_2"
-    },
-    {
-     "label": {
-      "ru": "Нет, не переключается",
-      "en": "No, it doesn't shift"
-     },
-     "next": "nh_hp_novalve"
     }
    ]
   },
@@ -1818,6 +1834,29 @@
     "en": "Check the unit's vibration isolators/mounts, roof-curb/frame attachment (for RTUs — curb-adaptor sealing), and compressor mounting bolts inside the unit (transport bolts are sometimes left in during installation — causing resonance)."
    }
   },
+  "nh_hp_start": {
+   "type": "question",
+   "text": {
+    "ru": "Реверсивный клапан переключается? (слышен щелчок при смене режима охлаждение/обогрев)",
+    "en": "Does the reversing valve shift? (you should hear a click when switching cooling/heating)"
+   },
+   "options": [
+    {
+     "label": {
+      "ru": "Да, переключается",
+      "en": "Yes, it shifts"
+     },
+     "next": "nh_hp_2"
+    },
+    {
+     "label": {
+      "ru": "Нет, не переключается",
+      "en": "No, it doesn't shift"
+     },
+     "next": "nh_hp_novalve"
+    }
+   ]
+  },
   "pt_liquid_temp": {
    "type": "numeric_input",
    "role": "liquid_temp",
@@ -1852,45 +1891,6 @@
      "next": "nc_no_condfan"
     }
    ]
-  },
-  "nh_hp_2": {
-   "type": "question",
-   "text": {
-    "ru": "Давления в режиме обогрева соответствуют P-T таблице для текущей температуры конденсации/испарения?",
-    "en": "Do heating-mode pressures match the P-T chart for the current condensing/evaporating temperature?"
-   },
-   "options": [
-    {
-     "label": {
-      "ru": "Да, в норме",
-      "en": "Yes, normal"
-     },
-     "next": "nh_hp_ok"
-    },
-    {
-     "label": {
-      "ru": "Нет, высокое давление",
-      "en": "No, high pressure"
-     },
-     "next": "hp_start"
-    },
-    {
-     "label": {
-      "ru": "Нет, низкое давление",
-      "en": "No, low pressure"
-     },
-     "next": "lp_start"
-    }
-   ]
-  },
-  "nh_hp_novalve": {
-   "type": "result",
-   "severity": "critical",
-   "ai": true,
-   "text": {
-    "ru": "Похоже на неисправность реверсивного клапана (механически застрял) или катушки соленоида (нет питания / сгорела). Проверьте напряжение на катушке и перепад температур на портах клапана.",
-    "en": "Looks like a reversing valve problem (stuck mechanically) or a bad solenoid coil (no power / burned out). Check voltage at the coil and the temperature split across the valve ports."
-   }
   },
   "gas_lights_no_heat": {
    "type": "result",
@@ -2087,6 +2087,45 @@
     "en": "A clogged drain line/trap is the most common cause. Clear the line (nitrogen/vacuum purge), check the pipe slope, condensate pump operation (if fitted), and the float switch."
    }
   },
+  "nh_hp_2": {
+   "type": "question",
+   "text": {
+    "ru": "Давления в режиме обогрева соответствуют P-T таблице для текущей температуры конденсации/испарения?",
+    "en": "Do heating-mode pressures match the P-T chart for the current condensing/evaporating temperature?"
+   },
+   "options": [
+    {
+     "label": {
+      "ru": "Да, в норме",
+      "en": "Yes, normal"
+     },
+     "next": "nh_hp_ok"
+    },
+    {
+     "label": {
+      "ru": "Нет, высокое давление",
+      "en": "No, high pressure"
+     },
+     "next": "hp_start"
+    },
+    {
+     "label": {
+      "ru": "Нет, низкое давление",
+      "en": "No, low pressure"
+     },
+     "next": "lp_start"
+    }
+   ]
+  },
+  "nh_hp_novalve": {
+   "type": "result",
+   "severity": "critical",
+   "ai": true,
+   "text": {
+    "ru": "Похоже на неисправность реверсивного клапана (механически застрял) или катушки соленоида (нет питания / сгорела). Проверьте напряжение на катушке и перепад температур на портах клапана.",
+    "en": "Looks like a reversing valve problem (stuck mechanically) or a bad solenoid coil (no power / burned out). Check voltage at the coil and the temperature split across the valve ports."
+   }
+  },
   "pt_calc_result": {
    "type": "pt_calc",
    "text": {
@@ -2170,15 +2209,6 @@
    "text": {
     "ru": "Вентилятор конденсатора не работает при работающем компрессоре — это быстро приводит к высокому давлению конденсации. Проверьте конденсатор двигателя, обмотки, плату/реле управления вентилятором и предохранитель мотора. Не затягивайте — сработает HP switch.",
     "en": "Condenser fan isn't running while the compressor is on — this quickly drives up head pressure. Check the motor run capacitor, windings, the fan control board/relay, and the motor fuse. Don't delay — the high-pressure switch will trip."
-   }
-  },
-  "nh_hp_ok": {
-   "type": "result",
-   "severity": "warning",
-   "ai": true,
-   "text": {
-    "ru": "Давления в норме, но обогрева недостаточно — проверьте: наледь на наружном теплообменнике (цикл дефроста), работу нагревателя картера компрессора, airflow на внутреннем блоке, уставки термостата и логику блокировки теплового насоса по низкой температуре (auxiliary/emergency heat lockout).",
-    "en": "Pressures are normal but heat output is insufficient — check: ice on the outdoor coil (defrost cycle), crankcase heater operation, indoor-unit airflow, thermostat setpoints, and the heat pump's low-ambient lockout logic (auxiliary/emergency heat lockout)."
    }
   },
   "gas_no_power": {
@@ -2537,6 +2567,15 @@
      "en": "Oil traces in unusual places — a sign of a leak, and a leak produces the same rapid LP-trip picture"
     }
    ]
+  },
+  "nh_hp_ok": {
+   "type": "result",
+   "severity": "warning",
+   "ai": true,
+   "text": {
+    "ru": "Давления в норме, но обогрева недостаточно — проверьте: наледь на наружном теплообменнике (цикл дефроста), работу нагревателя картера компрессора, airflow на внутреннем блоке, уставки термостата и логику блокировки теплового насоса по низкой температуре (auxiliary/emergency heat lockout).",
+    "en": "Pressures are normal but heat output is insufficient — check: ice on the outdoor coil (defrost cycle), crankcase heater operation, indoor-unit airflow, thermostat setpoints, and the heat pump's low-ambient lockout logic (auxiliary/emergency heat lockout)."
+   }
   },
   "nc_suction_high": {
    "type": "question",
