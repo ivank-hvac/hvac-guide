@@ -103,7 +103,7 @@
  "intake_checklist[3].items[4].label": "Precise superheat/subcooling calculation from gauge readings",
  "intake_checklist[3].label": "Refrigeration circuit (follow-up)",
  "nodes.ai_freeform.text": "Describe the situation in as much detail as possible (equipment, what you're observing, gauge readings, service history) — I'll pass this to the AI assistant for analysis.",
- "nodes.chiller_compressor_type.options[0].label": "Scroll",
+ "nodes.chiller_compressor_type.options[0].label": "Scroll / screw / reciprocating",
  "nodes.chiller_compressor_type.text": "What type of compressor does this chiller use?",
  "nodes.chiller_symptom.options[0].label": "Insufficient cooling / low capacity",
  "nodes.chiller_symptom.options[1].label": "Won't start",

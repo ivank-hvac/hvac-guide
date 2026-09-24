@@ -103,7 +103,7 @@
  "intake_checklist[3].items[4].label": "Точный расчёт перегрева/переохлаждения по показаниям манометров",
  "intake_checklist[3].label": "Холодильный контур (уточнения)",
  "nodes.ai_freeform.text": "Опишите ситуацию максимально подробно (оборудование, что наблюдаете, показания приборов, история обслуживания) — передам AI-ассистенту для анализа.",
- "nodes.chiller_compressor_type.options[0].label": "Scroll (спиральный)",
+ "nodes.chiller_compressor_type.options[0].label": "Scroll / винтовой / поршневой",
  "nodes.chiller_compressor_type.text": "Какой тип компрессора у этого чиллера?",
  "nodes.chiller_symptom.options[0].label": "Недостаточное охлаждение / низкая производительность",
  "nodes.chiller_symptom.options[1].label": "Не запускается",

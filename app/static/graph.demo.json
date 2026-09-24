@@ -953,6 +953,14 @@
     }
    ]
   },
+  "precise_sh_sc_refrigerant": {
+   "type": "refrigerant_select",
+   "text": {
+    "ru": "Какой хладагент в системе?",
+    "en": "What refrigerant is in the system?"
+   },
+   "next": "pt_suction_pressure"
+  },
   "pt_suction_pressure": {
    "type": "numeric_input",
    "role": "suction_pressure",
@@ -964,14 +972,6 @@
    "min": -10,
    "max": 500,
    "next": "pt_suction_temp"
-  },
-  "precise_sh_sc_refrigerant": {
-   "type": "refrigerant_select",
-   "text": {
-    "ru": "Какой хладагент в системе?",
-    "en": "What refrigerant is in the system?"
-   },
-   "next": "pt_suction_pressure"
   },
   "rtu_symptom": {
    "type": "question",
@@ -1140,8 +1140,8 @@
    "options": [
     {
      "label": {
-      "ru": "Scroll (спиральный)",
-      "en": "Scroll"
+      "ru": "Scroll / винтовой / поршневой",
+      "en": "Scroll / screw / reciprocating"
      },
      "next": "chiller_symptom"
     }
