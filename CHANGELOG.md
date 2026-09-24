@@ -11,6 +11,20 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-24
 
+- Graph content: the chiller compressor-type gate from earlier the same
+  day (#174) got its split corrected right after shipping — Ivan: screw
+  and reciprocating are positive-displacement like scroll, similar
+  enough that the existing generic chiller content already applies to
+  them reasonably well, no real need to gate them out. Only centrifugal
+  is genuinely different (dynamic/turbomachinery — surge, aerodynamic
+  staging, magnetic-bearing specifics on oil-free units) and outside
+  what he can speak to confidently, so that one stays gated. Options
+  relabeled "Scroll / screw / reciprocating" (unchanged content) vs.
+  "Centrifugal / not sure" (placeholder text rewritten to describe the
+  centrifugal-specific gap, not a generic "other types" hand-wave). No
+  structure change. `main` @ `19c028a`, private graph repo `28adde0`.
+  #175
+
 - Graph content: chiller diagnostics are now gated behind compressor
   type — a new question right after picking "Chiller" ("Scroll" vs.
   "Screw / centrifugal / reciprocating / not sure"). Ivan: this
@@ -24,7 +38,8 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
   build already excludes) — the beta keeps both options, per Ivan's
   explicit call that beta should show almost everything and mark only
   the genuinely unbuilt parts TBC. `main` @ `31136f8`, private graph
-  repo `e18fe2c`. #174
+  repo `e18fe2c`. #174 (see #175 above — the split was corrected the
+  same day, before this had a chance to matter)
 
 ## 2026-09-20
 
