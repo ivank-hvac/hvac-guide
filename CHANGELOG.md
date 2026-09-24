@@ -9,6 +9,23 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-24
+
+- Graph content: chiller diagnostics are now gated behind compressor
+  type — a new question right after picking "Chiller" ("Scroll" vs.
+  "Screw / centrifugal / reciprocating / not sure"). Ivan: this
+  project's chiller content is only real for scroll compressors, the
+  common type on the water-water/air-water chillers it targets; the
+  others have different failure modes not built here yet. Scroll
+  continues into the existing symptom menu unchanged; the rest hits an
+  honest placeholder (same shape as the existing VRF/VRV stub), not a
+  wrong diagnosis. The public self-host demo graph ends up scroll-only
+  automatically (the placeholder is tagged tier:2, which the demo
+  build already excludes) — the beta keeps both options, per Ivan's
+  explicit call that beta should show almost everything and mark only
+  the genuinely unbuilt parts TBC. `main` @ `31136f8`, private graph
+  repo `e18fe2c`. #174
+
 ## 2026-09-20
 
 - Graph content: new configuration question before branching into a
