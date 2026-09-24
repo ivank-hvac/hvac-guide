@@ -34,6 +34,7 @@ ROADMAP-internal.md
 /tools/backup-prod-tree-pull.sh
 /tools/prod-tunnel-watchdog.sh
 /tools/sync-graph-content.sh
+/tools/recreate-app.sh
 
 # Same reasoning again: reveals that a separate dev/mirror box exists and
 # roughly how it's wired to prod's own Caddy config, which is operational
