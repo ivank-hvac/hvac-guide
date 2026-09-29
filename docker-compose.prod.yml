@@ -58,6 +58,24 @@ services:
       - hvac_data:/app/data
     restart: unless-stopped
 
+  hvac-guide-demo:
+    # Public showcase (hvacdiagtree.com/demo) — deliberately its own service,
+    # own image, own container: no shared code, no shared volume, no shared
+    # env with hvac-guide above. See demo/main.py and CLAUDE.md "Публичная
+    # демо-витрина" for why (isolation is the whole point of this being a
+    # separate container rather than a new route on the app above).
+    build:
+      context: ./demo
+    container_name: hvac-guide-demo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    expose:
+      - "8000"
+    restart: unless-stopped
+
   caddy:
     image: caddy:2-alpine
     container_name: hvac-guide-caddy
@@ -92,9 +110,11 @@ services:
       - CADDY_BASIC_AUTH_USER=${CADDY_BASIC_AUTH_USER:-}
       - CADDY_BASIC_AUTH_HASH=${CADDY_BASIC_AUTH_HASH:-}
       - CADDY_UPSTREAM=${CADDY_UPSTREAM:-hvac-guide:8000}
+      - CADDY_DEMO_UPSTREAM=${CADDY_DEMO_UPSTREAM:-hvac-guide-demo:8000}
       - CADDY_TRUSTED_PROXY=${CADDY_TRUSTED_PROXY:-127.0.0.1}
     depends_on:
       - hvac-guide
+      - hvac-guide-demo
     restart: unless-stopped
 
 volumes:

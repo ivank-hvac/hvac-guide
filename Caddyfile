@@ -55,7 +55,7 @@
 	# is the inverse match, gating basic_auth itself, rather than trying to
 	# out-order it.
 	@not_public {
-		not path / /style.css /landing.js /favicon.ico /icon-512.png
+		not path / /style.css /landing.js /favicon.ico /icon-512.png /demo*
 	}
 
 	# --- Option A: shared team password (see DEPLOY.md "Access control") ---
@@ -97,10 +97,37 @@
 		format json
 	}
 
-	reverse_proxy {$CADDY_UPSTREAM} {
-		# Resolved by Caddy against trusted_proxies above, so the application
-		# receives one header it can rely on instead of parsing a chain and
-		# having to decide which element is not forged.
-		header_up X-Real-IP {client_ip}
+	# Explicit ordering here on purpose, unlike basic_auth above: Caddy
+	# auto-sorts bare top-level directives by its own fixed priority table,
+	# not by where they're written in this file (see the basic_auth comment
+	# above) — fine for a single reverse_proxy, but two of them need a
+	# deterministic "try this path first" order that only a route block
+	# guarantees. The public showcase (see CLAUDE.md "Публичная
+	# демо-витрина") is its own container, own codebase, no shared DB/
+	# secrets with the app below — that isolation is the reason it's routed
+	# to a different upstream instead of becoming a new route inside the
+	# main app.
+	route {
+		@demo path /demo*
+
+		# handle (not handle_path) on purpose — the /demo prefix is NOT
+		# stripped, it reaches the demo app's own routes as-is (see
+		# demo/main.py, which defines its routes at /demo/... directly
+		# rather than assuming it's mounted at the root).
+		handle @demo {
+			reverse_proxy {$CADDY_DEMO_UPSTREAM} {
+				header_up X-Real-IP {client_ip}
+			}
+		}
+
+		handle {
+			reverse_proxy {$CADDY_UPSTREAM} {
+				# Resolved by Caddy against trusted_proxies above, so the
+				# application receives one header it can rely on instead of
+				# parsing a chain and having to decide which element is not
+				# forged.
+				header_up X-Real-IP {client_ip}
+			}
+		}
 	}
 }
