@@ -9,6 +9,15 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-09-29
+
+- Infra: first step of a public, no-invite demo showcase at
+  `hvacdiagtree.com/demo` — a new, fully isolated container (own image,
+  own code, no shared DB/secrets with the main app), routed by a new
+  Caddy rule alongside the existing one. No demo content yet — this
+  step only proves a separate public path can exist safely next to the
+  invite-gated beta. `main` @ `03756c5`. #176
+
 ## 2026-09-24
 
 - Graph content: the chiller compressor-type gate from earlier the same
