@@ -11,6 +11,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-29
 
+- Caddy no longer advertises "Server: Caddy" on every response. Ivan ran
+  a free automated scanner against the clone on a whim (not a real
+  engagement) — 0 critical/high findings, mostly generic noise (the
+  documented CSP `style-src 'unsafe-inline'` tradeoff, a couple of
+  deprecated headers no current browser honors). This was the one item
+  actually worth the trivial fix. `main` @ `9a12387`. #177
+
 - Infra: first step of a public, no-invite demo showcase at
   `hvacdiagtree.com/demo` — a new, fully isolated container (own image,
   own code, no shared DB/secrets with the main app), routed by a new
