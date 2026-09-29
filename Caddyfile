@@ -97,6 +97,14 @@
 		format json
 	}
 
+	# Caddy sets this itself (not the app behind it) — minor recon
+	# hardening, not a real vulnerability fix: costs a scanner nothing to
+	# fingerprint Caddy some other way, but free to remove, so no reason
+	# to leave it advertising the exact server software for free.
+	header {
+		-Server
+	}
+
 	# Explicit ordering here on purpose, unlike basic_auth above: Caddy
 	# auto-sorts bare top-level directives by its own fixed priority table,
 	# not by where they're written in this file (see the basic_auth comment
