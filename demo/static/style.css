@@ -1,0 +1,1188 @@
+:root {
+  /* Nord-inspired default palette (18 Sep 2026, replaces the original
+     navy/bright-blue set) — Ivan's own read on the old one: dark bg + a
+     bright blue accent is exactly the same "generic AI-generated dev tool"
+     archetype as the purple-gradient cliché, just a different hue. Chosen
+     over a from-scratch palette or a wholesale copy of an existing named
+     theme (Nord/Gruvbox/Catppuccin all compared live first, see the chat
+     history) as a middle ground: recognizably calmer/warmer than the old
+     bright-navy look, but the severity colors (--ok/--warn/--crit/--accent/
+     --input-accent) are deliberately brighter than Nord's own muted aurora
+     tones — Ivan's direct feedback after the first pass was that the
+     stock Nord hues read as barely-visible against the panel background
+     in a real screenshot. See CLAUDE.md "Тема интерфейса..." for the
+     comparison screenshots this was picked from.
+
+     18 Sep 2026 follow-up: --panel darkened ~8% and its blue cast almost
+     fully neutralized (was a cool blue-grey, now nearly neutral warm-grey
+     — Ivan's own read: default dark theme's body text wasn't legible
+     enough, and a slightly-too-blue panel was part of why). --text pushed
+     all the way to pure white — the intermediate steps toward it from the
+     old #eceff4 were empirically imperceptible (WCAG contrast against the
+     panel already exceeded the 7:1 AAA threshold before this change;
+     see the comparison artifact referenced in CLAUDE.md), so there was no
+     reason to stop short of #ffffff once brighter was the goal.
+
+     19 Sep 2026 follow-up: --bg pushed much darker (near-black, same
+     hue direction as --panel just scaled down) -- Ivan's own read on
+     his phone: the page background and the panel cards it holds were
+     close enough in value that the layout was hard to parse until
+     opened on a bigger screen. --input-bg intentionally left at its
+     old literal value (not re-synced to --bg) -- it still sits between
+     --bg and --panel, which keeps numeric inputs reading as recessed
+     relative to the panel around them. */
+  --bg: #0f1012;
+  --panel: #3a3d44;
+  --panel-border: #4c566a;
+  --text: #ffffff;
+  --muted: #a6adbb;
+  --accent: #a0e2f4;
+  --ok: #bff0c7;
+  --warn: #ffdd72;
+  --crit: #ff9fa3;
+  --input-accent: #ffa057;
+  --input-accent-bg: #3a2c22;
+  --step-text: #ffc199;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* Everything below used to be a literal hex/rgba scattered through the
+     rules further down — pulled into variables so the field theme block
+     near the bottom of this file can override them coherently instead of
+     leaving half the UI (badges, buttons, alert tints) stuck on dark-theme
+     colors no matter what --bg/--text say. */
+  --border-width: 1px;
+  --input-bg: #2e3440;
+  --disclaimer-bg: #332a1e;
+  --warn-bg: #3a3220;
+  --crit-bg: #3a1f22;
+  --accent-bg: #18242a;
+  --accent-hover-bg: #294050;
+  /* Active/highlighted-BUTTON fill+text, split out from the plain
+     --accent/--warn tokens above (18 Sep 2026 follow-up): those two now
+     also serve genuinely darker/dimmer FIELD contexts (--accent-bg for
+     .badge.info/the nameplate "confident" box; --warn-bg for the
+     nameplate warning box/.badge.warning) that Ivan deliberately wanted
+     to move in the opposite direction from buttons -- darker, not
+     brighter. A real active button (.lang-btn.active, .btn.ai,
+     .intake-toggle-btn.active, .unit-btn.active) needs its own brighter
+     fill/text pair instead of inheriting whichever direction the field
+     tokens happened to move. */
+  --accent-active-bg: #435863;
+  --accent-active-text: #b6e9f7;
+  --warn-active-bg: #5d5846;
+  --warn-active-text: #ffe48d;
+  /* Was #414a5a -- lighter AND bluer than --panel (#3a3d44), a leftover
+     from before the 18 Sep 2026 warm/dark panel change that made plain
+     option buttons (equipment list, symptom menus) barely stand out
+     from the panel behind them. Ivan's ask: noticeably darker than the
+     panel, not just a shade off it. --btn-hover-bg stays as-is (lighter
+     on hover reads as "lifting", same direction as before). */
+  --btn-bg: #242830;
+  --btn-hover-bg: #4c566a;
+  --input-hover-bg: #4a3324;
+  --na-active-bg: #3f4759;
+  --ai-border: #3a5261;
+  --quota-border: rgba(166, 173, 187, 0.35);
+  --quota-crit-text: #ffd7e0;
+  --quota-crit-bg: rgba(255, 107, 114, 0.18);
+  --quota-crit-border: rgba(255, 107, 114, 0.55);
+  --crit-text: #ffd9dc;
+  --crit-active-text: #ff9fa3;
+  --ok-tint-bg: rgba(126, 224, 143, 0.12);
+  --crit-tint-bg: rgba(255, 107, 114, 0.12);
+  --input-tint-bg: rgba(255, 160, 87, 0.12);
+  --ok-active-bg: rgba(126, 224, 143, 0.24);
+  --crit-active-bg: rgba(255, 107, 114, 0.24);
+  --active-border-width: 1px;
+
+  /* .numeric-input's box-shadow glow, split out as its own rgba() rather
+     than reusing --input-accent directly -- a plain hex var can't carry
+     partial opacity on its own. Used to be a literal rgba(224,145,63,...)
+     inline on each rule below, hardcoded to the old palette's
+     --input-accent hue; harmless by coincidence back then, but editing
+     the palette without updating these too would have left the glow
+     visibly mismatched against the (now-updated) border color it's
+     supposed to echo -- fixed in the same pass as the palette change,
+     and the field theme's matching pair below closes the same gap there
+     (previously called out as a known, unfixed minor gap). */
+  --input-accent-glow-sm: rgba(255, 160, 87, 0.15);
+  --input-accent-glow-lg: rgba(255, 160, 87, 0.25);
+}
+
+/* "Field" theme — high-contrast light palette for reading a phone screen in
+   direct sun or glare, toggled per-session the same way as language/units
+   (see .theme-btn wiring in app.js, setThemePref). Deliberately not tied to
+   prefers-color-scheme: a light OS theme doesn't mean bright sunlight, and
+   the choice belongs to the technician, not the OS. Not just an inverted
+   palette — a dim/translucent tint that reads fine on a dark screen indoors
+   can all but disappear under direct sun, so every severity/state color
+   below is a solid, high-contrast fill rather than a low-alpha overlay, and
+   --border-width goes from 1px to 2px so button/card edges stay visible in
+   glare. The .numeric-input focus-glow box-shadows now follow
+   --input-accent into this theme too (see --input-accent-glow-sm/-lg
+   below) — this used to be a hardcoded dark-theme-only rgb(), called out
+   here as a known gap; closed in the same pass as the 18 Sep 2026 default
+   palette change. */
+:root[data-theme="field"] {
+  --bg: #f4f5f2;
+  --panel: #ffffff;
+  --panel-border: #1c1c1c;
+  --text: #0a0a0a;
+  --muted: #3f3f3f;
+  --accent: #0055c8;
+  --ok: #146c3f;
+  --warn: #8a5300;
+  --crit: #b3261e;
+  --input-accent: #8a4600;
+  --input-accent-bg: #fdecd9;
+  --input-accent-glow-sm: rgba(138, 70, 0, 0.15);
+  --input-accent-glow-lg: rgba(138, 70, 0, 0.25);
+  --step-text: #6b3f14;
+
+  --border-width: 2px;
+  --input-bg: #ffffff;
+  --disclaimer-bg: #fdecd9;
+  --warn-bg: #fbdba3;
+  --crit-bg: #fbdedc;
+  --accent-bg: #b8dcff;
+  --accent-hover-bg: #c6ddfa;
+  /* Mirrors this theme's own --accent/--warn exactly (not the dark
+     theme's new brighter-active-button values) — .lang-btn.active/
+     .btn.ai/.intake-toggle-btn.active/.unit-btn.active now read these
+     instead of --accent-bg/--warn-bg/--accent/--warn directly (see the
+     18 Sep 2026 comment on the dark theme's copy of these tokens), and
+     without an override here they'd silently fall back to the dark
+     theme's values instead of staying untouched. */
+  --accent-active-bg: #b8dcff;
+  --accent-active-text: #0055c8;
+  --warn-active-bg: #fbdba3;
+  --warn-active-text: #8a5300;
+  --btn-bg: #ffffff;
+  --btn-hover-bg: #eef2f6;
+  --input-hover-bg: #fbdecb;
+  --na-active-bg: #e6e6e6;
+  --ai-border: #0055c8;
+  --quota-border: rgba(0, 0, 0, 0.35);
+  --quota-crit-text: #7a0f2b;
+  --quota-crit-bg: #fbdce6;
+  --quota-crit-border: #c23360;
+  --crit-text: #7a0f0a;
+  --crit-active-text: #7a0f0a;
+  --ok-tint-bg: #dff3e6;
+  --crit-tint-bg: #fbdedc;
+  --input-tint-bg: #fdecd9;
+  --ok-active-bg: #a3e0c0;
+  --crit-active-bg: #f2a29c;
+  /* Selected/active toggle buttons (lang, units, theme, intake) get an
+     extra-thick border on top of the already-thicker --border-width — a
+     technician glancing at the row in bright sun needs the SELECTED state
+     to stand out more than an ordinary unselected button, not just as
+     much. Darkened the active fill colors above for the same reason. */
+  --active-border-width: 3px;
+
+  /* Root font-size bump scales every rem-sized text/spacing in the app at
+     once; explicit padding/min-height bumps below cover the px-sized tap
+     targets that rem alone doesn't reach. */
+  font-size: 106.25%;
+}
+
+:root[data-theme="field"] .btn,
+:root[data-theme="field"] .lang-btn {
+  min-height: 48px;
+  padding: 12px 16px;
+}
+
+/* Icon-only buttons (theme toggle, history/invite/admin links) keep the
+   base .lang-btn font-size (0.75rem) even in field theme, so the emoji
+   glyph stayed dark-theme-sized while the button itself grew to the
+   48px tap target above — a small icon adrift in a much bigger square.
+   Bumped just for these, not all .lang-btn text, since RU/EN/unit
+   labels already read fine at the base size. */
+:root[data-theme="field"] .theme-btn,
+:root[data-theme="field"] .invite-link {
+  font-size: 1.5rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Safety net, not the fix itself (see .controls-row-top's flex-wrap
+     above, which is the actual fix for the bug that exposed this): field
+     theme's bigger tap targets could overflow a narrow phone's viewport
+     width without a container that catches it, and a whole-page horizontal
+     scroll is a worse failure mode than any single row's content getting
+     cut off — nothing in this layout is meant to scroll sideways. */
+  overflow-x: hidden;
+}
+
+.nameplate-warning {
+  background: var(--crit-bg);
+  border: var(--border-width) solid var(--crit);
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  margin: .6rem 0;
+  font-size: .88rem;
+  line-height: 1.5;
+}
+.nameplate-warning-title { font-weight: 700; margin-bottom: .3rem; }
+.nameplate-warning-actions { display: flex; gap: .6rem; margin-top: .7rem; flex-wrap: wrap; }
+.nameplate-result {
+  background: var(--panel);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  margin: .6rem 0;
+  font-size: .88rem;
+}
+.nameplate-result dl { margin: .4rem 0 0; }
+.nameplate-result dt { color: var(--muted); font-size: .78rem; margin-top: .5rem; }
+.nameplate-result dt:first-child { margin-top: 0; }
+.nameplate-result dd { margin: .1rem 0 0; font-weight: 600; }
+.nameplate-confidence-low { color: var(--warn); font-weight: 600; margin-top: .5rem; }
+
+/* Per-field confidence, 17 Sep 2026: amber (--warn), the same "pay
+   attention" tone as .unit-btn.active, not the alarm red used for
+   .nameplate-warning -- this is "double-check this one," not a safety
+   gate. dd itself gets the tint so the whole cell reads as flagged, not
+   just the input's own border. */
+.nameplate-result dd.nameplate-field-uncertain {
+  background: var(--warn-bg);
+  border: var(--border-width) solid var(--warn);
+  border-radius: 8px;
+  padding: .3rem .5rem;
+}
+.nameplate-result dd.nameplate-field-uncertain input {
+  font-weight: 600;
+  width: 100%;
+  box-sizing: border-box;
+}
+.nameplate-field-uncertain-hint {
+  color: var(--warn);
+  font-size: .72rem;
+  font-weight: 400;
+  margin-top: .2rem;
+}
+
+/* Blue (--accent) is reserved for the OPPOSITE case: a value the nameplate
+   photo was confident about, carried forward into a later step
+   (refrigerant_select's dropdown, the reference fields in
+   renderMeasurement) for the tech to confirm rather than re-type. Never
+   applied on the nameplate result card itself -- that's what
+   .nameplate-field-uncertain/plain text are for. */
+.nameplate-prefilled {
+  border-color: var(--accent) !important;
+  background: var(--accent-bg) !important;
+}
+
+.disclaimer {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--disclaimer-bg);
+  color: var(--muted);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 7px 16px;
+}
+
+.offline-banner {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+  padding: 10px 16px;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 720px;
+  padding: 24px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+header h1 {
+  font-size: 1.3rem;
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+/* Split into two separate links (19 Sep 2026, Ivan): the icon always goes
+   to /diagnose (this page is already /diagnose, so it's a same-page link
+   here -- the same 🏠 convention as /panel/history/manage-invites/
+   model-lookup's own back-link), while the title text is the one that
+   goes to the marketing landing page. Used to be one <a> for both,
+   pointing only at landing. */
+.header-home-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon-link {
+  display: flex;
+  line-height: 0;
+}
+
+.header-title-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 3px;
+}
+
+.header-title-link:not(.static):hover {
+  text-decoration-color: var(--accent);
+  opacity: 0.85;
+}
+
+/* Applied (plus href removed, see updateHeaderControlsVisibility in
+   app.js) once a session has moved past the very first screen -- the
+   title reads as plain text, not a live link back to the landing page,
+   so it can't be tapped away from mid-diagnosis by habit. Found live 20
+   Sep 2026: the icon/title split (19 Sep) only ever made the icon always
+   point at /diagnose -- the title text was still a permanent link to "/"
+   on every screen, not just the start screen, the same gap
+   isEarlySessionScreen() already closed for the language/theme row and
+   the disclaimer banner. */
+.header-title-link.static {
+  text-decoration: none;
+  cursor: default;
+}
+
+.header-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+/* Title on its own full-width row, controls row below — was one row with
+   the title competing for space against RU/EN/invite, which wrapped
+   "HVAC Troubleshooting Guide" onto three lines on an ordinary phone
+   (worse under the field theme's larger root font-size). Full width gives
+   the title room to stay on one line at its normal size instead of
+   shrinking it. */
+.header-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* Safety net for genuinely narrow/legacy screens (≤360px) where even a
+   full-width row isn't quite enough room at the normal size. */
+@media (max-width: 360px) {
+  header h1 {
+    font-size: 1.12rem;
+  }
+}
+
+/* Theme (left) + language/invite (right) share one row, split to opposite
+   edges — same anti-mistap reasoning as the unit/theme split below, applied
+   here between two DIFFERENT kinds of controls that used to sit close
+   together. Only visible together on the very first screen of a session
+   (#langSwitch hides on its own past that point, see
+   updateHeaderControlsVisibility in app.js) — with #langSwitch hidden,
+   justify-content:space-between naturally leaves the theme group alone at
+   the left edge, no extra rule needed for that case. */
+.controls-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Extra breathing room before RU/EN — inviting a colleague and switching
+   language are unrelated actions that used to sit at the same 4px as the
+   RU/EN pair itself, making the invite button an easy mistap next to them. */
+.invite-link {
+  margin-right: 14px;
+}
+
+/* The 👥 glyph itself renders in a very dark indigo in most emoji fonts
+   (unlike the light/white 🕓 and ⚙️ next to it), making it nearly
+   invisible against the dark theme's button background — text color
+   doesn't affect emoji rendering, so this has to brighten the glyph
+   itself. Field theme's light background already gives it plenty of
+   contrast as-is, so the filter is scoped to dark theme only. */
+:root:not([data-theme="field"]) #inviteLink {
+  filter: brightness(2.2);
+}
+
+.lang-btn {
+  border: var(--border-width) solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.lang-btn:hover { color: var(--text); border-color: var(--accent); }
+
+.lang-btn.active {
+  color: var(--accent-active-text);
+  border-color: var(--accent);
+  border-width: var(--active-border-width);
+  background: var(--accent-active-bg);
+}
+
+/* Session-only unit preference (°F/°C, psig/kPa) — same button look as the
+   language switch, but its own row so it can wrap independently on narrow
+   screens instead of crowding the title. Only affects what a technician
+   types into a numeric_input field and how its range hint reads; the
+   always-on dual-unit annotation elsewhere in the app (annotateUnits) is
+   untouched. See CLAUDE.md "Выбор единиц измерения на сеанс". */
+.unit-switch-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+/* Orange active state instead of the default .lang-btn.active blue — a
+   technician's unit choice is a "pay attention, this changed the numbers
+   you're reading" signal, not a neutral preference like language, so it
+   gets the same warm accent used for attention states elsewhere (--warn). */
+.unit-btn.active {
+  color: var(--warn-active-text);
+  border-color: var(--warn);
+  border-width: var(--active-border-width);
+  background: var(--warn-active-bg);
+}
+
+.unit-switch {
+  display: flex;
+  gap: 4px;
+}
+
+/* RU/EN used to just sit wherever they landed after psi/kPa in source
+   order, with unused space to their right on anything wider than the
+   narrowest phones — found live 18 Sep 2026 from a real screenshot. Same
+   margin-left:auto idiom already used to split .controls-row-top's two
+   groups: pins this group to the row's right edge on the same line when
+   there's room, and to the start of its own line when it wraps. */
+#langButtonsGroup {
+  margin-left: auto;
+}
+
+/* Session-only display theme (dark / field) — its own .unit-switch group,
+   but living in .controls-row-top (left side, next to language on the
+   right) rather than the temp/pressure row below — moved there at the
+   user's request so theme sits with language, not with units. Only
+   .lang-btn styling is reused (class="lang-btn theme-btn" in tool.html) —
+   its "active" look already comes from the .lang-btn.active rule above,
+   nothing theme-specific needed here. The actual repaint happens through
+   the CSS variable overrides further up, triggered by the data-theme
+   attribute app.js sets on <html>. Unlike #langSwitch, this group is NOT
+   gated by updateHeaderControlsVisibility — a technician needs to be able
+   to flip themes at any point in a session (walking from shade into direct
+   sun), not just on the first screen. */
+
+.breadcrumb {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--muted);
+  opacity: 0.7;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.breadcrumb-alert {
+  color: var(--crit);
+}
+
+.card {
+  background: var(--panel);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 160px;
+}
+
+.q-text {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+/* Inline prefix on .q-text ("R-410A — Pressure compared to..."), not a
+   separate flex-positioned chip -- see the comment on buildQuestionHeader
+   in app.js for why that broke on a wrapped heading. Plain color, not the
+   accent, on purpose: this reads as part of the question's own text, not
+   a separate UI control. */
+.q-refrigerant-inline.a2l {
+  color: var(--crit);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.btn {
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+
+.btn:hover { border-color: var(--accent); background: var(--btn-hover-bg); }
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover { border-color: var(--panel-border); background: var(--btn-bg); }
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 8px 12px;
+}
+
+.btn.ghost:hover { color: var(--text); border-color: var(--accent); }
+
+.btn.ai {
+  /* A persistently-highlighted button, not a field/box -- same
+     accent-active pair as .lang-btn.active/.intake-toggle-btn.active,
+     not the darker --accent-bg field tint (see the comment at that
+     token's definition). */
+  border-color: var(--accent);
+  color: var(--accent-active-text);
+  background: var(--accent-active-bg);
+}
+
+.btn.ai:hover { background: var(--accent-hover-bg); }
+
+.btn.input-action {
+  border-color: var(--input-accent);
+  color: var(--input-accent);
+  background: var(--input-accent-bg);
+}
+
+.btn.input-action:hover { background: var(--input-hover-bg); }
+
+.result-text {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.result-disclaimer {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.badge {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.badge.info { background: var(--accent-bg); color: var(--accent); }
+.badge.warning { background: var(--warn-bg); color: var(--warn); }
+.badge.critical { background: var(--crit-bg); color: var(--crit); }
+.badge.a2l { background: var(--crit-bg); color: var(--crit); }
+
+.safety-banner {
+  background: var(--crit-bg);
+  color: var(--crit);
+  border: 1px solid var(--crit);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.related-checks {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.related-checks-title {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.related-checks ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  background: var(--input-bg);
+  color: var(--text);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.numeric-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.numeric-input {
+  /* Shared visual style, also reused (deliberately) for non-numeric
+     fields that just want the same look — manufacturer/model/refrigerant
+     selects — so this class itself must NOT assume a short numeric value.
+     See .numeric-input.narrow below for the fields that actually are one. */
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  color: var(--text);
+  border: var(--border-width) solid var(--input-accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 1.3rem;
+  box-shadow: 0 0 0 1px var(--input-accent-glow-sm);
+}
+
+.numeric-input:focus {
+  outline: none;
+  border-color: var(--input-accent);
+  box-shadow: 0 0 0 3px var(--input-accent-glow-lg);
+}
+
+/* Readings here are a handful of digits (temps, pressures, amps) — 6ch is
+   comfortable room without the field stretching across the card. Applied
+   only to fields that actually take a typed number (numeric_input,
+   measurement) — never to .numeric-input alone, which is also reused for
+   non-numeric selects/inputs that need the same look at full width. */
+.numeric-input.narrow {
+  flex: 0 0 auto;
+  width: 6ch;
+}
+
+.numeric-input.invalid {
+  border-color: var(--crit);
+  box-shadow: none;
+}
+
+.numeric-unit {
+  font-family: var(--mono);
+  font-size: 1rem;
+  color: var(--input-accent);
+  white-space: nowrap;
+}
+
+.numeric-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-height: 1.1em;
+}
+
+/* Same muted small-print register as .numeric-hint above, and reserved
+   height for the same reason: the line is always present, so nothing below
+   it moves as the count changes while typing. Only goes loud (--warn, the
+   palette's existing "pay attention, not an error" colour) in the last 10%. */
+/* Quota warning. Deliberately quiet at the halfway mark and unmistakable in
+   the last tenth: the point is to let a technician finish the job on the
+   requests left, not to nag. The pink reads as "running out" without the
+   alarm of an error state, which this is not — the checklist keeps working
+   either way. */
+.quota-notice {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid var(--quota-border);
+}
+
+.quota-notice.critical {
+  color: var(--quota-crit-text);
+  background: var(--quota-crit-bg);
+  border-color: var(--quota-crit-border);
+}
+
+.char-counter {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-height: 1.1em;
+  text-align: right;
+}
+
+.char-counter.near-limit {
+  color: var(--warn);
+}
+
+.measurement-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.refrigerant-favorites {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.refrigerant-favorite-row {
+  display: flex;
+  gap: 6px;
+}
+
+.refrigerant-favorite-name {
+  flex: 1;
+}
+
+/* Reorder (▲▼) and remove (★) buttons on a favorited refrigerant — smaller
+   than the main answer buttons on purpose: these are occasional list-
+   management taps, not the primary field-diagnosis action a glove needs to
+   hit reliably every time (see .intake-toggle-btn's 52px minimum for that
+   case). */
+.refrigerant-favorite-move {
+  flex: 0 0 40px;
+  min-height: 44px;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.refrigerant-favorite-move:hover { border-color: var(--accent); color: var(--text); }
+
+.refrigerant-favorite-move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.measurement-field-label {
+  font-size: 0.82rem;
+  color: var(--input-accent);
+}
+
+.measurement-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 2px solid var(--crit);
+  background: var(--crit-bg);
+  color: var(--crit-text);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.measurement-alert-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.ai-box {
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 14px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.intake-progress {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.intake-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.intake-item.current {
+  border-color: var(--input-accent);
+  background: var(--input-tint-bg);
+}
+
+/* Dimmed, not disabled — a tech can still pick this, the fade plus the
+   .numeric-hint line under the label (see intakeAtypicalHint in app.js)
+   just flag it as uncommon for the current equipment type. Opacity, not a
+   muted color swap, so it stays legible against either theme without a
+   second set of shading colors to maintain. */
+.intake-item.atypical {
+  opacity: 0.6;
+}
+
+/* select-type items only — the row border reflects whether the chosen
+   reading matches `normal` (green), doesn't (red/amber), or was ruled N/A
+   (neutral, no extra class). Checkbox items never get this: there's no
+   "bad" outcome for them, only done/not-applicable. */
+.intake-item.intake-select-normal {
+  border-color: var(--ok);
+  background: var(--ok-tint-bg);
+}
+
+.intake-item.intake-select-abnormal {
+  border-color: var(--crit);
+  background: var(--crit-tint-bg);
+}
+
+/* a2lGated items (leak_sensor_present/rds_check) once this session's
+   refrigerant is confirmed A2L — see isA2LRefrigerant() in app.js. Same
+   red/critical tokens as intake-select-abnormal above on purpose ("A2L
+   present" is itself a safety-relevant fact, not just an off-normal
+   reading), the .badge.a2l label plus the dedicated hint text tell the two
+   apart rather than a second color family. */
+.intake-item.a2l-emphasis {
+  border-color: var(--crit);
+  background: var(--crit-tint-bg);
+}
+
+.a2l-hint {
+  color: var(--crit);
+  font-weight: 600;
+}
+
+.intake-item-label {
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.intake-item-label .badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.intake-item-field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.intake-item-field-row .intake-toggle-btn {
+  flex: 0 0 84px;
+}
+
+/* Button-toggle group shared by checkbox (Done/N-A) and select (options +
+   N-A) items — replaces the old native checkbox + tiny "N/A" checkbox with
+   large, unambiguous, glove-friendly tap targets (see CLAUDE.md intake UI
+   task: the old checkbox-only UI was easy to misread at a glance). */
+.intake-toggle-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.intake-toggle-btn {
+  flex: 1;
+  min-width: 64px;
+  min-height: 52px;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--muted);
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.intake-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+
+.intake-toggle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.intake-toggle-btn:disabled:hover { border-color: var(--panel-border); color: var(--muted); }
+
+/* Generic "selected" fill — used as-is for checkbox's Done button (no
+   good/bad judgment, just an explicit confirmation) and as the base for
+   select's normal/abnormal variants below. */
+.intake-toggle-btn.active {
+  background: var(--accent-active-bg);
+  border-color: var(--accent);
+  border-width: var(--active-border-width);
+  color: var(--text);
+}
+
+.intake-toggle-btn.active.normal {
+  background: var(--ok-active-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.intake-toggle-btn.active.abnormal {
+  background: var(--crit-active-bg);
+  border-color: var(--crit);
+  color: var(--crit-active-text);
+}
+
+.intake-toggle-btn.intake-na-btn.active {
+  background: var(--na-active-bg);
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 14px;
+  margin-top: 6px;
+}
+
+.checklist-progress {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--input-accent);
+  flex-shrink: 0;
+}
+
+.checklist-field-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  color: var(--text);
+  border: var(--border-width) solid var(--panel-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+/* A field with a unit is always a numeric reading, never free text (see
+   the field items in graph.json) — same 6ch reasoning as .numeric-input,
+   instead of stretching across the row like a description field does. */
+.checklist-field-input.numeric {
+  flex: 0 0 auto;
+  width: 6ch;
+}
+
+.report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.report-intake-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: var(--border-width) solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.report-intake-row:hover { border-color: var(--accent); }
+
+.report-intake-row.done {
+  border-color: var(--ok);
+  background: var(--ok-tint-bg);
+}
+
+.report-intake-row.pending {
+  border-color: var(--input-accent);
+  background: var(--input-tint-bg);
+}
+
+.report-intake-icon {
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.report-intake-row.done .report-intake-icon { color: var(--ok); }
+.report-intake-row.pending .report-intake-icon { color: var(--input-accent); }
+
+.mfg-doc-link {
+  font-size: 0.85rem;
+}
+
+.mfg-doc-link a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.mfg-doc-link a:hover {
+  text-decoration: underline;
+}
+
+.ai-response {
+  position: relative;
+  overflow: hidden;
+  background: var(--input-bg);
+  border: var(--border-width) solid var(--ai-border);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Tiled diagonal "AI GENERATED" watermark — makes the text's origin
+   unmistakable even in a tight screenshot crop, unlike a corner label
+   (.ai-label) which a crop can cut out entirely. Doesn't interfere with
+   selecting/copying the actual response text: pointer-events:none on the
+   pseudo-element removes it from hit-testing, and it's a positioned
+   descendant inserted first in DOM order, so it paints behind the
+   element's own in-flow text automatically — no z-index needed. Verified
+   live (not just read from the CSS): real mouse-drag selection over the
+   watermark still selects and copies the full response text correctly. */
+.ai-response::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='110'%3E%3Ctext x='-15' y='70' font-family='monospace' font-size='18' font-weight='700' letter-spacing='2' fill='%23808080' transform='rotate(-25 85 55)'%3EAI GENERATED%3C/text%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+.ai-response.loading { color: var(--muted); font-style: italic; }
+.ai-response.error { color: var(--crit); }
+
+.ai-label {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Auto margin absorbs the free space justify-content:space-between would
+   otherwise have distributed -- backBtn/restartBtn stay packed on the
+   left as before, this one alone gets pinned to the far right, whether
+   or not backBtn happens to be hidden. */
+#logoutFooterBtn { margin-left: auto; }
+
+.footer-disclaimer {
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.6;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.version-info {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.6;
+}
+
+/* The source link sits in the same muted footer line as the commit hash and
+   deliberately doesn't stand out — it's there to satisfy AGPL section 13 and
+   for the curious, not to pull attention away from the diagnosis. */
+.version-info a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Generic visibility utility — toggled from render() on whatever needs to
+   come and go with session progress (the legal banner, the lang/invite
+   switch — see updateDisclaimerVisibility/updateHeaderControlsVisibility
+   in app.js), rather than a class per element. Deliberately last in the
+   file: it and .lang-switch{display:flex} have equal specificity (one
+   class each), so cascade order decides, and this needs to always win
+   regardless of what gets added above it later. */
+.hidden {
+  display: none;
+}

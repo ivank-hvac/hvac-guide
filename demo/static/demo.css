@@ -1,0 +1,14 @@
+/* Small addendum on top of the copied style.css (see main.py's _page()) —
+   NOT part of that copy, kept separate so style.css stays an exact,
+   easily-resynced mirror of the real app's. Needed only because this demo
+   renders every navigation as a real <a> link (stateless, no client JS,
+   no session) instead of the real app's <button onclick>, and .btn/.btn.ai/
+   .btn.ghost/.btn.input-action were never designed for anchor tags — they
+   already set their own text color per variant, just not text-decoration
+   or display, which the browser's default anchor styling fills in. */
+a.btn,
+a.btn:visited,
+a.btn:hover {
+  text-decoration: none;
+  display: block;
+}

@@ -11,7 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN groupadd --system --gid 10002 hvacdemo \
     && useradd --system --uid 10002 --gid 10002 --no-create-home hvacdemo
 
-COPY --chown=hvacdemo:hvacdemo main.py .
+COPY --chown=hvacdemo:hvacdemo main.py nodes.py ./
+COPY --chown=hvacdemo:hvacdemo static/ ./static/
 
 EXPOSE 8000
 
