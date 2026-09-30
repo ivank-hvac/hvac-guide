@@ -11,6 +11,23 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 
 ## 2026-09-29
 
+- Public demo showcase (`hvacdiagtree.com/demo`) — Stage 2: the 5 real
+  hardcoded walkthroughs are live (3 RTU, 2 Furnace), replacing the
+  Stage 1 "Coming soon" placeholder. Real diagnostic content copied
+  verbatim from the private graph, taken from Ivan's own screenshots of
+  real sessions — not a trimmed copy of the graph engine, its own tiny
+  state machine that can't leak more of the private graph's shape than
+  these 5 fixed paths. All the real option buttons show on every screen
+  for authenticity; anything off a golden path (wrong equipment, wrong
+  answer at any gate) lands on a shared "request an invite" screen
+  linking to Ivan's LinkedIn — his own choice, Facebook deferred, email
+  ruled out for the same spam-harvesting reason the landing page's own
+  contact address was pulled back in August. The AI button is present
+  everywhere the real product shows it but always returns a fixed
+  "this is a demo" message — no `ANTHROPIC_API_KEY` in this container,
+  verified live that clicking it makes zero network calls anywhere near
+  an AI endpoint. `main` @ `49bcf50`. #178
+
 - Caddy no longer advertises "Server: Caddy" on every response. Ivan ran
   a free automated scanner against the clone on a whim (not a real
   engagement) — 0 critical/high findings, mostly generic noise (the
