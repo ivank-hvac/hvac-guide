@@ -96,7 +96,7 @@ def _page(body: str, path: list[str]) -> str:
 def _ai_button(path: list[str], node_id: str, recommended: bool, ai_shown: bool) -> str:
     if ai_shown:
         return f"""<div class="ai-box">
-      <div class="ai-label">AI-анализ</div>
+      <div class="ai-label">AI Analysis</div>
       <p>{escape(AI_CANNED_MESSAGE)}</p>
       <a class="btn ai" href="{LINKEDIN_URL}" target="_blank" rel="noopener">Request an invite on LinkedIn</a>
     </div>"""
