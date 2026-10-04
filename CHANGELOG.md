@@ -9,6 +9,13 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-10-04
+
+- Public demo showcase: fixed a stray Russian label ("AI-анализ") that
+  leaked onto the otherwise English-only AI-disabled message — caught
+  live right before handing the URL out for real distribution. `main` @
+  `4470945`. #179
+
 ## 2026-09-29
 
 - Public demo showcase (`hvacdiagtree.com/demo`) — Stage 2: the 5 real
