@@ -9,6 +9,14 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-10-06
+
+- New opt-in email notification the moment someone redeems an invite —
+  previously the only way to learn a user registered was checking
+  `/panel` manually. `REGISTRATION_ALERT_EMAIL` (blank by default, same
+  shape as the existing `SAFETY_ALERT_EMAIL`), includes who invited
+  them. `main` @ `5f98439`. #180
+
 ## 2026-10-04
 
 - Public demo showcase: fixed a stray Russian label ("AI-анализ") that
