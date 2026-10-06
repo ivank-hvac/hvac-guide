@@ -25,6 +25,7 @@ ROADMAP-internal.md
 /tools/bootstrap-dev-vm.sh
 /tools/backup-to-*.sh
 /tools/deploy-prod.sh
+/tools/deploy-clone.sh
 /tools/prod-status.sh
 /tools/drive-notes.sh
 /tools/backup-watchdog.sh

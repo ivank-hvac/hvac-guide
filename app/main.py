@@ -166,6 +166,13 @@ NAMEPLATE_IMAGE_BASE64_RE = re.compile(r"^[A-Za-z0-9+/=\s]+$")
 # tucked into Bitwarden — it isn't a credential, and Ivan gave it directly.
 SAFETY_ALERT_EMAIL = os.getenv("SAFETY_ALERT_EMAIL", "")
 
+# Where a real registration gets reported (see _send_registration_alert_email)
+# — same opt-in-via-env shape as SAFETY_ALERT_EMAIL above, deliberately a
+# separate variable rather than reusing it: one is routine product signal,
+# the other is a legal-notice-shaped security alert, and collapsing them
+# into one switch would remove the ability to turn either off independently.
+REGISTRATION_ALERT_EMAIL = os.getenv("REGISTRATION_ALERT_EMAIL", "")
+
 # How many resumable-session save/restore calls a single IP may make per
 # minute. Separate from LOG_SESSION_RATE_LIMIT above: that one fires once per
 # completed checklist, this one fires on every debounced save while a
@@ -1755,6 +1762,18 @@ def _get_invite(code: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+def _inviter_label(created_by: Optional[int]) -> str:
+    """Resolves an invites.created_by user id to something readable for the
+    registration-alert email -- created_by is NULL for the one bootstrap
+    invite each fresh AUTH_ENABLED deployment creates for itself (see the
+    startup block near main()), not a missing-data case."""
+    if created_by is None:
+        return "bootstrap invite"
+    with _db_connect() as conn:
+        row = conn.execute("SELECT email FROM users WHERE id = ?", (created_by,)).fetchone()
+    return row[0] if row else f"user id {created_by} (deleted)"
+
+
 def _get_or_create_user(email: str) -> int:
     # ON CONFLICT DO NOTHING deliberately leaves tos_version/tos_accepted_at
     # untouched for a returning email — consent was already recorded at
@@ -2846,6 +2865,42 @@ async def _send_safety_alert_email(ip: Optional[str]) -> None:
         logger.error("Failed to send safety alert email for a flagged nameplate photo")
 
 
+async def _send_registration_alert_email(email: str, invited_by: str) -> None:
+    """Fires once per completed registration (see register()) — no-op
+    entirely if REGISTRATION_ALERT_EMAIL isn't set, same opt-in shape as
+    the rest of the Resend integration. Fire-and-forget: a failure here
+    must never fail the registration itself, the new user's own magic-link
+    email is the only critical-path send in that flow."""
+    if not REGISTRATION_ALERT_EMAIL or not RESEND_API_KEY:
+        return
+    body = (
+        f"New registration on HVAC DiagTree.\n\n"
+        f"Email: {email}\n"
+        f"Invited by: {invited_by}\n"
+        f"Time (UTC): {datetime.now(timezone.utc).isoformat()}\n\n"
+        "This fires when the invite code + email are submitted, not when "
+        "the person actually clicks the login link in their inbox -- check "
+        "/panel if you want to know whether they went on to log in."
+    )
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            await client.post(
+                RESEND_URL,
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": RESEND_FROM_EMAIL,
+                    "to": [REGISTRATION_ALERT_EMAIL],
+                    "subject": "HVAC DiagTree: new registration",
+                    "text": body,
+                },
+            )
+    except httpx.RequestError:
+        logger.error("Failed to send registration alert email")
+
+
 async def _rate_limit_exceeded_handler_with_logging(request: Request, exc: RateLimitExceeded):
     # Only /api/ai-assist matters for the panel's "AI usage" stats — the
     # other rate-limited endpoints (/api/log-session, /api/session) don't
@@ -3244,6 +3299,8 @@ async def register(request: Request, response: Response, req: RegisterRequest):
     if not sent:
         raise HTTPException(status_code=502, detail=INVITE_MESSAGES[req.lang]["send_failed"])
     _set_login_nonce_cookie(response, raw_nonce)
+    invited_by = await run_in_threadpool(_inviter_label, invite["created_by"])
+    await _send_registration_alert_email(req.email, invited_by)
     return {"status": "sent", "message": INVITE_MESSAGES[req.lang]["sent"].format(email=req.email)}
 
 
