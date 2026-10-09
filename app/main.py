@@ -1801,12 +1801,27 @@ def _get_or_create_user(email: str) -> int:
         ).fetchone()[0]
 
 
-def _mark_invite_used(code: str, user_id: int) -> None:
+def _mark_invite_used(code: str, user_id: int) -> bool:
+    """Atomic claim -- `WHERE used_by IS NULL` makes this single UPDATE the
+    race-decider itself, not a separate earlier SELECT. The old shape (bare
+    UPDATE, no guard) let register() read "not used yet" and write "mark
+    used" as two independent, unlocked steps -- found live 9 Oct 2026
+    (kali-01-test pentest, Этап 25): 5 truly concurrent POST /api/register
+    calls on one single-use code, 4 of 5 won the race and each minted a
+    real account + sent a real magic-link email. Same TOCTOU class already
+    fixed twice before (_consume_ai_quota, _reserve_invite_slot, both
+    9 Sep 2026) -- just never applied to consumption, only to creation.
+    SQLite serializes writer transactions, so the WHERE-match and the SET
+    happen as one atomic step; cursor.rowcount (accurate for UPDATE/DELETE
+    in sqlite3, unlike SELECT) tells the caller whether THIS call actually
+    won. Callers that lose the race must not proceed to create a login
+    session or send an email -- see register()."""
     with _db_connect() as conn:
-        conn.execute(
-            "UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?",
+        cur = conn.execute(
+            "UPDATE invites SET used_by = ?, used_at = ? WHERE code = ? AND used_by IS NULL",
             (user_id, datetime.now(timezone.utc).isoformat(), code),
         )
+        return cur.rowcount > 0
 
 
 def _create_login_token(user_id: int) -> Tuple[str, str]:
@@ -3292,7 +3307,13 @@ async def register(request: Request, response: Response, req: RegisterRequest):
         raise HTTPException(status_code=404, detail=INVITE_MESSAGES[req.lang]["expired_link"])
 
     user_id = await run_in_threadpool(_get_or_create_user, req.email)
-    await run_in_threadpool(_mark_invite_used, req.code, user_id)
+    # The read above is advisory only (cheap early-exit for the common,
+    # non-racing case) -- this call is the real, atomic decision. A
+    # concurrent request that loses here must stop now: no login session,
+    # no email, same as if the code had already been used from the start.
+    won = await run_in_threadpool(_mark_invite_used, req.code, user_id)
+    if not won:
+        raise HTTPException(status_code=404, detail=INVITE_MESSAGES[req.lang]["expired_link"])
     raw_token, raw_nonce = await run_in_threadpool(_create_login_token, user_id)
     login_url = f"{_external_base_url(request)}/login/{raw_token}"
     sent = await _send_login_email(req.email, login_url, req.lang)
