@@ -96,6 +96,7 @@ def _page(body: str, path: list[str]) -> str:
 <link rel="icon" href="/demo/static/favicon.ico" sizes="any">
 <link rel="stylesheet" href="/demo/static/style.css">
 <link rel="stylesheet" href="/demo/static/demo.css">
+<script src="/demo/static/demo.js" defer></script>
 </head>
 <body>
   <div class="wrap">
@@ -185,25 +186,21 @@ def _render_checklist(items: list[tuple]) -> str:
             )
         else:
             rows.append(
-                f'<label class="checklist-item" onchange="hvacDemoChecklistTick(this)">'
+                f'<label class="checklist-item">'
                 f'<input type="checkbox">'
                 f"<span>{escape(label)}</span>"
                 f"</label>"
             )
     rows_html = "".join(rows)
+    # The tick-counter logic lives in /demo/static/demo.js (event
+    # delegation, loaded once from _page()'s <head>) -- no inline
+    # onchange="..." or <script> block here, see demo.js's own comment
+    # for why.
     return f"""
     <div class="checklist">
       <div class="checklist-progress" data-total="{total}">Completed: 0 of {total}</div>
       {rows_html}
     </div>
-    <script>
-    function hvacDemoChecklistTick(row) {{
-      const wrap = row.closest(".checklist");
-      const total = wrap.querySelectorAll(".checklist-item").length;
-      const done = wrap.querySelectorAll(".checklist-item input[type=checkbox]:checked").length;
-      wrap.querySelector(".checklist-progress").textContent = "Completed: " + done + " of " + total;
-    }}
-    </script>
     """
 
 
