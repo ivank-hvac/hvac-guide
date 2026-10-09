@@ -17,7 +17,7 @@ carried entirely in the URL's query string.
 from html import escape
 from urllib.parse import quote, unquote
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -36,6 +36,33 @@ from nodes import (
 
 app = FastAPI()
 app.mount("/demo/static", StaticFiles(directory="static"), name="static")
+
+# Same floor as app/main.py's own _SECURITY_HEADERS, identical string on
+# purpose -- style.css here is a straight copy of the main app's (the AI
+# GENERATED watermark needs img-src ... data:, a couple of inline
+# style="..." attributes on result rows need style-src 'unsafe-inline'),
+# so reusing the exact policy that's already proven against this same CSS
+# is safer than inventing a narrower one untested against it. Found
+# missing entirely (no CSP/X-Frame-Options/HSTS/nosniff at all -- this app
+# never inherited them, it's a separate codebase, not a route on main.py)
+# by kali-01-test's pentest, Этап 27, 9 Oct 2026 -- this is the only
+# public, unauthenticated surface in the whole project, so the gap mattered
+# more here than it would have on an already-gated route.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+}
+
+
+@app.middleware("http")
+async def _add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
 
 PATH_SEP = "|"
 BADGE_LABEL = {"info": "Info", "warning": "Warning", "critical": "Critical"}
