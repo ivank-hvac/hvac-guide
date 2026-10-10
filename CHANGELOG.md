@@ -9,6 +9,30 @@ UI / `docker inspect ... image.revision` после деплоя этого ко
 — см. CLAUDE.md)**: `#N` больше не настоящий номер GitHub PR,
 это условный ручной счётчик, продолжающий ту же нумерацию.
 
+## 2026-10-10
+
+- Fixed a TOCTOU race in login-token and session-takeover consumption —
+  the magic-link `/login/{token}` handler and `/api/session-takeover`
+  both read-then-wrote in two steps with no guard on the write, same bug
+  class already fixed for invite consumption below. N truly concurrent
+  requests on one single-use token could each pass the validity check
+  before any of them committed the write; verified live, 10 concurrent
+  requests on one fresh token now correctly mint exactly 1 session.
+  `main` @ `4914bd8`. #183
+- Demo app (`/demo`): added the same security-header floor the main app
+  already has (CSP, X-Frame-Options, HSTS, nosniff) — this was the only
+  public, unauthenticated surface in the project that never inherited
+  them, being a separate codebase. A follow-up fix moved the demo
+  checklist's inline script/handler to an external file after the new
+  CSP silently blocked it. `main` @ `88669b3`, `91845db`. #182
+- Fixed a TOCTOU race in invite-code consumption — the single-use
+  invite check and the write that marks it used were two separate
+  steps with no guard between them, letting several concurrent
+  registrations redeem the same code. The write is now the atomic
+  race-decider (`UPDATE ... WHERE used_by IS NULL`). Verified live:
+  5 concurrent registrations on one code now correctly yield exactly 1
+  success. `main` @ `68b0888`. #181
+
 ## 2026-10-06
 
 - New opt-in email notification the moment someone redeems an invite —
