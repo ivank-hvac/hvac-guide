@@ -1842,10 +1842,21 @@ def _create_login_token(user_id: int) -> Tuple[str, str]:
 
 
 def _consume_login_token(raw: str) -> Optional[Tuple[int, Optional[str]]]:
-    """One-shot: a token that validates here can never validate again,
-    win or lose the race — the UPDATE and the validity check happen against
-    the same row read, so a token can't be used twice even if two requests
-    for it arrive at once.
+    """Atomic claim -- the UPDATE's own WHERE clause (used_at IS NULL AND
+    not expired) is the race-decider itself, not an earlier separate
+    SELECT. Found live by kali-01-test's pentest (Этап 28, 9 Oct 2026):
+    the previous version read-then-wrote in two steps with no guard on
+    the UPDATE, so N truly concurrent GETs on the same magic link could
+    each pass the read before any of them committed the write -- 3 of 5
+    concurrent requests each minted their own login_sessions row from one
+    single-use token. Same bug class already fixed for invite consumption
+    (_mark_invite_used) and AI/invite quotas.
+
+    Only the request whose UPDATE actually flips a row goes on to read
+    back user_id/nonce_hash -- safe to do as a separate SELECT at that
+    point, since those columns are immutable after INSERT and the row is
+    already claimed, so no second reader can win it out from under this
+    one.
 
     Returns (user_id, nonce_hash) — nonce_hash is None for a row created
     before the login-CSRF fix (or in the small window where storage failed
@@ -1855,20 +1866,19 @@ def _consume_login_token(raw: str) -> Optional[Tuple[int, Optional[str]]]:
     token_hash = _hash_token(raw)
     now = datetime.now(timezone.utc).isoformat()
     with _db_connect() as conn:
+        cur = conn.execute(
+            "UPDATE login_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at >= ?",
+            (now, token_hash, now),
+        )
+        if cur.rowcount == 0:
+            return None
         row = conn.execute(
-            "SELECT user_id, expires_at, used_at, nonce_hash FROM login_tokens WHERE token_hash = ?",
+            "SELECT user_id, nonce_hash FROM login_tokens WHERE token_hash = ?",
             (token_hash,),
         ).fetchone()
-        if row is None:
-            return None
-        user_id, expires_at, used_at, nonce_hash = row
-        if used_at is not None or expires_at < now:
-            return None
-        conn.execute(
-            "UPDATE login_tokens SET used_at = ? WHERE token_hash = ?",
-            (now, token_hash),
-        )
-    return user_id, nonce_hash
+    if row is None:
+        return None
+    return row[0], row[1]
 
 
 def _create_login_session(user_id: int) -> str:
@@ -1943,24 +1953,26 @@ def _create_session_takeover_token(user_id: int, reason: str) -> str:
 
 
 def _consume_session_takeover_token(raw: str) -> Optional[int]:
-    """Same one-shot-under-race pattern as _consume_login_token."""
+    """Same atomic-claim pattern as _consume_login_token, fixed alongside
+    it for the same reason (Этап 28) even though kali-01-test didn't
+    separately race this one this round -- it had the identical
+    read-then-write gap."""
     token_hash = _hash_token(raw)
     now = datetime.now(timezone.utc).isoformat()
     with _db_connect() as conn:
+        cur = conn.execute(
+            "UPDATE session_takeover_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at >= ?",
+            (now, token_hash, now),
+        )
+        if cur.rowcount == 0:
+            return None
         row = conn.execute(
-            "SELECT user_id, expires_at, used_at FROM session_takeover_tokens WHERE token_hash = ?",
+            "SELECT user_id FROM session_takeover_tokens WHERE token_hash = ?",
             (token_hash,),
         ).fetchone()
-        if row is None:
-            return None
-        user_id, expires_at, used_at = row
-        if used_at is not None or expires_at < now:
-            return None
-        conn.execute(
-            "UPDATE session_takeover_tokens SET used_at = ? WHERE token_hash = ?",
-            (now, token_hash),
-        )
-    return user_id
+    if row is None:
+        return None
+    return row[0]
 
 
 def _peek_session_takeover_info(raw: str) -> Optional[Tuple[str, str]]:
